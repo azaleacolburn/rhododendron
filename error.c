@@ -14,5 +14,11 @@ char* error_message(Error err) {
             return "Expected expression, found keyword";
         case ERR_NONE:
             return "No Error";
+        case ERR_NOT:
+            return "No Error, just checked out the wrong path";
+        case ERR_EXPECTED_CONDITION:
+            return "Expected condition, maybe you're missing a '(' or ')', maybe an expresssion is missing";
+        case ERR_EXPECTED_COMPARITOR:
+            return "Expected a comparitor, maybe you're missing a '==' or a '!='";
     }
 }

@@ -10,6 +10,7 @@
 #define is_int(s) (strcmp(s, "int"))
 #define is_keyword(s) (strpbrk(s, keywords))
 #define is_expr(t) (t == TOK_ADD, t == TOK_DIV, t == TOK_SUB, t == TOK_MUL, t == TOK_NUM, t == TOK_ID)
+#define args() Tokenizer *t, Token* parent
 
 static char* keywords = "if for while int char ()"; // This is a bug that will disallow things like wh and ch as names
 
@@ -19,11 +20,28 @@ Error program(char* string) {
     Tokenizer* t = malloc(sizeof(Tokenizer));
     t->cursor = 0;
     t->string = string;
+    // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
-    return declare(t, program_tok);
+    Error declare_result = declare(t, program_tok);
+    if (declare_result == ERR_NOT) {
+        Error expression_result = expr(t, program_tok);
+        if (expression_result == ERR_NOT) {
+            Error statement_result = statement(t, program_tok);
+            if (statement_result == ERR_NOT) {
+                printf("Expected Declaration, Statement or Expression");
+            } else if (statement_result != ERR_NONE) {
+                return statement_result;
+            }
+        } else if (expression_result != ERR_NONE) {
+            return expression_result;
+        }
+    } else if (declare_result != ERR_NONE) {
+        return declare_result;
+    }
+    return ERR_NONE;
 }
 
-Error declare(Tokenizer* t, Token* program_tok) {
+Error declare(args()) {
     printf("declare\n");
     char* str_token = get_next_token(*t);
     if (strcmp(str_token, "\0")) {
@@ -45,7 +63,7 @@ Error declare(Tokenizer* t, Token* program_tok) {
         }
     } else {
         printf("No declaration found");
-        return ERR_TYPE;
+        return ERR_NOT;
     }
 }
 
@@ -67,14 +85,14 @@ Error var_id(Tokenizer* t, Token* dec_tok) {
 
 // Todo: Allow variable ids
 // Ideas: keep a vector of legal ids
-Error expr(Tokenizer* t, Token* parent) {
+Error expr(args()) {
     Tok parent_type = parent->type;
     // Token* expr_tok = malloc(sizeof(Token));
     // expr_tok->type = TOK_EXPR;
     // expr_tok->children = new_vec(0);
     char* str_token = get_next_token(*t);
     if (*str_token == ';') {
-        return 0;
+        return ERR_NONE;
     }
     if (!is_keyword(str_token)) {
         if (is_num(*str_token)) {
@@ -103,6 +121,119 @@ Error expr(Tokenizer* t, Token* parent) {
     }
 }
 
+Error statement(args()) {
+    Tok parent_type = parent->type;
+    Token* statement_tok = new_token(TOK_STATEMENT);
+    char* str_token = get_next_token(*t);
+    if (*str_token == ';') {
+        return ERR_NONE;
+    }
+    if (is_keyword(str_token)) {
+        printf("keyword detected");
+        Error conditional_result = conditional(t, parent);
+        Error loop_result = loop(t, parent);
+        if (conditional_result == ERR_NOT) {
+            if (loop_result == ERR_NOT) {
+                printf("Expected loop or conditional");
+            } else if (loop_result != ERR_NONE) {
+                return loop_result;
+            }
+        } else if (loop_result != ERR_NONE) {
+            return conditional_result;
+        }
+        return ERR_NONE;
+    }
+    return ERR_NOT;
+}
+
+Error conditional(args()) {
+    char* str_token = get_next_token(*t);
+    if (strcmp(str_token, "if")) {
+        if (*get_next_token(*t) == '(') {
+            Token* conditional_tok = new_token(TOK_CONDITION);
+            Error condition_result = condition(t, conditional_tok);
+            if (condition_result == ERR_NONE) {
+                Error statement_result = statement(t, conditional_tok);
+                Error declare_result = declare(t, conditional_tok);
+                if (statement_result == ERR_NONE || statement_result == ERR_NOT) {
+                    if (declare_result == ERR_NONE || declare_result == ERR_NOT) {
+                        push_vec(parent->children, conditional_tok);
+                        return ERR_NONE;
+                    }
+                    return declare_result;
+                } else {
+                    return statement_result;
+                }
+            } else {
+                return condition_result;
+            } 
+        } else {
+            return ERR_EXPECTED_CONDITION;
+        }
+        if (*get_next_token(*t) == ')') {
+            return ERR_NONE;
+        }
+    } else {
+        return ERR_NOT;
+    }
+}
+
+Error condition(args()) {
+    Error expr_result = expr(t, parent);
+    if (expr_result == ERR_NONE) {
+        char* comparitor = get_next_token(*t);
+        printf("comparitor: %s", comparitor);
+        Token* tok;
+        if (strcmp(comparitor, "==")) {
+            tok = new_token(TOK_EQ);
+        } else if (strcmp(comparitor, "!=")) {
+            tok = new_token(TOK_NEQ);
+        } else {
+            return ERR_EXPECTED_COMPARITOR;
+        }
+        push_vec(parent->children, tok);
+        return expr(t, parent);
+    }
+    return expr_result;
+}
+
+Error loop(args()) {
+    char* str_token = get_next_token(*t);
+    if (strcmp(str_token, "while")) {
+        Token* tok = new_token(TOK_WHILE);
+        if (*get_next_token(*t) == '(') {
+            condition(t, tok);
+        } else {
+            return ERR_EXPECTED_CONDITION;
+        }
+        if (*get_next_token(*t) == ')') {
+            return ERR_NONE;
+        }
+    } else if (strcmp(str_token, "for")) {
+        Token* tok = new_token(TOK_FOR);
+        if (*get_next_token(*t) == '(') {
+            Error declare_result = declare(t, tok);
+            if (declare_result != ERR_NONE) {
+                printf("Expected delcaration\n");
+                return declare_result;
+            } else if (*get_next_token(*t) == ';') {
+                Error condition_result = condition(t, tok);
+                if (condition_result != ERR_NONE) {
+                    printf("Expected condition\n");
+                    return condition_result;
+                } else if (*get_next_token(*t) == ';') {
+                    // Figure out how to represent incrementing
+                    // Expression should be fixed for this to work
+                    return 0;
+                }
+            }
+        } else {
+            return ERR_EXPECTED_CONDITION;
+        }
+    }
+    return ERR_NOT;
+}
+
 void print_token(Token* tok) {
     printf("Token Type: %d\n", tok->type);
     printf("Token children: ");
@@ -111,7 +242,6 @@ void print_token(Token* tok) {
     }
     printf("Token printing complete\n");
 }
-
 
 Token* new_token(Tok type) {
     Token* tok = malloc(sizeof(Token));
@@ -149,26 +279,22 @@ void print_tok(Tok type) {
         case TOK_ID:
             printf("Id\n");
             break;
+        case TOK_STATEMENT:
+            printf("Statement\n");
+            break;
+        case TOK_CONDITION:
+            printf("Condition\n");
+            break;
+        case TOK_EQ:
+            printf("==\n");
+            break;
+        case TOK_NEQ:
+            printf("!=\n");
+        case TOK_WHILE:
+            printf("While\n");
+            break;
+        case TOK_FOR:
+            printf("For\n");
+            break;
     }
 }
-
-// AST parse(char* string) {
-//     Vec* toks = new_vec(10);
-//     Tokenizer* t = malloc(sizeof(Tokenizer));
-//     t->string = string;
-//     t->cursor = 0;
-//     char* str_token = get_next_token(*t);
-//     if (str_token != '\0') {
-//         return toks;
-//     } else if (is_num(str_token))  {
-//         push_vec(toks, num(str_token));
-//     }
-// }
-
-// AST program(AST ast, char* str_token) {
-//     if (keyword(ast, str_token))
-// }
-
-// AST keyword(AST ast, char* str_token) {
-
-// }
