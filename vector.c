@@ -2,16 +2,9 @@
 #include<stdlib.h>
 #include"vector.h"
 
-typedef struct Vector 
+Vec* new_vec(size_t initial_capacity)
 {
-    size_t len;
-    size_t capacity;
-    void** data;
-} Vector;
-
-Vector* new_vec(size_t initial_capacity)
-{
-    Vector* vec = malloc(sizeof(Vector));
+    Vec* vec = malloc(sizeof(Vec));
     if (vec != NULL) {
         vec->data = malloc(initial_capacity * sizeof(void*));
         vec->capacity = initial_capacity;
@@ -20,18 +13,19 @@ Vector* new_vec(size_t initial_capacity)
     return vec;
 }
 
-void* get_vec(Vector *vec, size_t n) 
+void* get_vec(Vec *vec, size_t n) 
 {
     if(vec && n < vec->capacity) {
         return vec->data[n];
     }
     /* return some error value, i'm doing -1 here, 
-     * std::vector would throw an exception if using at() 
+     * std::Vec would throw an exception if using at() 
      * or have UB if using [] */
-    return -1;
+    static int one = 1;
+    return &one;
 }
 
-void set_vec(Vector* vec, void* item, size_t index) 
+void set_vec(Vec* vec, void* item, size_t index) 
 {
     if (vec && index > vec->capacity){
         vec->data[index] = item;
@@ -42,7 +36,7 @@ void set_vec(Vector* vec, void* item, size_t index)
     }
 }
 
-void push_vec(Vector* vec, void* item)
+void push_vec(Vec* vec, void* item)
 {
     if (vec->len + 1 >= vec->capacity) {
         realloc_vec(vec, vec->capacity * 2);
@@ -51,7 +45,7 @@ void push_vec(Vector* vec, void* item)
     vec->len++;
 }
 
-void realloc_vec(Vector* vec, size_t new_size)
+void realloc_vec(Vec* vec, size_t new_size)
 {
     if (vec) {
         void* new_data = realloc(vec->data, new_size * sizeof(void*));
@@ -60,7 +54,7 @@ void realloc_vec(Vector* vec, size_t new_size)
     }
 }
 
-void free_vec(Vector* vec)
+void free_vec(Vec* vec)
 {
     if (vec) {
         free(vec->data);

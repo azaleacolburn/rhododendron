@@ -1,1 +1,1 @@
-int
+int num = 1 + 1;
