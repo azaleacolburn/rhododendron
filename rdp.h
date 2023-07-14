@@ -1,5 +1,6 @@
 #include"vector.h"
 #include"tokenizer.h"
+#include"error.h"
 
 typedef enum Types {
     TYPE_INT,
@@ -23,13 +24,13 @@ typedef struct Token {
     Vec* children;
 } Token;
 
-int program(char* string);
+Error program(char* string);
 
-int declare(Tokenizer* t, Token* program_tok);
+Error declare(Tokenizer* t, Token* program_tok);
 
-int var_id(Tokenizer* t, Token* dec_tok);
+Error var_id(Tokenizer* t, Token* dec_tok);
 
-int expr(Tokenizer* t, Token* parent);
+Error expr(Tokenizer* t, Token* parent);
 
 void print_token(Token* tok);
 

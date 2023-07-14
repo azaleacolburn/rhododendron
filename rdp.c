@@ -13,7 +13,7 @@
 
 static char* keywords = "if for while int char ()"; // This is a bug that will disallow things like wh and ch as names
 
-int program(char* string) {
+Error program(char* string) {
     printf("here with content:\n%s\n", string);
     Token* program_tok = new_token(TOK_PROGRAM);
     Tokenizer* t = malloc(sizeof(Tokenizer));
@@ -23,11 +23,11 @@ int program(char* string) {
     return declare(t, program_tok);
 }
 
-int declare(Tokenizer* t, Token* program_tok) {
+Error declare(Tokenizer* t, Token* program_tok) {
     printf("declare\n");
     char* str_token = get_next_token(*t);
     if (strcmp(str_token, "\0")) {
-        return 0;
+        return ERR_NONE;
     }
     printf("after getting token\n");
     if (is_typename(str_token)) {
@@ -41,32 +41,33 @@ int declare(Tokenizer* t, Token* program_tok) {
         if (*get_next_token(*t) == '=') { // Needs to be updating for operations like +=
             return expr(t, dec_tok);
         } else {
-            return 1; // Add err
+            return ERR_MISSING_DECLARATION;
         }
     } else {
         printf("No declaration found");
-        return 1;
+        return ERR_TYPE;
     }
 }
 
-int var_id(Tokenizer* t, Token* dec_tok) {
-    if (*(int*)get_vec(dec_tok->children, 0) == TYPE_CHAR || *(int*)get_vec(dec_tok->children, 0) == TYPE_INT) {
+Error var_id(Tokenizer* t, Token* dec_tok) {
+    int type = *(int*)get_vec(dec_tok->children, 0);
+    if (type == TYPE_CHAR || type == TYPE_INT) {
         char* str_token = get_next_token(*t);
         if (!is_keyword(str_token)) {
             Token* id_tok = new_token(TOK_ID);
             push_vec(id_tok->children, str_token);
-            return 0;
+            return ERR_NONE;
         } else {
-            return 1;
+            return ERR_KEYWORD_PLACEMENT;
         }
     } else {
-        return 1; // Add err
+        return ERR_TYPE;
     }
 }
 
 // Todo: Allow variable ids
 // Ideas: keep a vector of legal ids
-int expr(Tokenizer* t, Token* parent) {
+Error expr(Tokenizer* t, Token* parent) {
     Tok parent_type = parent->type;
     // Token* expr_tok = malloc(sizeof(Token));
     // expr_tok->type = TOK_EXPR;
@@ -92,13 +93,13 @@ int expr(Tokenizer* t, Token* parent) {
             else if (*str_token == '/')
                 tok = new_token(TOK_DIV);
             else
-                return 1; // Add err
+                return 1;
             expr(t, tok);
             push_vec(parent->children, tok);
             return 0;
         }
     } else {
-        return 1; // Add err
+        return 1;
     }
 }
 

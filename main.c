@@ -19,6 +19,6 @@ char* readFile(char* path)
 int main()
 {
     char* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
-    int success_code = program(contents);
-    printf("Success Code: %d", success_code);
+    Error success_code = program(contents);
+    printf("Success Code: %s", error_message(success_code));
 }

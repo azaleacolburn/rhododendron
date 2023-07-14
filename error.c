@@ -4,15 +4,15 @@
 
 char* error_message(Error err) {
     switch (err) {
-        case MISSING_DECLARATION_ERR:
+        case ERR_MISSING_DECLARATION:
             return "Expected '='";
-        case TYPE_ERR:
+        case ERR_TYPE:
             return "Unsupported type, supported type: char, int";
-        case ARITHMETIC_OPERATOR_ERR:
+        case ERR_ARITHMETIC_OPERATOR:
             return "Arithmetic operator error, supported operators: +, -, *, /";
-        case KEYWORD_PLACEMENT_ERR:
+        case ERR_KEYWORD_PLACEMENT:
             return "Expected expression, found keyword";
-        case NONE_ERR:
-            return "";
+        case ERR_NONE:
+            return "No Error";
     }
 }

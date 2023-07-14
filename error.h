@@ -1,9 +1,9 @@
 typedef enum Error {
-    MISSING_DECLARATION_ERR,
-    TYPE_ERR,
-    ARITHMETIC_OPERATOR_ERR,
-    KEYWORD_PLACEMENT_ERR,
-    NONE_ERR
+    ERR_MISSING_DECLARATION,
+    ERR_TYPE,
+    ERR_ARITHMETIC_OPERATOR,
+    ERR_KEYWORD_PLACEMENT,
+    ERR_NONE
 } Error;
 
 char* error_message(Error err);
