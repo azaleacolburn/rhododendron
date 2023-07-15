@@ -2,23 +2,30 @@
 #include<stdlib.h>
 #include"rdp.h"
 
-char* readFile(char* path)
+Vec* readFile(char* path)
 {
     FILE* fp;
-    static char buff[300];
     fp = fopen(path, "r");
     if (fp == NULL) {
         printf("Error, path: %s doesn't exist\n", path);
         exit(1);
     }
-    fgets(buff, 300, fp);
-    printf("File contents: %s\n", buff);
-    return buff;
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);  /* same as rewind(f); */
+    char* buff = malloc(fsize + 1);
+    fread(buff, fsize, 1, fp);
+    fclose(fp);
+    buff[fsize] = 0;
+    Vec* ret = new_vec(2);
+    push_vec(ret, buff);
+    push_vec(ret, &fsize);
+    return ret;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-    char* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
-    Error success_code = program(contents);
+    Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
+    Error success_code = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
     printf("Success Code: %s", error_message(success_code));
 }

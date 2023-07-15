@@ -6,7 +6,10 @@ typedef enum Error {
     ERR_NONE, // Not real Error
     ERR_NOT, // Nor real Error
     ERR_EXPECTED_CONDITION,
-    ERR_EXPECTED_COMPARITOR
+    ERR_EXPECTED_COMPARITOR,
+    ERR_EXPECTED_EXPR,
+    ERR_ID_NOT_VALID,
+    ERR_EXPECTED_ASSIGNMENT
 } Error;
 
 char* error_message(Error err);

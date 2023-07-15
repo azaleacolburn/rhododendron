@@ -2,8 +2,7 @@
 #include<stdlib.h>
 #include"vector.h"
 
-Vec* new_vec(size_t initial_capacity)
-{
+Vec* new_vec(size_t initial_capacity) {
     Vec* vec = malloc(sizeof(Vec));
     if (vec != NULL) {
         vec->data = malloc(initial_capacity * sizeof(void*));
@@ -13,11 +12,9 @@ Vec* new_vec(size_t initial_capacity)
     return vec;
 }
 
-void* get_vec(Vec *vec, size_t n) 
-{
-    if(vec && n < vec->capacity) {
+void* get_vec(Vec *vec, size_t n) {
+    if(vec && n < vec->capacity)
         return vec->data[n];
-    }
     /* return some error value, i'm doing -1 here, 
      * std::Vec would throw an exception if using at() 
      * or have UB if using [] */
@@ -25,28 +22,20 @@ void* get_vec(Vec *vec, size_t n)
     return &one;
 }
 
-void set_vec(Vec* vec, void* item, size_t index) 
-{
-    if (vec && index > vec->capacity){
+void set_vec(Vec* vec, void* item, size_t index) {
+    if (vec && index > vec->capacity)
         vec->data[index] = item;
-    } 
-    else 
-    {
-        realloc_vec(vec, index * 2);
-    }
+    else realloc_vec(vec, index * 2);
 }
 
-void push_vec(Vec* vec, void* item)
-{
-    if (vec->len + 1 >= vec->capacity) {
+void push_vec(Vec* vec, void* item) {
+    if (vec->len + 1 >= vec->capacity)
         realloc_vec(vec, vec->capacity * 2);
-    }
     vec->data[vec->len] = item;
     vec->len++;
 }
 
-void realloc_vec(Vec* vec, size_t new_size)
-{
+void realloc_vec(Vec* vec, size_t new_size) {
     if (vec) {
         void* new_data = realloc(vec->data, new_size * sizeof(void*));
         vec->capacity = new_size;
@@ -54,8 +43,7 @@ void realloc_vec(Vec* vec, size_t new_size)
     }
 }
 
-void free_vec(Vec* vec)
-{
+void free_vec(Vec* vec) {
     if (vec) {
         free(vec->data);
         free(vec);

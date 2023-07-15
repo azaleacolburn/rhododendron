@@ -20,5 +20,11 @@ char* error_message(Error err) {
             return "Expected condition, maybe you're missing a '(' or ')', maybe an expresssion is missing";
         case ERR_EXPECTED_COMPARITOR:
             return "Expected a comparitor, maybe you're missing a '==' or a '!='";
+        case ERR_EXPECTED_EXPR:
+            return "Expected an expression";
+        case ERR_ID_NOT_VALID:
+            return "Found undeclared id";
+        case ERR_EXPECTED_ASSIGNMENT:
+            return "Expected a assignment, maybe you forgot a '='";
     }
 }

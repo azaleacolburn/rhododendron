@@ -22,7 +22,7 @@ typedef enum Tok {
     TOK_EQ,
     TOK_NEQ,
     TOK_WHILE,
-    TOK_FOR
+    TOK_FOR,
 } Tok;
 
 typedef struct Token {
@@ -30,22 +30,26 @@ typedef struct Token {
     Vec* children;
 } Token;
 
-Error program(char* string);
+Error program(char* strin, long file_size);
 
-Error declare(Tokenizer* t, Token* parent);
+Error declare(Tokenizer* t, Token* parent, Vec* id_list);
 
-Error var_id(Tokenizer* t, Token* parent);
+Error var_id(Tokenizer* t, Token* parent, Vec* id_list);
 
-Error expr(Tokenizer* t, Token* parent);
+Error expr(Tokenizer* t, Token* parent, Vec* id_list);
 
-Error statement(Tokenizer* t, Token* parent);
+Error statement(Tokenizer* t, Token* parent, Vec* id_list);
 
-Error conditional(Tokenizer* t, Token* parent);
+Error conditional(Tokenizer* t, Token* parent, Vec* id_list);
 
-Error condition(Tokenizer* t, Token* parent);
+Error condition(Tokenizer* t, Token* parent, Vec* id_list);
 
-Error loop(Tokenizer* t, Token* parent);
+Error loop(Tokenizer* t, Token* parent, Vec* id_list);
 
 void print_token(Token* tok);
 
 Token* new_token(Tok type);
+
+int kwck(char* word);
+
+int idck(Vec* id_list, char* word);
