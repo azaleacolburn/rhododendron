@@ -21,7 +21,7 @@ Error program(char* string, long file_size) {
     // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
     Vec* id_list = new_vec(2);
-    while (*t->cursor < file_size) { // Infinite loop
+    while (strlen(t->string) > 0) { // Infinite loop
         Error declare_result = declare(t, program_tok, id_list);
         if (declare_result == ERR_NOT) {
             Error expression_result = expr(t, program_tok, id_list);
@@ -75,23 +75,17 @@ Error assign(args()) {
     char* str_token = get_next_token(t);
     Token* assign_tok = new_token(TOK_ASSIGN);
     if (strcmp(str_token, "\0") || strcmp(str_token, ";")) return ERR_NOT;
-    if (!is_keyword(str_token)) {
-        if (idck(id_list, str_token)) {
-            Token* id_tok = new_token(TOK_ID);
-            push_vec(id_tok->children, str_token);
-            push_vec(assign_tok->children, id_tok);
-            char* change_tok = get_next_token(t);
-            if (*change_tok == '=') {
-                Error expr_result = expr(t, assign_tok, id_list);
-                if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
-                else if (expr_result == ERR_NONE) {
-                    push_vec(parent->children, assign_tok);
-                    return ERR_NONE;
-                }
-                else return expr_result;
-            } else return ERR_EXPECTED_ASSIGNMENT;
-        } else return ERR_ID_NOT_VALID;
-    } else return ERR_NOT;
+    Error var_id_result = var_id(t, assign_tok, id_list);
+    if (var_id_result == ERR_NONE) {
+        char* change_tok = get_next_token(t);
+        if (*change_tok == '=') {
+            Error expr_result = expr(t, assign_tok, id_list);
+            if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
+            else if (expr_result == ERR_NONE)
+                push_vec(parent->children, assign_tok);
+            return expr_result;
+        } else return ERR_EXPECTED_ASSIGNMENT;
+    } else return var_id_result;
 }
 
 // Parent is decl_token
@@ -106,12 +100,8 @@ Error var_id(args()) {
             push_vec(id_list, str_token);
             push_vec(id_tok->children, str_token);
             return ERR_NONE;
-        } else {
-            return ERR_KEYWORD_PLACEMENT;
-        }
-    } else {
-        return ERR_TYPE;
-    }
+        } else return ERR_KEYWORD_PLACEMENT;
+    } else return ERR_TYPE;
 }
 
 // Todo: Allow variable ids

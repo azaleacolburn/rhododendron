@@ -23,9 +23,23 @@ Vec* readFile(char* path)
     return ret;
 }
 
-int main(int argc, char* argv[])
-{
-    Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
-    Error success_code = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
-    printf("Success Code: %s", error_message(success_code));
+void test_tokenizer() {
+    Tokenizer* t = new_tokenizer("first second third fourth");
+    // printf("here\n");
+    printf("%s\n", get_next_token(t));
+    printf("past 1\n");
+    printf("%s\n", get_next_token(t));
+    printf("%s\n", get_next_token(t));
+    printf("%s\n", get_next_token(t));
+    
+    free_tokenizer(t);
+}
+
+int main(int argc, char* argv[]) {
+    test_tokenizer();
+    // if (test_tokenizer()) {
+        // Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
+        // Error success_code = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
+        // printf("Success Code: %s", error_message(success_code));
+    // } else printf("oops");
 }
