@@ -6,13 +6,11 @@
 static char* delimiters = "\n; \0";
 
 char* get_next_token(Tokenizer* t) {
-    char* ret;
+    char* ret;  
     printf("tokenizer string:\n%s\n", t->string);
     for (int i = 0; i < strlen(t->string); i++) {
-        printf("here\n");
         if (check_delimeter(t->string[i])) {
             ret = str_remove(t->string, 0, i);
-            printf("token found: %s\n", ret);
             return ret; // is returning this a segfault
         }
     }
@@ -45,18 +43,14 @@ int check_delimeter(char c) {
     return 0;
 }
 
-// Start index inclusive, end index exclusive
-// Returns the removed substring
 char* str_remove(char* str, int start_index, int end_index) {
-    printf("here2\n");
     if (start_index < end_index) {
-        char* ret;
-        strncpy(ret, str + start_index, end_index - start_index);
-        printf("str copied\n");
-        memmove(&str[start_index], &str[end_index], strlen(str) - (end_index - start_index));
-        return ret; // ret should be on the heap
+        char* ret = malloc(sizeof(char) * (end_index - start_index));
+        strncpy(ret, str + start_index , end_index - start_index); // problem
+        memmove(&str[start_index - 1], &str[end_index], strlen(str) - start_index - 1);
+        return ret;
+    } else {
+        printf("str_remove failed\n");
+        return "";
     }
-    printf("str_remove failed");
-    return "";
 }
-

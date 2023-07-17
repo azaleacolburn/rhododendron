@@ -27,7 +27,6 @@ void test_tokenizer() {
     Tokenizer* t = new_tokenizer("first second third fourth");
     // printf("here\n");
     printf("%s\n", get_next_token(t));
-    printf("past 1\n");
     printf("%s\n", get_next_token(t));
     printf("%s\n", get_next_token(t));
     printf("%s\n", get_next_token(t));
