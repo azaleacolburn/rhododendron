@@ -9,7 +9,8 @@ typedef enum Error {
     ERR_EXPECTED_COMPARITOR,
     ERR_EXPECTED_EXPR,
     ERR_ID_NOT_VALID,
-    ERR_EXPECTED_ASSIGNMENT
+    ERR_EXPECTED_ASSIGNMENT,
+    ERR_FORMATTED_AST_WRONG
 } Error;
 
 char* error_message(Error err);

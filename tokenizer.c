@@ -3,7 +3,7 @@
 #include<string.h>
 #include"tokenizer.h"
 
-static char* delimiters = "\n; \0";
+static char* delimiters = " \0";
 
 char* get_next_token(Tokenizer* t) {
     char* ret;  
@@ -29,6 +29,10 @@ void free_tokenizer(Tokenizer* t) {
     free(t->string);
     free(t);
     t = NULL;
+}
+
+void reset_tokenizer(Tokenizer* t) {
+    strncpy(t->string, t->original, strlen(t->original));
 }
 
 // Params: string, buffer to be copied into, start and end indexed

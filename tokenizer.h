@@ -1,4 +1,5 @@
 typedef struct Tokenizer {
+    char* original;
     char* string;
 } Tokenizer;
 
@@ -11,6 +12,8 @@ int has_more_tokens(Tokenizer* t);
 Tokenizer* new_tokenizer(char* string);
 
 void free_tokenizer(Tokenizer* t);
+
+void reset_tokenizer(Tokenizer* t);
 
 // Params: string, buffer to be copied into, start and end indexed
 void slice(const char* str, char* result, size_t start, size_t end);

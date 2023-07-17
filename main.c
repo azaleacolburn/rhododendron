@@ -25,7 +25,6 @@ Vec* readFile(char* path)
 
 void test_tokenizer() {
     Tokenizer* t = new_tokenizer("first second third fourth");
-    // printf("here\n");
     printf("%s\n", get_next_token(t));
     printf("%s\n", get_next_token(t));
     printf("%s\n", get_next_token(t));
@@ -35,10 +34,8 @@ void test_tokenizer() {
 }
 
 int main(int argc, char* argv[]) {
-    test_tokenizer();
-    // if (test_tokenizer()) {
-        // Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
-        // Error success_code = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
-        // printf("Success Code: %s", error_message(success_code));
-    // } else printf("oops");
+    // test_tokenizer();
+    Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
+    Error success_code = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
+    printf("Success Code: %s", error_message(success_code));
 }

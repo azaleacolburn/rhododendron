@@ -34,6 +34,8 @@ Error program(char* strin, long file_size);
 
 Error declare(Tokenizer* t, Token* parent, Vec* id_list);
 
+Error assign(Tokenizer* t, Token* parent, Vec* id_list);
+
 Error var_id(Tokenizer* t, Token* parent, Vec* id_list);
 
 Error expr(Tokenizer* t, Token* parent, Vec* id_list);
