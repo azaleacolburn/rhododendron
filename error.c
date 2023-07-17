@@ -26,5 +26,7 @@ char* error_message(Error err) {
             return "Found undeclared id";
         case ERR_EXPECTED_ASSIGNMENT:
             return "Expected a assignment, maybe you forgot a '='";
+        case ERR_FORMATTED_AST_WRONG:
+            return "Internal expression parsing problem";
     }
 }

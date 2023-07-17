@@ -40,6 +40,12 @@ Error var_id(Tokenizer* t, Token* parent, Vec* id_list);
 
 Error expr(Tokenizer* t, Token* parent, Vec* id_list);
 
+Error op_expr(Token* parent, char* ops, int i);
+
+Error val_expr(Token* parent, char** vals, int i, Vec* id_list);
+
+Vec* format_expression(Tokenizer* t);
+
 Error statement(Tokenizer* t, Token* parent, Vec* id_list);
 
 Error conditional(Tokenizer* t, Token* parent, Vec* id_list);
@@ -55,3 +61,5 @@ Token* new_token(Tok type);
 int kwck(char* word);
 
 int idck(Vec* id_list, char* word);
+
+int multidlen(char** arr);

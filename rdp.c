@@ -1,6 +1,7 @@
 #include<string.h>
 #include<stdlib.h>
 #include<stdio.h>
+#include <stdbool.h>
 #include"rdp.h"
 
 #define is_num(c) ((c) >= '0' && (c) <= '9')
@@ -35,6 +36,7 @@ Error program(char* string, long file_size) {
             } return expression_result;
         } else return declare_result;
     }
+    return ERR_NOT;
 }
 
 Error declare(args()) {
@@ -75,7 +77,7 @@ Error assign(args()) {
 // For processing new ids only
 Error var_id(args()) {
     printf("started variable iding\n");
-    Types type = get_vec(parent->children, 0);
+    Types type = *(Types*)get_vec(parent->children, 0);
     printf("this was safe\n");
     if (type == TYPE_CHAR || type == TYPE_INT) {
         char* var_id_str = get_next_token(t);
@@ -101,77 +103,80 @@ Error var_id(args()) {
 //        2           5
 
 // Idea: reshape expression into operators before hand
-Error expr(args()) {
-    Tok parent_type = parent->type;
-    char* str_token = get_next_token(t);
-    if (*str_token == ';') {
-        return ERR_NOT;
-    }
-    if (!is_keyword(str_token)) {
-        if (is_num(*str_token)) {
-            if (parent_type == TOK_NUM || parent_type == TOK_ID)
-                return ERR_ARITHMETIC_OPERATOR;
-            Token* num_tok = new_token(TOK_NUM);
-            push_vec(num_tok->children, str_token);
-            if (expr(t, num_tok, id_list) == ERR_NOT) {
-                return ERR_NONE;
-            }
-        } else if (!idck(id_list, str_token)) { // Need to check for valid ids vs operators
-            if (parent_type == TOK_NUM || parent_type == TOK_ID) {
-                Token* op_tok;
-                if (*str_token == '+')
-                    op_tok = new_token(TOK_ADD);
-                else if (*str_token == '-')
-                    op_tok = new_token(TOK_SUB);
-                else if (*str_token == '*')
-                    op_tok = new_token(TOK_MUL);
-                else if (*str_token == '/')
-                    op_tok = new_token(TOK_DIV);
-                else
-                    return ERR_ARITHMETIC_OPERATOR;
-                push_vec(op_tok->children, parent);
-                expr(t, op_tok, id_list);
-            } else // If it's an operator
-                return ERR_ARITHMETIC_OPERATOR;
+// Error expr(args()) {
+//     Tok parent_type = parent->type;
+//     char* str_token = get_next_token(t);
+//     if (*str_token == ';') {
+//         return ERR_NOT;
+//     }
+//     if (!is_keyword(str_token)) {
+//         if (is_num(*str_token)) {
+//             if (parent_type == TOK_NUM || parent_type == TOK_ID)
+//                 return ERR_ARITHMETIC_OPERATOR;
+//             Token* num_tok = new_token(TOK_NUM);
+//             push_vec(num_tok->children, str_token);
+//             if (expr(t, num_tok, id_list) == ERR_NOT) {
+//                 return ERR_NONE;
+//             }
+//         } else if (!idck(id_list, str_token)) { // Need to check for valid ids vs operators
+//             if (parent_type == TOK_NUM || parent_type == TOK_ID) {
+//                 Token* op_tok;
+//                 if (*str_token == '+')
+//                     op_tok = new_token(TOK_ADD);
+//                 else if (*str_token == '-')
+//                     op_tok = new_token(TOK_SUB);
+//                 else if (*str_token == '*')
+//                     op_tok = new_token(TOK_MUL);
+//                 else if (*str_token == '/')
+//                     op_tok = new_token(TOK_DIV);
+//                 else
+//                     return ERR_ARITHMETIC_OPERATOR;
+//                 push_vec(op_tok->children, parent);
+//                 expr(t, op_tok, id_list);
+//             } else // If it's an operator
+//                 return ERR_ARITHMETIC_OPERATOR;
 
-            // expr(t, tok, id_list);
-            // push_vec(parent->children, tok);
-            // return 0;
-        } else { // if we currently have an id
-            if (parent_type == TOK_NUM || parent_type == TOK_ID)
-                return ERR_ARITHMETIC_OPERATOR;
-            Token* id_tok = new_token(TOK_ID);
-            push_vec(parent->children, id_tok);
-            return expr(t, parent, id_list);
-        }
-    } else {
-        return ERR_KEYWORD_PLACEMENT;
-    }
-}
-// Figure out Error handling with Token* returns
+//             // expr(t, tok, id_list);
+//             // push_vec(parent->children, tok);
+//             // return 0;
+//         } else { // if we currently have an id
+//             if (parent_type == TOK_NUM || parent_type == TOK_ID)
+//                 return ERR_ARITHMETIC_OPERATOR;
+//             Token* id_tok = new_token(TOK_ID);
+//             push_vec(parent->children, id_tok);
+//             return expr(t, parent, id_list);
+//         }
+//     } else {
+//         return ERR_KEYWORD_PLACEMENT;
+//     }
+// }
+// Parses expressions cleverly, by splitting values and operations up
 // Real/test expr
-Error expr2(args()) {
-    Token* temp_parent = parent;
+Error expr(args()) {
     Vec* expr = format_expression(t);
     char* ops = get_vec(expr, 0);
-    char* vals = get_vec(expr, 1);
-    Token* op_tree = op_expr(parent, ops, 0);
+    char** vals = get_vec(expr, 1);
+    Error op_tree_result = op_expr(parent, ops, 0);
+    Error val_expr_result = val_expr(parent, vals, 0, id_list);
+    if (op_tree_result == ERR_NONE)
+        return val_expr_result;
+    else return op_tree_result;
 }
 
-// Recursive
 // Builds a tree of ops
-Token* op_expr(Token* parent, char* ops, int i) {
+Error op_expr(Token* parent, char* ops, int i) {
     Token* op_tok;
-    if (strlen(ops) == i) return parent;
-    if (ops[i] == '+') {
-        op_tok = new_token(TOK_ADD);
-    } else if (ops[i] == '-') {
+    if (strlen(ops) == i)
+        return ERR_NONE;
+    if (ops[i] == '+')
+        op_tok = new_token(TOK_ADD); 
+    else if (ops[i] == '-')
         op_tok = new_token(TOK_SUB);
-    } else if (ops[i] == '/') {
-        op_tok = new_tok(TOK_DIV);
-    } else if (ops[i] == '*' ) {
-        op_tok = new_tok(TOK_MUL);
-    } else return ERR_ARITHMETIC_OPERATOR;
+    else if (ops[i] == '/')
+        op_tok = new_token(TOK_DIV);
+    else if (ops[i] == '*' )
+        op_tok = new_token(TOK_MUL);
+    else return ERR_ARITHMETIC_OPERATOR;
     push_vec(parent->children, op_tok);
     if (parent->children->len - 1 == 0)
         return op_expr(parent, ops, i + 1);
@@ -180,37 +185,39 @@ Token* op_expr(Token* parent, char* ops, int i) {
     else return ERR_FORMATTED_AST_WRONG;
 }
 
-// Recursive
-Token* val_expr(Token* parent, char* vals, int i, Vec* id_list) {
+// Adds value leaves to a tree of ops
+Error val_expr(Token* parent, char** vals, int i, Vec* id_list) {
+    if (multidlen(vals) == i)
+        return ERR_NONE;
     Token* val_tok;
     if (is_keyword(vals[i]))
         return ERR_KEYWORD_PLACEMENT;
-    if (parent->children->len == 2) {
+    if (parent->children->len == 2)
         return val_expr(get_vec(parent->children, 0), vals, i, id_list);
-    } else if (parent->children->len == 1) {
+    else if (parent->children->len == 1) {
         if (idck(id_list, vals[i]))
             val_tok = new_token(TOK_ID);
-        else
-            val_tok = new_token(TOK_NUM);
+        else val_tok = new_token(TOK_NUM);
         push_vec(val_tok->children, vals[i]);
         push_vec(parent->children, val_tok);
-        val_expr(parent, vals, i + 1, id_list);
+        return val_expr(parent, vals, i + 1, id_list);
     } else if (parent->children->len == 0) {
         if (idck(id_list, vals[i]))
             val_tok = new_token(TOK_ID);
-        else
-            val_tok = new_token(TOK_NUM);
+        else val_tok = new_token(TOK_NUM);
         push_vec(val_tok->children, vals[i]);
         push_vec(parent->children, val_tok);
-        val_expr(parent, vals, i + 1, id_list);
+        return val_expr(parent, vals, i + 1, id_list);
     }
+    return ERR_NOT;
 }
 
-Vec* format_expression (Tokenizer* t) {
+// Forgot that values are actually their own strings
+Vec* format_expression(Tokenizer* t) {
     // Rewrite as ops first
     char* str_tok = get_next_token(t);
     char* ops;
-    char* values;
+    char** values;
     while (str_tok[strlen(str_tok) - 1] != '\n' || 
             str_tok[strlen(str_tok) - 1] != ';') 
     {
@@ -219,12 +226,12 @@ Vec* format_expression (Tokenizer* t) {
             *str_tok == '/' ||
             *str_tok == '*') 
             ops[strlen(ops)] = *str_tok; 
-        else 
-            values[strlen(values)] = str_tok;
+        else values[multidlen(values)] = str_tok;
     }
     Vec* ret = new_vec(2);
     push_vec(ret, ops);
     push_vec(ret, values);
+    return ret;
 }
 
 Error statement(args()) {
@@ -426,4 +433,13 @@ int idck(Vec* id_list, char* word) {
             return 1;
     }
     return 0;
+}
+
+int multidlen(char** arr) {
+    int i = 0;
+    while (arr != NULL) {
+        arr++;
+        i++;
+    }
+    return i;
 }
