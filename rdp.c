@@ -13,6 +13,10 @@
                 t == TOK_MUL_EQ || \
                 t == TOK_DIV_EQ || \
                 t == TOK_SUB_EQ
+#define is_keyword(t) \
+                t == TOK_FOR || \
+                t == TOK_WHILE || \
+                t == TOK_IF
 #define is_op(c) \
         c == '+' || \
         c == '-' || \
@@ -183,35 +187,41 @@ Error op_expr(TokenNode* parent, Vec* ops, int i) {
 }
 
 // Adds value leaves to a tree of ops
+// Right to left, two per leaf
+// Should world
 Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
     if (vals->len == i)
         return ERR_NONE;
     TokenNode* val_tok;
     Token* curr = get_vec(vals, i);
-    if (parent->children->len == 2) { // Full
-        // This will only ever try left hand nodes
-        TokenNode* right = get_vec(parent->children, 0);
-        TokenNode* left = get_vec(parent->children, 1);
-        if (filled(right->token->type)) {
-            if (filled(right->token->type)) {
-                return val_expr(parent, vals, i, id_list);
-            } return val_expr(right, vals, i, id_list);
-        } else return val_expr(get_vec(parent->children, 0), vals, i, id_list);
-    }
-    else if (parent->children->len == 1) {
+    Error result;
+    // This will only ever try left hand nodes
+    TokenNode* right = get_vec(parent->children, 0);
+    TokenNode* left = get_vec(parent->children, 1);
+
+    // This is recursive because it needs to be called twice
+    if (!right && !left && !filled(parent->token->type)) { // parent is a leaf
         if (curr->type == TOK_ID && !idck(id_list, curr->value))
             return ERR_ID_NOT_VALID;
         val_tok = new_token_node(curr);
         push_vec(parent->children, val_tok);
-        return val_expr(parent, vals, i + 1, id_list);
-    } else if (parent->children->len == 0) {
-        if (curr->type == TOK_ID && !idck(id_list, curr->value))
-            return ERR_ID_NOT_VALID;
-        val_tok = new_token_node(curr);
-        push_vec(parent->children, val_tok);
-        return val_expr(parent, vals, i + 1, id_list);
+        i++;
+        result = val_expr(parent, vals, i + 1, id_list);
+        if (result != ERR_NONE || result != ERR_NOT)
+            return result;
     }
-    return ERR_NOT;
+
+    if (right) {
+        result = val_expr(right, vals, i, id_list);
+        if (result != ERR_NONE)
+            return result; 
+    }
+    else if (left) {
+        result = val_expr(left, vals, i, id_list);
+        if (result != ERR_NONE)
+            return result; 
+    }
+    return ERR_NONE;
 }
 
 // Forgot that values are actually their own strings
@@ -240,76 +250,49 @@ Vec* format_expression(Tokenizer* t, Vec* id_list) {
 }
 
 Error statement(args()) {
-    TokType parent_type = parent->type;
+    TokType parent_type = parent->token->type;
+    Error result;
     Token* statement_tok = new_token(TOK_STATEMENT);
-    char* str_token = get_next_token(t);
-    if (kwck(str_token)) {
-        printf("keyword detected");
-        Error conditional_result = conditional(t, parent, id_list);
-        Error loop_result = loop(t, parent, id_list);
-        if (conditional_result == ERR_NOT) {
-            if (loop_result == ERR_NOT)
-                printf("Expected loop or conditional");
-            else if (loop_result != ERR_NONE)
-                return loop_result;
-        } else if (loop_result != ERR_NONE) {
-            return conditional_result;
-        }
-        return ERR_NONE;
+    Token* tok = get_next_token(t);
+    if (tok->type == TOK_IF) {
+        result = conditional(t, parent, id_list);
+        if (result != ERR_NONE || result != ERR_NOT)
+            return result;
+    } else if (tok->type == TOK_WHILE) {
+        result = loop(t, parent, id_list);
+        if (result != ERR_NONE || result != ERR_NOT)
+            return result;
+    } else if (tok->type == TOK_FOR) {
+        // Todo: for loops
     }
     return ERR_NOT;
 }
 
 Error conditional(args()) {
-    char* str_token = get_next_token(t);
-    if (strcmp(str_token, "if")) {
-        if (*get_next_token(t) == '(') {
-            Token* conditional_tok = new_token(TOK_CONDITION);
-            Error condition_result = condition(t, conditional_tok, id_list);
-            if (condition_result == ERR_NONE) {
-                Error statement_result = statement(t, conditional_tok, id_list);
-                Error declare_result = declare(t, conditional_tok, id_list);
-                if (statement_result == ERR_NONE || statement_result == ERR_NOT) {
-                    if (declare_result == ERR_NONE || declare_result == ERR_NOT) {
-                        push_vec(parent->children, conditional_tok);
-                        return ERR_NONE;
-                    }
-                    return declare_result;
-                } else {
-                    return statement_result;
+    Token* tok = get_next_token(t);
+    if (tok->type == TOK_O_PAREN) {
+        Token* dummy;
+        TokenNode* comparitor_node = new_token_node(dummy);
+        Error expr_result = expr(t, comparitor_node, id_list);
+        if (expr_result == ERR_NONE) {
+            Token* comparitor = get_next_token(t);
+            printf("comparitor: %s", comparitor->type);
+            comparitor_node->token = comparitor;
+            push_vec(parent->children, comparitor_node);
+            expr_result = expr(t, comparitor_node, id_list);
+            if (expr_result == ERR_NONE) {
+                if (get_next_token(t)->type == TOK_C_PAREN && get_next_token(t)->type == TOK_O_CURL) {
+                    // Check all possibilities
+                    // Back to base witout root node
+                    // Maybe some subset of program()
                 }
-            } else {
-                return condition_result;
-            } 
-        } else {
-            return ERR_EXPECTED_CONDITION;
-        }
-        if (*get_next_token(t) == ')') {
-            return ERR_NONE;
-        }
-    } else {
-        return ERR_NOT;
-    }
+                if (get_next_token(t)->type == TOK_C_CURL)
+                    return ERR_NONE;
+            } return expr_result;
+        } return expr_result;
+    } else return ERR_MISSING_O_PARAENTHESES;
 }
 
-Error condition(args()) {
-    Error expr_result = expr(t, parent, id_list);
-    if (expr_result == ERR_NONE) {
-        char* comparitor = get_next_token(t);
-        printf("comparitor: %s", comparitor);
-        Token* tok;
-        if (strcmp(comparitor, "==")) {
-            tok = new_token(TOK_EQ);
-        } else if (strcmp(comparitor, "!=")) {
-            tok = new_token(TOK_NEQ);
-        } else {
-            return ERR_EXPECTED_COMPARITOR;
-        }
-        push_vec(parent->children, tok);
-        return expr(t, parent, id_list);
-    }
-    return expr_result;
-}
 
 Error loop(args()) {
     char* str_token = get_next_token(t);

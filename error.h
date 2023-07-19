@@ -11,7 +11,8 @@ typedef enum Error {
     ERR_ID_NOT_VALID,
     ERR_EXPECTED_ASSIGNMENT,
     ERR_FORMATTED_AST_WRONG,
-    ERR_EXEPCTED_ID
+    ERR_EXEPCTED_ID,
+    ERR_MISSING_O_PARAENTHESES
 } Error;
 
 char* error_message(Error err);

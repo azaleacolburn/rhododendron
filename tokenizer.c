@@ -9,7 +9,7 @@
 #define is_char(s) (strcmp(s, "char"))
 #define is_int(s) (strcmp(s, "int"))
 #define is_expr(t) (t == TOK_ADD, t == TOK_DIV, t == TOK_SUB, t == TOK_MUL, t == TOK_NUM, t == TOK_ID)
-#define peek(s) s + 1
+#define peek(s, i) s + i
 
 static char* delimiters = " \0";
 static char* keywords[7] = {"if", "for", "while", "(", ")"};
@@ -49,76 +49,80 @@ Token* str_to_tok(char* str_tok) {
         type = TOK_EQ_CMP;
         goto DONE;
     } else if (kw != NULL) {
-        type = kw;
+        if (kw == "if") {
+            type = TOK_IF;
+        } else if (kw == "while") {
+            type = TOK_WHILE;
+        } else if (kw == "for") {
+            type = TOK_FOR;
+        }
         goto DONE;
     }
     // Check for special characters
     switch (*str_tok) {
-        case ';': { 
+        case '(':
+            type = TOK_O_PAREN;
+            break;
+        case ')':
+            type = TOK_C_PAREN;
+            break;
+        case ';':
+            // This needs to be fixed
             consume_line(str_tok);
             break; 
-        }
-        case '|': {
-            if (*peek(str_tok) == '=') {
+        case '|':
+            if (*peek(str_tok, 1) == '=') {
                 type = TOK_B_OR_EQ;
             }
             type = TOK_B_OR;
             break;
-        }
-        case '&': {
-            if (*peek(str_tok) == '=') {
+        case '&':
+            if (*peek(str_tok, 1) == '=') {
                 type = TOK_B_AND_EQ;
             }
             type = TOK_B_AND;
             break;
-        }
-        case '^': {
-            if (*peek(str_tok) == '=') {
+        case '^':
+            if (*peek(str_tok, 1) == '=') {
                 type = TOK_B_XOR_EQ;
             }
             type = TOK_B_XOR;
             break;
-        }
-        case '!': {
-            if (*peek(str_tok) == '=') {
+        case '!':
+            if (*peek(str_tok, 1) == '=') {
                 type = TOK_NEQ_CMP;
             } else {
                 type = TOK_NOT;
             }
             break;
-        }
-        case '-': {
-            if (peek(str_tok) == '=') {
+        case '-':
+            if (peek(str_tok, 1) == '=') {
                 tok = TOK_SUB_EQ;
                 break;
             }
             tok = TOK_SUB;
             break;
-        }
-        case '+': {
-            if (peek(str_tok) == '=') {
+        case '+':
+            if (peek(str_tok, 1) == '=') {
                 tok = TOK_ADD_EQ;
                 break;
             }
             tok = TOK_ADD;
             break;
-        }
-        case '/': {
-            if (peek(str_tok) == '=') {
+        case '/':
+            if (peek(str_tok, 1) == '=') {
                 tok = TOK_DIV_EQ;
                 break;
             }
             tok = TOK_DIV;
             break;
-        }
-        case '*': {
-            if (peek(str_tok) == '=') {
+        case '*':
+            if (peek(str_tok, 1) == '=') {
                 tok = TOK_MUL_EQ;
                 break;
             }
             tok = TOK_DIV;
             break;
-        }
     }
     DONE:
     tok = new_token(type);

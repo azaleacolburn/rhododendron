@@ -25,6 +25,10 @@ typedef enum TokType {
     TOK_ADD_EQ,
     TOK_DIV_EQ,
     TOK_MUL_EQ,
+    TOK_O_PAREN,
+    TOK_C_PAREN,
+    TOK_O_CURL,
+    TOK_C_CURL,
     TOK_NOT, // Fix maybe
     TOK_NONE // Not a token
 } TokType;
