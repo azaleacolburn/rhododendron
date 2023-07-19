@@ -1,27 +1,32 @@
 #include<string.h>
 #include<stdlib.h>
 #include<stdio.h>
-#include <stdbool.h>
+#include<stdbool.h>
 #include"rdp.h"
 
-#define is_num(c) ((c) >= '0' && (c) <= '9')
-#define is_letter(c) ((c) <= 'a' && (c) <= 'z' || (c) >= 'A' && (c) <= 'Z')
-#define is_typename(s) (is_char(s) || is_int(s))
-#define is_char(s) (strcmp(s, "char"))
-#define is_int(s) (strcmp(s, "int"))
-#define is_keyword(s) (kwck(s) == 1)
-#define is_expr(t) (t == TOK_ADD, t == TOK_DIV, t == TOK_SUB, t == TOK_MUL, t == TOK_NUM, t == TOK_ID)
-#define args() Tokenizer *t, Token* parent, Vec* id_list
-
-static char* keywords[7] = {"if", "for", "while", "int", "char", "(", ")"};
+#define args() Tokenizer *t, TokenNode* parent, Vec* id_list
+#define is_change_tok(t) \
+                t == TOK_B_AND_EQ || \
+                t == TOK_B_OR_EQ || \
+                t == TOK_B_XOR_EQ || \
+                t == TOK_ADD_EQ || \
+                t == TOK_MUL_EQ || \
+                t == TOK_DIV_EQ || \
+                t == TOK_SUB_EQ
+#define is_op(c) \
+        c == '+' || \
+        c == '-' || \
+        c == '/' || \
+        c == '*'
+#define filled(type) type == TOK_NUM || type == TOK_ID
 
 Error program(char* string, long file_size) {
     printf("here with content:\n%s\n", string);
     Token* program_tok = new_token(TOK_PROGRAM);
     Tokenizer* t = new_tokenizer(string);
+    Vec* id_list = new_vec(10);
     // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
-    Vec* id_list = new_vec(2);
     while (strlen(t->string) > 0) { // Infinite loop
         Error declare_result = declare(t, program_tok, id_list);
         if (declare_result == ERR_NOT) {
@@ -41,14 +46,11 @@ Error program(char* string, long file_size) {
 
 Error declare(args()) {
     printf("declare\n");
-    char* str_token = get_next_token(t);
+    Token* tok = get_next_token(t);
     printf("after getting token\n");
-    if (is_typename(str_token)) {
-        Token* dec_tok = new_token(TOK_DECLARE);
-        if (is_char(str_token)) 
-            push_vec(dec_tok->children, "char");
-        else if (is_int(str_token))
-            push_vec(dec_tok->children, "int");
+    if (tok->type == TOK_DECLARE) {
+        TokenNode* dec_tok = new_token_node(tok);
+        push_vec(parent->children, dec_tok);
         printf("Declaration found and token pushed to tree\n");
         Error assignment_result = assign(t, dec_tok, id_list);
         return assignment_result;
@@ -59,36 +61,38 @@ Error declare(args()) {
 }
 
 Error assign(args()) {
-    Token* assign_tok = new_token(TOK_ASSIGN);
-    Error var_id_result = var_id(t, assign_tok, id_list);
+    Token* tok = get_next_token(t);
+    TokenNode* assign_node = new_token_node(tok);
+    Error var_id_result = var_id(t, assign_node, id_list);
     if (var_id_result == ERR_NONE) {
-        char* change_tok = get_next_token(t);
-        if (*change_tok == '=') {
-            Error expr_result = expr(t, assign_tok, id_list);
+        Token* change_tok = get_next_token(t);
+        if (is_change_tok(change_tok)) {
+            TokenNode* change_node = new_token_node(change_tok);
+            push_vec(assign_node, change_node);
+            Error expr_result = expr(t, assign_node, id_list);
             if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
             else if (expr_result == ERR_NONE)
-                push_vec(parent->children, assign_tok);
+                push_vec(parent->children, assign_node);
             return expr_result;
-        } else return ERR_EXPECTED_ASSIGNMENT;
+        } else return ERR_NOT;
     } else return var_id_result;
 }
 
-// Parent is decl_token
-// For processing new ids only
+// Can be used for processing any id
 Error var_id(args()) {
     printf("started variable iding\n");
-    Types type = *(Types*)get_vec(parent->children, 0);
-    printf("this was safe\n");
-    if (type == TYPE_CHAR || type == TYPE_INT) {
-        char* var_id_str = get_next_token(t);
-        printf("var_id tok: %s\n", var_id_str);
-        if (!is_keyword(var_id_str)) {
-            Token* id_tok = new_token(TOK_ID);
-            push_vec(id_list, var_id_str);
-            push_vec(id_tok->children, var_id_str);
+    Token* id_tok = get_next_token(t);
+    if (id_tok == TOK_ID) {
+        if (!kwck(id_tok->value)) {
+            if (!idck(id_list, id_tok->value)) {
+                printf("new id: %s\n", id_tok->value);
+                push_vec(id_list, id_tok->value);
+            }
+            TokenNode* id_node = new_token_node(id_tok);
+            push_vec(parent->children, id_tok);
             return ERR_NONE;
         } else return ERR_KEYWORD_PLACEMENT;
-    } else return ERR_TYPE;
+    } else return ERR_EXEPCTED_ID;
 }
 
 // TOK_NUMs are leaves
@@ -153,9 +157,11 @@ Error var_id(args()) {
 // Parses expressions cleverly, by splitting values and operations up
 // Real/test expr
 Error expr(args()) {
-    Vec* expr = format_expression(t);
-    char* ops = get_vec(expr, 0);
-    char** vals = get_vec(expr, 1);
+    Vec* expr = format_expression(t, id_list);
+    if (get_vec(expr, 0) == ERR_NOT)
+        return ERR_NOT;
+    Vec* ops = get_vec(expr, 1);
+    Vec* vals = get_vec(expr, 2);
     Error op_tree_result = op_expr(parent, ops, 0);
     Error val_expr_result = val_expr(parent, vals, 0, id_list);
     if (op_tree_result == ERR_NONE)
@@ -164,19 +170,10 @@ Error expr(args()) {
 }
 
 // Builds a tree of ops
-Error op_expr(Token* parent, char* ops, int i) {
-    Token* op_tok;
-    if (strlen(ops) == i)
+Error op_expr(TokenNode* parent, Vec* ops, int i) {
+    if (ops->len == i)
         return ERR_NONE;
-    if (ops[i] == '+')
-        op_tok = new_token(TOK_ADD); 
-    else if (ops[i] == '-')
-        op_tok = new_token(TOK_SUB);
-    else if (ops[i] == '/')
-        op_tok = new_token(TOK_DIV);
-    else if (ops[i] == '*' )
-        op_tok = new_token(TOK_MUL);
-    else return ERR_ARITHMETIC_OPERATOR;
+    Token* op_tok = new_token(get_vec(ops, i));
     push_vec(parent->children, op_tok);
     if (parent->children->len - 1 == 0)
         return op_expr(parent, ops, i + 1);
@@ -186,26 +183,31 @@ Error op_expr(Token* parent, char* ops, int i) {
 }
 
 // Adds value leaves to a tree of ops
-Error val_expr(Token* parent, char** vals, int i, Vec* id_list) {
-    if (multidlen(vals) == i)
+Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
+    if (vals->len == i)
         return ERR_NONE;
-    Token* val_tok;
-    if (is_keyword(vals[i]))
-        return ERR_KEYWORD_PLACEMENT;
-    if (parent->children->len == 2)
-        return val_expr(get_vec(parent->children, 0), vals, i, id_list);
+    TokenNode* val_tok;
+    Token* curr = get_vec(vals, i);
+    if (parent->children->len == 2) { // Full
+        // This will only ever try left hand nodes
+        TokenNode* right = get_vec(parent->children, 0);
+        TokenNode* left = get_vec(parent->children, 1);
+        if (filled(right->token->type)) {
+            if (filled(right->token->type)) {
+                return val_expr(parent, vals, i, id_list);
+            } return val_expr(right, vals, i, id_list);
+        } else return val_expr(get_vec(parent->children, 0), vals, i, id_list);
+    }
     else if (parent->children->len == 1) {
-        if (idck(id_list, vals[i]))
-            val_tok = new_token(TOK_ID);
-        else val_tok = new_token(TOK_NUM);
-        push_vec(val_tok->children, vals[i]);
+        if (curr->type == TOK_ID && !idck(id_list, curr->value))
+            return ERR_ID_NOT_VALID;
+        val_tok = new_token_node(curr);
         push_vec(parent->children, val_tok);
         return val_expr(parent, vals, i + 1, id_list);
     } else if (parent->children->len == 0) {
-        if (idck(id_list, vals[i]))
-            val_tok = new_token(TOK_ID);
-        else val_tok = new_token(TOK_NUM);
-        push_vec(val_tok->children, vals[i]);
+        if (curr->type == TOK_ID && !idck(id_list, curr->value))
+            return ERR_ID_NOT_VALID;
+        val_tok = new_token_node(curr);
         push_vec(parent->children, val_tok);
         return val_expr(parent, vals, i + 1, id_list);
     }
@@ -213,32 +215,35 @@ Error val_expr(Token* parent, char** vals, int i, Vec* id_list) {
 }
 
 // Forgot that values are actually their own strings
-Vec* format_expression(Tokenizer* t) {
+Vec* format_expression(Tokenizer* t, Vec* id_list) {
     // Rewrite as ops first
-    char* str_tok = get_next_token(t);
-    char* ops;
-    char** values;
-    while (str_tok[strlen(str_tok) - 1] != '\n' || 
-            str_tok[strlen(str_tok) - 1] != ';') 
-    {
-        if (*str_tok == '+' ||
-            *str_tok == '-' ||
-            *str_tok == '/' ||
-            *str_tok == '*') 
-            ops[strlen(ops)] = *str_tok; 
-        else values[multidlen(values)] = str_tok;
+    Vec* ret = new_vec(10);
+    Token* tok = get_next_token(t);
+    
+    // Both of these are TokTypes
+    Vec* ops;
+    Vec* values;
+    while (line_left(t)) {
+        if (is_op(tok->type)) 
+            push_vec(ops, tok);
+        else if(idck(id_list, tok)) push_vec(values, tok); // change to else if
+        else {
+            push_vec(ret, ERR_NONE);
+            return ret;
+        }
+        tok = get_next_token(t);
     }
-    Vec* ret = new_vec(2);
+    push_vec(ret, ERR_NONE);
     push_vec(ret, ops);
     push_vec(ret, values);
     return ret;
 }
 
 Error statement(args()) {
-    Tok parent_type = parent->type;
+    TokType parent_type = parent->type;
     Token* statement_tok = new_token(TOK_STATEMENT);
     char* str_token = get_next_token(t);
-    if (is_keyword(str_token)) {
+    if (kwck(str_token)) {
         printf("keyword detected");
         Error conditional_result = conditional(t, parent, id_list);
         Error loop_result = loop(t, parent, id_list);
@@ -343,98 +348,6 @@ Error loop(args()) {
     return ERR_NOT;
 }
 
-void print_token(Token* tok) {
-    printf("Token Type: %d\n", tok->type);
-    printf("Token children: ");
-    for (int i = 0; i < tok->children->len; i++) {
-        print_token(get_vec(tok->children, i));
-    }
-    printf("Token printing complete\n");
-}
-
-Token* new_token(Tok type) {
-    Token* tok = malloc(sizeof(Token));
-    tok->type = type;
-    tok->children = new_vec(2);
-    return tok;
-}
-
-// Figure out how to check the contents of the vector. Maybe length. goto may lead to something
-void free_token(Token* root) {
-    for (int i = 0; i < root->children->capacity; i++) {
-        void* child = get_vec(root->children, i);
-        // if ()
-        free_token(get_vec(root->children,i));
-    }
-    free(root->children);
-    free(root);
-}
-
-void print_tok(Tok type) {
-    switch (type) {
-        case TOK_PROGRAM:
-            printf("Program\n");
-            break;
-        case TOK_DECLARE:
-            printf("Delcaration\n");
-            break;
-        case TOK_NUM:
-            printf("Num\n");
-            break;
-        case TOK_ADD:
-            printf("+\n");
-            break;
-        case TOK_MUL:
-            printf("*\n");
-            break;
-        case TOK_SUB:
-            printf("-\n");
-            break;
-        case TOK_DIV:
-            printf("/\n");
-            break;
-        case TOK_ASSIGN:
-            printf("Assignment\n");
-            break;
-        case TOK_ID:
-            printf("Id\n");
-            break;
-        case TOK_STATEMENT:
-            printf("Statement\n");
-            break;
-        case TOK_CONDITION:
-            printf("Condition\n");
-            break;
-        case TOK_EQ:
-            printf("==\n");
-            break;
-        case TOK_NEQ:
-            printf("!=\n");
-        case TOK_WHILE:
-            printf("While\n");
-            break;
-        case TOK_FOR:
-            printf("For\n");
-            break;
-    }
-}
-
-int kwck(char* word) {
-    for (int i = 0; i < 7; i++) {
-        printf("word: %s, keyword: %s\n", word, keywords[i]);
-        if (strcmp(word, keywords[i])) return 1;
-    }
-    return 0;
-}
-
-int idck(Vec* id_list, char* word) {
-    for (int i = 0; i < id_list->len; i++) {
-        if (strcmp(word, (char*)get_vec(id_list, i)))
-            return 1;
-    }
-    return 0;
-}
-
 int multidlen(char** arr) {
     int i = 0;
     while (arr != NULL) {
@@ -442,4 +355,32 @@ int multidlen(char** arr) {
         i++;
     }
     return i;
+}
+
+void print_token(TokenNode* tok) {
+    printf("Token Type: %d\n", tok->token->type);
+    printf("Token children: ");
+    for (int i = 0; i < tok->children->len; i++) {
+        print_token(get_vec(tok->children, i));
+    }
+    printf("Token printing complete\n");
+}
+
+TokenNode* new_token_node(Token* tok) {
+    TokenNode* node = malloc(sizeof(TokenNode));
+    node->token = tok;    
+}
+
+void free_token_node(TokenNode* node) {
+    free_token(node->token);
+    free(node->children);
+    free(node);
+}
+
+int idck(Vec* id_list, char* word) {
+    for (int i = 0; i < id_list->len; i++) {
+        if (strcmp(word, (char*)get_vec(id_list, i)) == 0)
+            return 1;
+    }
+    return 0;
 }

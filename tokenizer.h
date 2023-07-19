@@ -1,9 +1,12 @@
+#include"tokens.h"
+#include"vector.h"
+
 typedef struct Tokenizer {
     char* original;
     char* string;
 } Tokenizer;
 
-char* get_next_token(Tokenizer* t);
+Token* get_next_token(Tokenizer* t);
 
 // 1 if there are more tokens
 // 0 if there aren't
@@ -21,3 +24,7 @@ void slice(const char* str, char* result, size_t start, size_t end);
 int check_delimeter(char c);
 
 char* str_remove(char* str, int start_index, int end_index);
+
+TokType kwck(char* word);
+
+int idck(Vec* id_list, char* word);
