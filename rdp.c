@@ -5,40 +5,43 @@
 #include"rdp.h"
 
 #define args() Tokenizer *t, TokenNode* parent, Vec* id_list
-#define is_change_tok(t) \
+#define is_change_tok(t) (\
                 t == TOK_B_AND_EQ || \
                 t == TOK_B_OR_EQ || \
                 t == TOK_B_XOR_EQ || \
                 t == TOK_ADD_EQ || \
                 t == TOK_MUL_EQ || \
                 t == TOK_DIV_EQ || \
-                t == TOK_SUB_EQ
-#define is_keyword(t) \
+                t == TOK_SUB_EQ)
+#define is_keyword(t) (\
                 t == TOK_FOR || \
                 t == TOK_WHILE || \
-                t == TOK_IF
-#define is_op(c) \
-        c == '+' || \
-        c == '-' || \
-        c == '/' || \
-        c == '*'
-#define filled(type) type == TOK_NUM || type == TOK_ID
+                t == TOK_IF)
+#define is_op(t) (\
+                t == TOK_B_AND || \
+                t == TOK_B_OR || \
+                t == TOK_B_XOR || \
+                t == TOK_ADD || \
+                t == TOK_MUL || \
+                t == TOK_DIV || \
+                t == TOK_SUB)
+#define filled(type) (type == TOK_NUM || type == TOK_ID)
 
 Error program(char* string, long file_size) {
     printf("here with content:\n%s\n", string);
-    Token* program_tok = new_token(TOK_PROGRAM);
+    TokenNode* program_node = new_token_node(new_token(TOK_PROGRAM));
     Tokenizer* t = new_tokenizer(string);
     Vec* id_list = new_vec(10);
     // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
     while (strlen(t->string) > 0) { // Infinite loop
-        Error declare_result = declare(t, program_tok, id_list);
+        Error declare_result = declare(t, program_node, id_list);
         if (declare_result == ERR_NOT) {
             reset_tokenizer(t);
-            Error expression_result = expr(t, program_tok, id_list);
+            Error expression_result = expr(t, program_node, id_list);
             if (expression_result == ERR_NOT) {
                 reset_tokenizer(t);
-                Error statement_result = statement(t, program_tok, id_list);
+                Error statement_result = statement(t, program_node, id_list);
                 if (statement_result == ERR_NOT) {
                     printf("Expected Declaration, Statement or Expression");
                 } return statement_result;
@@ -72,7 +75,7 @@ Error assign(args()) {
         Token* change_tok = get_next_token(t);
         if (is_change_tok(change_tok->type)) {
             TokenNode* change_node = new_token_node(change_tok);
-            push_vec(assign_node, change_node);
+            push_vec(assign_node->children, change_node);
             Error expr_result = expr(t, assign_node, id_list);
             if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
             else if (expr_result == ERR_NONE)
@@ -86,10 +89,10 @@ Error assign(args()) {
 Error var_id(args()) {
     printf("started variable iding\n");
     Token* id_tok = get_next_token(t);
-    if (id_tok == TOK_ID) {
+    if (id_tok->type == TOK_ID) {
         if (!kwck(id_tok->value)) {
             if (!idck(id_list, id_tok->value)) {
-                printf("new id: %s\n", id_tok->value);
+                printf("new id: %s\n", (char*)id_tok->value);
                 push_vec(id_list, id_tok->value);
             }
             TokenNode* id_node = new_token_node(id_tok);
@@ -112,11 +115,12 @@ Error var_id(args()) {
 
 // Parses expressions cleverly, by splitting values and operations up
 Error expr(args()) {
-    Vec* expr = format_expression(t, id_list);
-    if (get_vec(expr, 0) == ERR_NOT)
-        return ERR_NOT;
-    Vec* ops = get_vec(expr, 1);
-    Vec* vals = get_vec(expr, 2);
+    Vec* expr = new_vec(10);
+    Error expr_result = format_expression(t, id_list, expr);
+    if (expr_result == ERR_NOT)
+        return ERR_EXPECTED_EXPR;
+    Vec* ops = get_vec(expr, 0);
+    Vec* vals = get_vec(expr, 1);
     Error op_tree_result = op_expr(parent, ops, 0);
     Error val_expr_result = val_expr(parent, vals, 0, id_list);
     if (op_tree_result == ERR_NONE)
@@ -128,12 +132,13 @@ Error expr(args()) {
 Error op_expr(TokenNode* parent, Vec* ops, int i) {
     if (ops->len == i)
         return ERR_NONE;
-    Token* op_tok = new_token(get_vec(ops, i));
-    push_vec(parent->children, op_tok);
+    Token* op_tok = get_vec(ops, i);
+    TokenNode* op_node = new_token_node(op_tok);
+    push_vec(parent->children, op_node);
     if (parent->children->len - 1 == 0)
         return op_expr(parent, ops, i + 1);
     else if (parent->children->len - 1 == 1)
-        return op_expr(op_tok, ops, i + 1);
+        return op_expr(op_node, ops, i + 1);
     else return ERR_FORMATTED_AST_WRONG;
 }
 
@@ -174,29 +179,23 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
     return ERR_NONE;
 }
 
-// Forgot that values are actually their own strings
-Vec* format_expression(Tokenizer* t, Vec* id_list) {
-    // Rewrite as ops first
-    Vec* ret = new_vec(10);
+// Modifies ret_buff like a return value
+Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
     Token* tok = get_next_token(t);
-    
-    // Both of these are TokTypes
+    // Both of these are Tokens
     Vec* ops;
     Vec* values;
-    while (line_left(t)) {
-        if (is_op(tok->type)) 
+    while (tok->type != TOK_SEMI) {
+        if (is_op(tok->type))
             push_vec(ops, tok);
-        else if(idck(id_list, tok)) push_vec(values, tok); // change to else if
-        else {
-            push_vec(ret, ERR_NONE);
-            return ret;
-        }
+        else if ((tok->type == TOK_ID && idck(id_list, tok->value)) || (tok->type == TOK_NUM))
+            push_vec(values, tok);
+        else return ERR_NOT;
         tok = get_next_token(t);
     }
-    push_vec(ret, ERR_NONE);
-    push_vec(ret, ops);
-    push_vec(ret, values);
-    return ret;
+    push_vec(ret_buff, ops);
+    push_vec(ret_buff, values);
+    return ERR_NONE;
 }
 
 Error statement(args()) {
@@ -249,12 +248,12 @@ Error conditional(args()) {
 Error while_loop(args()) {
     Token* tok = new_token(TOK_WHILE);
     TokenNode* node = new_token_node(tok);
-    if (get_next_token(t) == TOK_O_PAREN ) {
-        Error condition_result = condition(t, node, id_list);
+    if (get_next_token(t)->type == TOK_O_PAREN ) {
+        Error condition_result = conditional(t, node, id_list);
         if (condition_result != ERR_NONE)
             return condition_result;
     } else return ERR_MISSING_O_PARAEN;
-    if (get_next_token(t) == TOK_C_PAREN)
+    if (get_next_token(t)->type == TOK_C_PAREN)
         return ERR_NONE;
     else return ERR_MISSING_C_PARAEN;
     // check for every possible thing here and append it to the while token
@@ -266,21 +265,24 @@ Error for_loop(args()) {
     if (get_next_token(t)->type == TOK_O_PAREN) {
         Error declare_result = declare(t, node, id_list);
         if (declare_result == ERR_NONE) {
-            if (get_next_token(t)->type == TOK_SEMI) {
-                Error condition_result = condition(t, node, id_list);
+            if (get_next_token(t)->type == TOK_SEMI) { 
+                // This might be a problem with paratheses becoming madatory around for loop conditions, refactor later to assure this doesn't happen
+                Error condition_result = conditional(t, node, id_list);
                 if (condition_result == ERR_NONE) {
                     if (get_next_token(t)->type == TOK_SEMI) {
                         Token* incr_token = get_next_token(t);
                         if (incr_token->type == TOK_ID  && strcmp(incr_token->value, get_vec(id_list, id_list->len))) {
                             TokenNode* incr_node = new_token_node(incr_token);
                             push_vec(node->children, incr_node);
-                        }
+                            // Todo: Write and call function to get stuff inside for loop
+                            return ERR_NONE; // Placeholder
+                        } else return ERR_EXPECTED_EXPR;
                     } else return ERR_MISSING_SEMICOLON;
                 } else return condition_result;
             } else return ERR_MISSING_SEMICOLON;
         } else return declare_result;
     } else return ERR_EXPECTED_CONDITION;
-    if (get_next_token(t) == TOK_C_PAREN)
+    if (get_next_token(t)->type == TOK_C_PAREN)
         return ERR_NONE;
 }
 
@@ -294,21 +296,14 @@ int multidlen(char** arr) {
 }
 TokenNode* new_token_node(Token* tok) {
     TokenNode* node = malloc(sizeof(TokenNode));
-    node->token = tok;    
+    node->token = tok;
+    return node;
 }
 
 void free_token_node(TokenNode* node) {
     free_token(node->token);
     free(node->children);
     free(node);
-}
-
-int idck(Vec* id_list, char* word) {
-    for (int i = 0; i < id_list->len; i++) {
-        if (strcmp(word, (char*)get_vec(id_list, i)) == 0)
-            return 1;
-    }
-    return 0;
 }
 
 void print_token_node(TokenNode* tok) {

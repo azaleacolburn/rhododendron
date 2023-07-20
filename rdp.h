@@ -25,19 +25,15 @@ Error op_expr(TokenNode* parent, Vec* ops, int i);
 
 Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list);
 
-Vec* format_expression(Tokenizer* t, Vec* id_list);
+Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff);
 
 Error statement(Tokenizer* t, TokenNode* parent, Vec* id_list);
 
 Error conditional(Tokenizer* t, TokenNode* parent, Vec* id_list);
 
-Error condition(Tokenizer* t, TokenNode* parent, Vec* id_list);
-
 Error while_loop(Tokenizer* t, TokenNode* parent, Vec* id_list);
 
 Error for_loop(Tokenizer* t, TokenNode* parent, Vec* id_list);
-
-
 
 int multidlen(char** arr);
 

@@ -12,7 +12,7 @@
 #define peek(s, i) s + i
 
 static char* delimiters = " \0";
-static char* keywords[7] = {"if", "for", "while", "(", ")"};
+static char* keywords[7] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
     char* str;  
@@ -29,11 +29,11 @@ Token* get_next_token(Tokenizer* t) {
 
 // Don't worry about syntax, just tokenize
 Token* str_to_tok(char* str_tok) {
-    
+
     Token* tok;
     TokType type;
     void* value;
-    char* kw = kwck(str_tok);
+    TokType kw = kwck(str_tok);
     if (is_num(*str_tok)) {
         type = TOK_NUM;
         value = &str_tok;
@@ -41,19 +41,17 @@ Token* str_to_tok(char* str_tok) {
     } else if (is_typename(str_tok)) {
         type = TOK_DECLARE;
         goto DONE;
+    }
     // } else if (idck(id_list, str_tok)) {
     //     type = TOK_ID;
     //     tok->type = str_tok;
     //     goto DONE;
-    } else if (strcmp(str_tok, "==") == 0) {
-        type = TOK_EQ_CMP;
-        goto DONE;
-    } else if (kw != NULL) {
-        if (strcmp(kw, "if")) {
+    else if (kw != TOK_NONE) {
+        if (kw == TOK_IF) {
             type = TOK_IF;
-        } else if (strcmp(kw, "while")) {
+        } else if (kw == TOK_WHILE) {
             type = TOK_WHILE;
-        } else if (strcmp(kw, "for")) {
+        } else if (kw == TOK_FOR) {
             type = TOK_FOR;
         }
         goto DONE;
