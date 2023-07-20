@@ -34,7 +34,7 @@ Token* str_to_tok(char* str_tok) {
     TokType type;
     void* value;
     char* kw = kwck(str_tok);
-    if (is_num(str_tok)) {
+    if (is_num(*str_tok)) {
         type = TOK_NUM;
         value = &str_tok;
         goto DONE;
@@ -49,11 +49,11 @@ Token* str_to_tok(char* str_tok) {
         type = TOK_EQ_CMP;
         goto DONE;
     } else if (kw != NULL) {
-        if (kw == "if") {
+        if (strcmp(kw, "if")) {
             type = TOK_IF;
-        } else if (kw == "while") {
+        } else if (strcmp(kw, "while")) {
             type = TOK_WHILE;
-        } else if (kw == "for") {
+        } else if (strcmp(kw, "for")) {
             type = TOK_FOR;
         }
         goto DONE;
@@ -71,57 +71,57 @@ Token* str_to_tok(char* str_tok) {
             consume_line(str_tok);
             break; 
         case '|':
-            if (*peek(str_tok, 1) == '=') {
+            if (*(char*)peek(str_tok, 1) == '=') {
                 type = TOK_B_OR_EQ;
             }
             type = TOK_B_OR;
             break;
         case '&':
-            if (*peek(str_tok, 1) == '=') {
+            if (*(char*)peek(str_tok, 1) == '=') {
                 type = TOK_B_AND_EQ;
             }
             type = TOK_B_AND;
             break;
         case '^':
-            if (*peek(str_tok, 1) == '=') {
+            if (*(char*)peek(str_tok, 1) == '=') {
                 type = TOK_B_XOR_EQ;
             }
             type = TOK_B_XOR;
             break;
         case '!':
-            if (*peek(str_tok, 1) == '=') {
+            if (*(char*)peek(str_tok, 1) == '=') {
                 type = TOK_NEQ_CMP;
             } else {
                 type = TOK_NOT;
             }
             break;
         case '-':
-            if (peek(str_tok, 1) == '=') {
-                tok = TOK_SUB_EQ;
+            if (*(char*)peek(str_tok, 1) == '=') {
+                type = TOK_SUB_EQ;
                 break;
             }
-            tok = TOK_SUB;
+            type = TOK_SUB;
             break;
         case '+':
-            if (peek(str_tok, 1) == '=') {
-                tok = TOK_ADD_EQ;
+            if (*(char*)peek(str_tok, 1) == '=') {
+                type = TOK_ADD_EQ;
                 break;
             }
-            tok = TOK_ADD;
+            type = TOK_ADD;
             break;
         case '/':
-            if (peek(str_tok, 1) == '=') {
-                tok = TOK_DIV_EQ;
+            if (*(char*)peek(str_tok, 1) == '=') {
+                type = TOK_DIV_EQ;
                 break;
             }
-            tok = TOK_DIV;
+            type = TOK_DIV;
             break;
         case '*':
-            if (peek(str_tok, 1) == '=') {
-                tok = TOK_MUL_EQ;
+            if (*(char*)peek(str_tok, 1) == '=') {
+                type = TOK_MUL_EQ;
                 break;
             }
-            tok = TOK_DIV;
+            type = TOK_DIV;
             break;
     }
     DONE:
@@ -136,7 +136,7 @@ int line_left(Tokenizer* t) {
     int len = strlen(t->string);
     if (len > 0) {
         for (int i = 0; i < len; i++) {
-            if ((!t->string[i] == '\n' || !t->string == ';') && i >= 1) {
+            if ((!(t->string[i] == '\n') || !(t->string[i] == ';')) && (i >= 1)) {
                 return 1;
             }
         }
@@ -194,55 +194,6 @@ TokType kwck(char* word) {
     return TOK_NONE;
 }
 
-void print_tok(TokType type) {
-    switch (type) {
-        case TOK_PROGRAM:
-            printf("Program\n");
-            break;
-        case TOK_DECLARE:
-            printf("Delcaration\n");
-            break;
-        case TOK_NUM:
-            printf("Num\n");
-            break;
-        case TOK_ADD:
-            printf("+\n");
-            break;
-        case TOK_MUL:
-            printf("*\n");
-            break;
-        case TOK_SUB:
-            printf("-\n");
-            break;
-        case TOK_DIV:
-            printf("/\n");
-            break;
-        case TOK_ASSIGN:
-            printf("Assignment\n");
-            break;
-        case TOK_ID:
-            printf("Id\n");
-            break;
-        case TOK_STATEMENT:
-            printf("Statement\n");
-            break;
-        case TOK_CONDITION:
-            printf("Condition\n");
-            break;
-        case TOK_EQ_CMP:
-            printf("==\n");
-            break;
-        case TOK_NEQ_CMP:
-            printf("!=\n");
-        case TOK_WHILE:
-            printf("While\n");
-            break;
-        case TOK_FOR:
-            printf("For\n");
-            break;
-    }
-}
-
 int idck(Vec* id_list, char* word) {
     for (int i = 0; i < id_list->len; i++) {
         if (strcmp(word, (char*)get_vec(id_list, i)) == 0)
@@ -256,4 +207,5 @@ void consume_line(char* str) {
     do {
         str++;
     } while (*str != '\n');
+    str++;
 }

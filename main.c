@@ -25,10 +25,10 @@ Vec* readFile(char* path)
 
 void test_tokenizer() {
     Tokenizer* t = new_tokenizer("first second third fourth");
-    printf("%s\n", get_next_token(t));
-    printf("%s\n", get_next_token(t));
-    printf("%s\n", get_next_token(t));
-    printf("%s\n", get_next_token(t));
+    print_token(get_next_token(t));
+    print_token(get_next_token(t));
+    print_token(get_next_token(t));
+    print_token(get_next_token(t));
     
     free_tokenizer(t);
 }

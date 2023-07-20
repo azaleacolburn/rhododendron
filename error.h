@@ -12,7 +12,9 @@ typedef enum Error {
     ERR_EXPECTED_ASSIGNMENT,
     ERR_FORMATTED_AST_WRONG,
     ERR_EXEPCTED_ID,
-    ERR_MISSING_O_PARAENTHESES
+    ERR_MISSING_O_PARAEN,
+    ERR_MISSING_C_PARAEN,
+    ERR_MISSING_SEMICOLON
 } Error;
 
 char* error_message(Error err);

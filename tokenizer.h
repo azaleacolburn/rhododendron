@@ -8,6 +8,8 @@ typedef struct Tokenizer {
 
 Token* get_next_token(Tokenizer* t);
 
+Token* str_to_tok(char* str_tok);
+
 // 1 if there are more tokens
 // 0 if there aren't
 int has_more_tokens(Tokenizer* t);
@@ -28,3 +30,5 @@ char* str_remove(char* str, int start_index, int end_index);
 TokType kwck(char* word);
 
 int idck(Vec* id_list, char* word);
+
+void consume_line(char* str);

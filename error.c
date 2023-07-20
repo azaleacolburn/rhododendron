@@ -28,5 +28,13 @@ char* error_message(Error err) {
             return "Expected a assignment, maybe you forgot a '='";
         case ERR_FORMATTED_AST_WRONG:
             return "Internal expression parsing problem";
+        case ERR_EXEPCTED_ID:
+            return "Expected identifier";
+        case ERR_MISSING_O_PARAEN:
+            return "Missing '('";
+        case ERR_MISSING_C_PARAEN:
+            return "Missing ')'";
+        case ERR_MISSING_SEMICOLON:
+            return "Missing ';'";
     }
 }

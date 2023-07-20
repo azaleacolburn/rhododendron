@@ -33,8 +33,14 @@ Error conditional(Tokenizer* t, TokenNode* parent, Vec* id_list);
 
 Error condition(Tokenizer* t, TokenNode* parent, Vec* id_list);
 
-Error loop(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error while_loop(Tokenizer* t, TokenNode* parent, Vec* id_list);
+
+Error for_loop(Tokenizer* t, TokenNode* parent, Vec* id_list);
+
+
 
 int multidlen(char** arr);
 
-void print_token(TokenNode* tok);
+void print_token_node(TokenNode* tok);
+
+TokenNode* new_token_node(Token* tok);
