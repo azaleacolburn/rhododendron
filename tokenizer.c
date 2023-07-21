@@ -6,20 +6,23 @@
 #define is_num(c) ((c) >= '0' && (c) <= '9')
 #define is_letter(c) ((c) <= 'a' && (c) <= 'z' || (c) >= 'A' && (c) <= 'Z')
 #define is_typename(s) (is_char(s) || is_int(s))
-#define is_char(s) (strcmp(s, "char"))
-#define is_int(s) (strcmp(s, "int"))
+#define is_char(s) (strcmp(s, "char") == 0)
+#define is_int(s) (strcmp(s, "int") == 0)
 #define is_expr(t) (t == TOK_ADD, t == TOK_DIV, t == TOK_SUB, t == TOK_MUL, t == TOK_NUM, t == TOK_ID)
 #define peek(s, i) s + i
 
 static char* delimiters = " \0";
-static char* keywords[7] = {"if", "for", "while"};
+static char* keywords[3] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
     char* str;  
     printf("tokenizer string:\n%s\n", t->string);
+    printf("made it here3\n");
     for (int i = 0; i < strlen(t->string); i++) {
         if (check_delimeter(t->string[i])) {
+            printf("made it here1\n");
             str = str_remove(t->string, 0, i);
+            printf("made it here\n");
             return str_to_tok(str);
         }
     }
@@ -29,7 +32,7 @@ Token* get_next_token(Tokenizer* t) {
 
 // Don't worry about syntax, just tokenize
 Token* str_to_tok(char* str_tok) {
-
+    printf("%s\n", str_tok);
     Token* tok;
     TokType type;
     void* value;
@@ -122,6 +125,10 @@ Token* str_to_tok(char* str_tok) {
             type = TOK_DIV;
             break;
     }
+    if (!type) {
+        printf("FAILURE\n");
+        *(int*) 0; // purposeful segfault uwu
+    }
     DONE:
     tok = new_token(type);
     tok->value = value;
@@ -184,9 +191,10 @@ char* str_remove(char* str, int start_index, int end_index) {
 }
 
 TokType kwck(char* word) {
-    for (int i = 0; i < 7; i++) {
+    printf("kwck\n");
+    for (int i = 0; i < 3; i++) {
         if (strcmp(word, keywords[i]) == 0) {
-            return i + 1;
+            return i + 1; // This is a clever idea done wrong
         }
     }
     return TOK_NONE;
@@ -206,4 +214,19 @@ void consume_line(char* str) {
         str++;
     } while (*str != '\n');
     str++;
+}
+
+// Gets next token without consuming it(maybe)
+Token* peek_tok(Tokenizer* t) {
+    char str[100]; // tokens over size 10 beware  
+    printf("tokenizer string:\n%s\n", t->string);
+    for (int i = 0; i < strlen(t->string); i++) {
+        if (check_delimeter(t->string[i])) {
+            strncpy(str, t->string, (size_t)i);
+            printf("fixed\n");
+            return str_to_tok(str);
+        }
+    }
+    printf("Tokenizer string ran out\n");
+    return NULL;
 }

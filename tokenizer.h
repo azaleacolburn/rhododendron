@@ -32,3 +32,5 @@ TokType kwck(char* word);
 int idck(Vec* id_list, char* word);
 
 void consume_line(char* str);
+
+Token* peek_tok(Tokenizer* t);

@@ -4,8 +4,7 @@
 #include<stdbool.h>
 #include"rdp.h"
 
-#define args() Tokenizer *t, TokenNode* parent, Vec* id_list
-#define is_change_tok(t) (\
+#define is_change_tok(t) ( \
                 t == TOK_B_AND_EQ || \
                 t == TOK_B_OR_EQ || \
                 t == TOK_B_XOR_EQ || \
@@ -13,11 +12,11 @@
                 t == TOK_MUL_EQ || \
                 t == TOK_DIV_EQ || \
                 t == TOK_SUB_EQ)
-#define is_keyword(t) (\
+#define is_keyword(t) ( \
                 t == TOK_FOR || \
                 t == TOK_WHILE || \
                 t == TOK_IF)
-#define is_op(t) (\
+#define is_op(t) ( \
                 t == TOK_B_AND || \
                 t == TOK_B_OR || \
                 t == TOK_B_XOR || \
@@ -35,18 +34,8 @@ Error program(char* string, long file_size) {
     // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
     while (strlen(t->string) > 0) { // Infinite loop
-        Error declare_result = declare(t, program_node, id_list);
-        if (declare_result == ERR_NOT) {
-            reset_tokenizer(t);
-            Error expression_result = expr(t, program_node, id_list);
-            if (expression_result == ERR_NOT) {
-                reset_tokenizer(t);
-                Error statement_result = statement(t, program_node, id_list);
-                if (statement_result == ERR_NOT) {
-                    printf("Expected Declaration, Statement or Expression");
-                } return statement_result;
-            } return expression_result;
-        } else return declare_result;
+        Error result = program_check(t, program_node, id_list);
+        return result;
     }
     return ERR_NOT;
 }
@@ -57,6 +46,7 @@ Error declare(args()) {
     printf("after getting token\n");
     if (tok->type == TOK_DECLARE) {
         TokenNode* dec_tok = new_token_node(tok);
+        printf("test\n");
         push_vec(parent->children, dec_tok);
         printf("Declaration found and token pushed to tree\n");
         Error assignment_result = assign(t, dec_tok, id_list);
@@ -68,8 +58,7 @@ Error declare(args()) {
 }
 
 Error assign(args()) {
-    Token* tok = get_next_token(t);
-    TokenNode* assign_node = new_token_node(tok);
+    TokenNode* assign_node = new_token_node(new_token(TOK_ASSIGN));
     Error var_id_result = var_id(t, assign_node, id_list);
     if (var_id_result == ERR_NONE) {
         Token* change_tok = get_next_token(t);
@@ -89,6 +78,8 @@ Error assign(args()) {
 Error var_id(args()) {
     printf("started variable iding\n");
     Token* id_tok = get_next_token(t);
+    // print_token(id_tok);
+    printf("%d\n", id_tok->type);
     if (id_tok->type == TOK_ID) {
         if (!kwck(id_tok->value)) {
             if (!idck(id_list, id_tok->value)) {
@@ -199,20 +190,20 @@ Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
 }
 
 Error statement(args()) {
-    TokType parent_type = parent->token->type;
     Error result;
     Token* statement_tok = new_token(TOK_STATEMENT);
+    TokenNode* statement_node = new_token_node(statement_tok);
     Token* tok = get_next_token(t);
     if (tok->type == TOK_IF) {
-        result = conditional(t, parent, id_list);
+        result = conditional(t, statement_node, id_list);
         if (result != ERR_NONE)
             return result;
     } else if (tok->type == TOK_WHILE) {
-        result = while_loop(t, parent, id_list);
+        result = while_loop(t, statement_node, id_list);
         if (result != ERR_NONE)
             return result;
     } else if (tok->type == TOK_FOR) {
-        result = for_loop(t, parent, id_list);
+        result = for_loop(t, statement_node, id_list);
         if (result != ERR_NONE)
             return result;
     }
@@ -259,6 +250,8 @@ Error while_loop(args()) {
     // check for every possible thing here and append it to the while token
 }
 
+
+// This is a mess, please refactor at all costs
 Error for_loop(args()) {
     Token* tok = new_token(TOK_FOR);
     TokenNode* node = new_token_node(tok);
@@ -274,8 +267,7 @@ Error for_loop(args()) {
                         if (incr_token->type == TOK_ID  && strcmp(incr_token->value, get_vec(id_list, id_list->len))) {
                             TokenNode* incr_node = new_token_node(incr_token);
                             push_vec(node->children, incr_node);
-                            // Todo: Write and call function to get stuff inside for loop
-                            return ERR_NONE; // Placeholder
+                            return program_check(t, parent, id_list);
                         } else return ERR_EXPECTED_EXPR;
                     } else return ERR_MISSING_SEMICOLON;
                 } else return condition_result;
@@ -286,17 +278,35 @@ Error for_loop(args()) {
         return ERR_NONE;
 }
 
-int multidlen(char** arr) {
-    int i = 0;
-    while (arr != NULL) {
-        arr++;
-        i++;
+// Make sure you're passing in the right parent
+// This will check for expr and statements
+Error program_check(args()) {
+    // Don't get token, peek forward
+    Token* tok = peek_tok(t);
+    printf("testish\n");
+    if (is_keyword(tok->type)) {
+        Error statement_result = statement(t, parent, id_list);
+        if (statement_result == ERR_NOT)
+            return ERR_EXPECTED_STATEMENT;
+        else return statement_result;
+    } else if (tok->type == TOK_DECLARE) {
+        Error declare_result = declare(t, parent, id_list);
+        if (declare_result == ERR_NOT)
+            return ERR_EXPECTED_DECLARATION;
+        else return declare_result;
+    } else if (tok->type == TOK_ID) {
+        Error assign_result = assign(t, parent, id_list);
+        if (assign_result == ERR_NOT)
+            return ERR_EXPECTED_ASSIGNMENT;
+        else return assign_result;
     }
-    return i;
+    else return ERR_NOT;
 }
+
 TokenNode* new_token_node(Token* tok) {
     TokenNode* node = malloc(sizeof(TokenNode));
     node->token = tok;
+    node->children = new_vec(10);
     return node;
 }
 

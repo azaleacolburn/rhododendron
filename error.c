@@ -36,5 +36,9 @@ char* error_message(Error err) {
             return "Missing ')'";
         case ERR_MISSING_SEMICOLON:
             return "Missing ';'";
+        case ERR_EXPECTED_STATEMENT:
+            return "Expected statement";
+        case ERR_EXPECTED_DECLARATION:
+            return "Expected variable declaration";
     }
 }

@@ -1,6 +1,8 @@
 #include"error.h"
 #include"tokenizer.h"
 
+#define args() Tokenizer *t, TokenNode* parent, Vec* id_list
+
 typedef struct TokenNode {
     Token* token;
     Vec* children;
@@ -13,13 +15,13 @@ typedef enum Types {
 
 Error program(char* strin, long file_size);
 
-Error declare(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error declare(args());
 
-Error assign(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error assign(args());
 
-Error var_id(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error var_id(args());
 
-Error expr(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error expr(args());
 
 Error op_expr(TokenNode* parent, Vec* ops, int i);
 
@@ -27,13 +29,15 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list);
 
 Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff);
 
-Error statement(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error statement(args());
 
-Error conditional(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error conditional(args());
 
-Error while_loop(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error while_loop(args());
 
-Error for_loop(Tokenizer* t, TokenNode* parent, Vec* id_list);
+Error for_loop(args());
+
+Error program_check(args());
 
 int multidlen(char** arr);
 
