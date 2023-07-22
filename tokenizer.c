@@ -37,7 +37,7 @@ Token* str_to_tok(char* str_tok) {
     TokType kw = kwck(str_tok);
     if (is_num(*str_tok)) {
         type = TOK_NUM;
-        value = &str_tok;
+        value = str_tok;
         goto DONE;
     } else if (is_typename(str_tok)) {
         type = TOK_DECLARE;
