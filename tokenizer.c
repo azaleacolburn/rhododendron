@@ -15,14 +15,12 @@ static char* delimiters = " \0";
 static char* keywords[3] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
-    char* str;  
+    char* str;
     printf("tokenizer string:\n%s\n", t->string);
-    printf("made it here3\n");
     for (int i = 0; i < strlen(t->string); i++) {
         if (check_delimeter(t->string[i])) {
-            printf("made it here1\n");
             str = str_remove(t->string, 0, i);
-            printf("made it here\n");
+            printf("str_token: %s\n", str);
             return str_to_tok(str);
         }
     }
@@ -34,7 +32,7 @@ Token* get_next_token(Tokenizer* t) {
 Token* str_to_tok(char* str_tok) {
     printf("%s\n", str_tok);
     Token* tok;
-    TokType type;
+    TokType type = TOK_NONE;
     void* value;
     TokType kw = kwck(str_tok);
     if (is_num(*str_tok)) {
@@ -60,6 +58,7 @@ Token* str_to_tok(char* str_tok) {
         goto DONE;
     }
     // Check for special characters
+    printf("str_tok: %c\n", *str_tok);
     switch (*str_tok) {
         case '(':
             type = TOK_O_PAREN;
@@ -70,65 +69,76 @@ Token* str_to_tok(char* str_tok) {
         case ';':
             // This needs to be fixed
             consume_line(str_tok);
-            break; 
+            break;
+        case '=':
+            if (str_tok[1] == '=') {
+                type = TOK_EQ_CMP;
+            }
+            type = TOK_EQ;
+            break;
         case '|':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            printf("or\n");
+            if (str_tok[1] == '=') {
                 type = TOK_B_OR_EQ;
             }
             type = TOK_B_OR;
             break;
         case '&':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            if (str_tok[1] == '=') {
                 type = TOK_B_AND_EQ;
             }
             type = TOK_B_AND;
             break;
         case '^':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            if (str_tok[1] == '=') {
                 type = TOK_B_XOR_EQ;
             }
             type = TOK_B_XOR;
             break;
         case '!':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            if (str_tok[1] == '=') {
                 type = TOK_NEQ_CMP;
             } else {
                 type = TOK_NOT;
             }
             break;
         case '-':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            if (str_tok[1] == '=') {
                 type = TOK_SUB_EQ;
                 break;
             }
             type = TOK_SUB;
             break;
         case '+':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            if (str_tok[1] == '=') {
                 type = TOK_ADD_EQ;
                 break;
             }
             type = TOK_ADD;
             break;
         case '/':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            if (str_tok[1] == '=') {
                 type = TOK_DIV_EQ;
                 break;
             }
             type = TOK_DIV;
             break;
         case '*':
-            if (*(char*)peek(str_tok, 1) == '=') {
+            if (str_tok[1] == '=') {
                 type = TOK_MUL_EQ;
                 break;
             }
             type = TOK_DIV;
             break;
     }
-    if (!type) {
-        printf("FAILURE\n");
-        *(int*) 0; // purposeful segfault uwu
+    if (type == TOK_NONE) {
+        type = TOK_ID;
+        value = str_tok;
     }
+    // if (!type) {
+    //     printf("FAILURE\n");
+    //     *(int*) 0; // purposeful segfault uwu
+    // }
     DONE:
     tok = new_token(type);
     tok->value = value;
@@ -191,7 +201,7 @@ char* str_remove(char* str, int start_index, int end_index) {
 }
 
 TokType kwck(char* word) {
-    printf("kwck\n");
+    // printf("kwck\n");
     for (int i = 0; i < 3; i++) {
         if (strcmp(word, keywords[i]) == 0) {
             return i + 1; // This is a clever idea done wrong
@@ -212,7 +222,7 @@ int idck(Vec* id_list, char* word) {
 void consume_line(char* str) {
     do {
         str++;
-    } while (*str != '\n');
+    } while (*str != '\n'); 
     str++;
 }
 

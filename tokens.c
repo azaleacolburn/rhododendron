@@ -18,6 +18,9 @@ void print_tok_type(TokType type) {
             p = "+=";
             break;
         case TOK_ASSIGN: // should this even exist
+            p = "assignment";
+            break;
+        case TOK_EQ:
             p = "=";
             break;
         case TOK_B_AND:

@@ -11,7 +11,7 @@ char* error_message(Error err) {
         case ERR_ARITHMETIC_OPERATOR:
             return "Arithmetic operator error, supported operators: +, -, *, /";
         case ERR_KEYWORD_PLACEMENT:
-            return "Expected expression, found keyword";
+            return "Unexpected keyword";
         case ERR_NONE:
             return "No Error";
         case ERR_NOT:

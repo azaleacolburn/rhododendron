@@ -11,7 +11,8 @@
                 t == TOK_ADD_EQ || \
                 t == TOK_MUL_EQ || \
                 t == TOK_DIV_EQ || \
-                t == TOK_SUB_EQ)
+                t == TOK_SUB_EQ) || \
+                t == TOK_EQ
 #define is_keyword(t) ( \
                 t == TOK_FOR || \
                 t == TOK_WHILE || \
@@ -60,9 +61,12 @@ Error declare(args()) {
 Error assign(args()) {
     TokenNode* assign_node = new_token_node(new_token(TOK_ASSIGN));
     Error var_id_result = var_id(t, assign_node, id_list);
+    printf("assign\n");
     if (var_id_result == ERR_NONE) {
         Token* change_tok = get_next_token(t);
+        print_tok_type(change_tok->type);
         if (is_change_tok(change_tok->type)) {
+            printf("change\n");
             TokenNode* change_node = new_token_node(change_tok);
             push_vec(assign_node->children, change_node);
             Error expr_result = expr(t, assign_node, id_list);
@@ -70,7 +74,10 @@ Error assign(args()) {
             else if (expr_result == ERR_NONE)
                 push_vec(parent->children, assign_node);
             return expr_result;
-        } else return ERR_NOT;
+        } else {
+            printf("NOT AN ASSIGNMENT, NOT AN ASSIGNMENT!!!\n");
+            return ERR_NOT;
+        }
     } else return var_id_result;
 }
 
@@ -81,7 +88,8 @@ Error var_id(args()) {
     // print_token(id_tok);
     printf("%d\n", id_tok->type);
     if (id_tok->type == TOK_ID) {
-        if (!kwck(id_tok->value)) {
+        printf("kwck\n");
+        if (kwck(id_tok->value) == TOK_NONE) {
             if (!idck(id_list, id_tok->value)) {
                 printf("new id: %s\n", (char*)id_tok->value);
                 push_vec(id_list, id_tok->value);
@@ -173,10 +181,13 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
 // Modifies ret_buff like a return value
 Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
     Token* tok = get_next_token(t);
+    printf("check\n");
     // Both of these are Tokens
     Vec* ops;
     Vec* values;
     while (tok->type != TOK_SEMI) {
+        printf("check1\n");
+        print_token(tok);
         if (is_op(tok->type))
             push_vec(ops, tok);
         else if ((tok->type == TOK_ID && idck(id_list, tok->value)) || (tok->type == TOK_NUM))
