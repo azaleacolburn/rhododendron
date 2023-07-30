@@ -5,6 +5,7 @@
 Token* new_token(TokType type) {
     Token* tok = malloc(sizeof(Token));
     tok->type = type;
+    tok->value = NULL;
     return tok;
 };
 

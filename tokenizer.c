@@ -16,9 +16,11 @@ static char* keywords[3] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
     char* str;
-    for (int i = 0; i < strlen(t->string); i++) {
+    // t->string[strlen(t->string) + 1] = '\0';
+    for (int i = 0; i < strlen(t->original); i++) {
         if (check_delimeter(t->string[i])) {
             str = str_remove(t->string, 0, i);
+            printf("str: %s\n", str);
             return str_to_tok(str);
         }
     }
@@ -34,7 +36,12 @@ Token* str_to_tok(char* str_tok) {
     TokType type = TOK_NONE;
     void* value;
     TokType kw = kwck(str_tok);
-    if (is_num(*str_tok)) {
+    int is_num = 1;
+    for (int i = 0; i < strlen(str_tok); i++) {
+        if (str_tok[i] != ';' && !is_num(str_tok[i]))
+            is_num = 0;
+    }
+    if (is_num == 1) {
         type = TOK_NUM;
         value = str_tok;
         goto DONE;
@@ -161,8 +168,11 @@ int line_left(Tokenizer* t) {
 
 Tokenizer* new_tokenizer(char* string) {
     Tokenizer* t = malloc(sizeof(Tokenizer));
-    t->string = malloc(sizeof(char) * strlen(string));
+    size_t len = strlen(string);
+    t->string = malloc(sizeof(char) * len);
+    t->original = malloc(sizeof(char) * len);
     strcpy(t->string, string);
+    strcpy(t->original, string);
     return t;
 }
 
@@ -192,8 +202,8 @@ int check_delimeter(char c) {
 char* str_remove(char* str, int start_index, int end_index) {
     if (start_index < end_index) {
         char* buff = malloc(sizeof(char) * (end_index - start_index));
-        strncpy(buff, str + start_index , end_index - start_index); // problem
-        memmove(&str[start_index - 1], &str[end_index], strlen(str) - start_index - 1);
+        strncpy(buff, str + start_index , end_index - start_index);
+        memmove(&str[start_index - 1], &str[end_index], strlen(str) - start_index);
         return buff;
     } else {
         printf("start index larger than end index\n");

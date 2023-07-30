@@ -27,6 +27,8 @@
                 t == TOK_SUB)
 #define filled(type) (type == TOK_NUM || type == TOK_ID)
 
+#define id_exists(tok) (tok->type == TOK_ID && idck(id_list, tok->value))
+
 Error program(char* string, long file_size) {
     printf("here with content:\n%s\n", string);
     TokenNode* program_node = new_token_node(new_token(TOK_PROGRAM));
@@ -34,7 +36,7 @@ Error program(char* string, long file_size) {
     Vec* id_list = new_vec(10);
     // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
-    while (strlen(t->string) > 0) { // Infinite loop
+    while (strlen(t->string) > 0) {
         Error result = program_check(t, program_node, id_list);
         return result;
     }
@@ -186,21 +188,19 @@ Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
     Vec* ops = new_vec(2);
     Vec* values = new_vec(2);
     while (tok->type != TOK_SEMI) {
-        printf("tok: ");
         print_token(tok);
         if (is_op(tok->type)) {
             printf("formatted op\n");
             push_vec(ops, tok);
             tok = get_next_token(t);
         }
-        else if ((tok->type == TOK_ID && idck(id_list, tok->value)) || (tok->type == TOK_NUM)) {
+        else if (id_exists(tok) || (tok->type == TOK_NUM)) {
             printf("formatted id\n");
             push_vec(values, tok);
             tok = get_next_token(t);
         }
         else {
             printf("not\n");
-            print_tok_type(tok->type);
             return ERR_NOT;
         }
     }
