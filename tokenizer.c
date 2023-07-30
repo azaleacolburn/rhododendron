@@ -16,21 +16,20 @@ static char* keywords[3] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
     char* str;
-    printf("tokenizer string:\n%s\n", t->string);
     for (int i = 0; i < strlen(t->string); i++) {
         if (check_delimeter(t->string[i])) {
             str = str_remove(t->string, 0, i);
-            printf("str_token: %s\n", str);
             return str_to_tok(str);
         }
     }
+    printf("string: %s\n", t->string);
     printf("Tokenizer string ran out\n");
-    return NULL;
+    return new_token(TOK_NONE);
 }
 
 // Don't worry about syntax, just tokenize
 Token* str_to_tok(char* str_tok) {
-    printf("%s\n", str_tok);
+    printf("str_token: %s\n", str_tok);
     Token* tok;
     TokType type = TOK_NONE;
     void* value;
@@ -67,8 +66,7 @@ Token* str_to_tok(char* str_tok) {
             type = TOK_C_PAREN;
             break;
         case ';':
-            // This needs to be fixed
-            consume_line(str_tok);
+            type = TOK_SEMI;
             break;
         case '=':
             if (str_tok[1] == '=') {
@@ -131,6 +129,8 @@ Token* str_to_tok(char* str_tok) {
             type = TOK_DIV;
             break;
     }
+    if (str_tok[strlen(str_tok) - 1] == ';')
+        type = TOK_SEMI;
     if (type == TOK_NONE) {
         type = TOK_ID;
         value = str_tok;
@@ -188,14 +188,15 @@ int check_delimeter(char c) {
     return 0;
 }
 
+// Doing something stupid here that adds semi-colons to the end
 char* str_remove(char* str, int start_index, int end_index) {
     if (start_index < end_index) {
-        char* ret = malloc(sizeof(char) * (end_index - start_index));
-        strncpy(ret, str + start_index , end_index - start_index); // problem
+        char* buff = malloc(sizeof(char) * (end_index - start_index));
+        strncpy(buff, str + start_index , end_index - start_index); // problem
         memmove(&str[start_index - 1], &str[end_index], strlen(str) - start_index - 1);
-        return ret;
+        return buff;
     } else {
-        printf("str_remove failed\n");
+        printf("start index larger than end index\n");
         return "";
     }
 }
@@ -218,13 +219,6 @@ int idck(Vec* id_list, char* word) {
     return 0;
 }
 
-// Leaks memory
-void consume_line(char* str) {
-    do {
-        str++;
-    } while (*str != '\n'); 
-    str++;
-}
 
 // Gets next token without consuming it(maybe)
 Token* peek_tok(Tokenizer* t) {
@@ -233,10 +227,9 @@ Token* peek_tok(Tokenizer* t) {
     for (int i = 0; i < strlen(t->string); i++) {
         if (check_delimeter(t->string[i])) {
             strncpy(str, t->string, (size_t)i);
-            printf("fixed\n");
             return str_to_tok(str);
         }
     }
-    printf("Tokenizer string ran out\n");
+    printf("No more tokens to peek through\n");
     return NULL;
 }

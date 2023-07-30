@@ -29,8 +29,14 @@ void set_vec(Vec* vec, void* item, size_t index) {
 }
 
 void push_vec(Vec* vec, void* item) {
-    if (vec->len + 1 >= vec->capacity)
+    // or maybe deref vec
+    if (vec == NULL) {
+        printf("null vec\n");
+        return;
+    }
+    if (vec->len + 1 >= vec->capacity) {
         realloc_vec(vec, vec->capacity * 2);
+    }
     vec->data[vec->len] = item;
     vec->len++;
 }

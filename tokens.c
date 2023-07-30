@@ -119,7 +119,8 @@ void print_tok_type(TokType type) {
 
 void print_token(Token* tok) {
     print_tok_type(tok->type);
-    printf("%s\n", (char*)tok->value);
+    if (tok->value != NULL)
+        printf("value: %s\n", (char*)tok->value);    
 };
 
 // Figure out how to check the contents of the vector. Maybe length. goto may lead to something

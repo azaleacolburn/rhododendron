@@ -180,21 +180,31 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
 
 // Modifies ret_buff like a return value
 Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
+    printf("STARTED EXPR FORMATTING\n");
     Token* tok = get_next_token(t);
-    printf("check\n");
     // Both of these are Tokens
-    Vec* ops;
-    Vec* values;
+    Vec* ops = new_vec(2);
+    Vec* values = new_vec(2);
     while (tok->type != TOK_SEMI) {
-        printf("check1\n");
+        printf("tok: ");
         print_token(tok);
-        if (is_op(tok->type))
+        if (is_op(tok->type)) {
+            printf("formatted op\n");
             push_vec(ops, tok);
-        else if ((tok->type == TOK_ID && idck(id_list, tok->value)) || (tok->type == TOK_NUM))
+            tok = get_next_token(t);
+        }
+        else if ((tok->type == TOK_ID && idck(id_list, tok->value)) || (tok->type == TOK_NUM)) {
+            printf("formatted id\n");
             push_vec(values, tok);
-        else return ERR_NOT;
-        tok = get_next_token(t);
+            tok = get_next_token(t);
+        }
+        else {
+            printf("not\n");
+            print_tok_type(tok->type);
+            return ERR_NOT;
+        }
     }
+    printf("found semi-colon\n");
     push_vec(ret_buff, ops);
     push_vec(ret_buff, values);
     return ERR_NONE;
