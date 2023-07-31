@@ -2,7 +2,7 @@
 #include"vector.h"
 
 typedef struct Tokenizer {
-    char* original;
+    size_t size; // Original size
     char* string;
 } Tokenizer;
 
@@ -18,7 +18,7 @@ Tokenizer* new_tokenizer(char* string);
 
 void free_tokenizer(Tokenizer* t);
 
-void reset_tokenizer(Tokenizer* t);
+// void reset_tokenizer(Tokenizer* t);
 
 // Params: string, buffer to be copied into, start and end indexed
 void slice(const char* str, char* result, size_t start, size_t end);
@@ -31,6 +31,6 @@ TokType kwck(char* word);
 
 int idck(Vec* id_list, char* word);
 
-void consume_line(char* str);
+// void consume_line(char* str);
 
 Token* peek_tok(Tokenizer* t);

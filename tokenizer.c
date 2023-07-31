@@ -1,6 +1,7 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
+#include<assert.h>
 #include"tokenizer.h"
 
 #define is_num(c) ((c) >= '0' && (c) <= '9')
@@ -17,14 +18,15 @@ static char* keywords[3] = {"if", "for", "while"};
 Token* get_next_token(Tokenizer* t) {
     char* str;
     // t->string[strlen(t->string) + 1] = '\0';
-    for (int i = 0; i < strlen(t->original); i++) {
+    for (int i = 0; i < t->size; i++) {
         if (check_delimeter(t->string[i])) {
             str = str_remove(t->string, 0, i);
             printf("str: %s\n", str);
+            printf("not run out string: %s\n", t->string);
             return str_to_tok(str);
         }
     }
-    printf("string: %s\n", t->string);
+    printf("run out string: %s\n", t->string);
     printf("Tokenizer string ran out\n");
     return new_token(TOK_NONE);
 }
@@ -34,7 +36,7 @@ Token* str_to_tok(char* str_tok) {
     printf("str_token: %s\n", str_tok);
     Token* tok;
     TokType type = TOK_NONE;
-    void* value;
+    void* value = NULL;
     TokType kw = kwck(str_tok);
     int is_num = 1;
     for (int i = 0; i < strlen(str_tok); i++) {
@@ -168,11 +170,14 @@ int line_left(Tokenizer* t) {
 
 Tokenizer* new_tokenizer(char* string) {
     Tokenizer* t = malloc(sizeof(Tokenizer));
-    size_t len = strlen(string);
-    t->string = malloc(sizeof(char) * len);
-    t->original = malloc(sizeof(char) * len);
-    strcpy(t->string, string);
-    strcpy(t->original, string);
+    // size_t len = strlen(string);
+    t->string = malloc(sizeof(string));
+    t->size = strlen(string);
+    // strcpy(t->string, string);
+    printf("new tokenizer string: %s\n", string);
+    strcpy(t->string, string); // Not the problem
+    // assert(strcmp(t->string, t->original) == 0);
+    printf("string: %s\n", t->string);
     return t;
 }
 
@@ -182,9 +187,9 @@ void free_tokenizer(Tokenizer* t) {
     t = NULL;
 }
 
-void reset_tokenizer(Tokenizer* t) {
-    strncpy(t->string, t->original, strlen(t->original));
-}
+// void reset_tokenizer(Tokenizer* t) {
+//     strncpy(t->string, t->original, strlen(t->original));
+// }
 
 // Params: string, buffer to be copied into, start and end indexed
 void slice(const char* str, char* result, size_t start, size_t end) {
