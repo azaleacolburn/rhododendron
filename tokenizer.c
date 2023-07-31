@@ -10,23 +10,21 @@
 #define is_char(s) (strcmp(s, "char") == 0)
 #define is_int(s) (strcmp(s, "int") == 0)
 #define is_expr(t) (t == TOK_ADD, t == TOK_DIV, t == TOK_SUB, t == TOK_MUL, t == TOK_NUM, t == TOK_ID)
-#define peek(s, i) s + i
 
-static char* delimiters = " \0";
+static char delimiters[2] = {' ', ';'};
 static char* keywords[3] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
     char* str;
-    // t->string[strlen(t->string) + 1] = '\0';
-    for (int i = 0; i < t->size; i++) {
+    for (int i = 0; i < strlen(t->string); i++) {
         if (check_delimeter(t->string[i])) {
             str = str_remove(t->string, 0, i);
             printf("str: %s\n", str);
-            printf("not run out string: %s\n", t->string);
+            printf("not run out string(post removal):\n%s\n", t->string);
             return str_to_tok(str);
         }
     }
-    printf("run out string: %s\n", t->string);
+    printf("run out string:\n%s\n", t->string);
     printf("Tokenizer string ran out\n");
     return new_token(TOK_NONE);
 }
@@ -144,10 +142,6 @@ Token* str_to_tok(char* str_tok) {
         type = TOK_ID;
         value = str_tok;
     }
-    // if (!type) {
-    //     printf("FAILURE\n");
-    //     *(int*) 0; // purposeful segfault uwu
-    // }
     DONE:
     tok = new_token(type);
     tok->value = value;
@@ -170,14 +164,10 @@ int line_left(Tokenizer* t) {
 
 Tokenizer* new_tokenizer(char* string) {
     Tokenizer* t = malloc(sizeof(Tokenizer));
-    // size_t len = strlen(string);
     t->string = malloc(sizeof(string));
-    t->size = strlen(string);
-    // strcpy(t->string, string);
-    printf("new tokenizer string: %s\n", string);
     strcpy(t->string, string); // Not the problem
-    // assert(strcmp(t->string, t->original) == 0);
-    printf("string: %s\n", t->string);
+    // memset(t->string + strlen(t->string), '\0', 1);
+    printf("new tokenizer string: %s\n", t->string);
     return t;
 }
 
@@ -186,10 +176,6 @@ void free_tokenizer(Tokenizer* t) {
     free(t);
     t = NULL;
 }
-
-// void reset_tokenizer(Tokenizer* t) {
-//     strncpy(t->string, t->original, strlen(t->original));
-// }
 
 // Params: string, buffer to be copied into, start and end indexed
 void slice(const char* str, char* result, size_t start, size_t end) {
@@ -205,11 +191,14 @@ int check_delimeter(char c) {
 
 // Doing something stupid here that adds semi-colons to the end
 char* str_remove(char* str, int start_index, int end_index) {
+    printf("si: %d, ei: %d", start_index, end_index);
     if (start_index < end_index) {
         char* buff = malloc(sizeof(char) * (end_index - start_index));
         strncpy(buff, str + start_index , end_index - start_index);
         memmove(&str[start_index - 1], &str[end_index], strlen(str) - start_index);
         return buff;
+    } else if (start_index == end_index) {
+        return "";
     } else {
         printf("start index larger than end index\n");
         return "";
@@ -217,7 +206,6 @@ char* str_remove(char* str, int start_index, int end_index) {
 }
 
 TokType kwck(char* word) {
-    // printf("kwck\n");
     for (int i = 0; i < 3; i++) {
         if (strcmp(word, keywords[i]) == 0) {
             return i + 1; // This is a clever idea done wrong
