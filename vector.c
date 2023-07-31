@@ -18,8 +18,7 @@ void* get_vec(Vec *vec, size_t n) {
     /* return some error value, i'm doing -1 here, 
      * std::Vec would throw an exception if using at() 
      * or have UB if using [] */
-    static int one = 1;
-    return &one;
+    return NULL;
 }
 
 void set_vec(Vec* vec, void* item, size_t index) {

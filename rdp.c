@@ -114,65 +114,79 @@ Error var_id(args()) {
 //         /          /
 //        2           5
 
-// Parses expressions cleverly, by splitting values and operations up
+// Parses expressions cleverly, by splitting vals_tokens and operations up
 Error expr(args()) {
     Vec* expr = new_vec(10);
     Error expr_result = format_expression(t, id_list, expr);
     if (expr_result == ERR_NOT)
         return ERR_EXPECTED_EXPR;
-    Vec* ops = get_vec(expr, 0);
+    Vec* ops_tokens = get_vec(expr, 0);
     Vec* vals = get_vec(expr, 1);
-    Error op_tree_result = op_expr(parent, ops, 0);
+    Error op_tree_result = op_expr(parent, ops_tokens, 0);
+    printf("expr\n");
     Error val_expr_result = val_expr(parent, vals, 0, id_list);
+    
     if (op_tree_result == ERR_NONE)
         return val_expr_result;
     else return op_tree_result;
 }
 
-// Builds a tree of ops
-Error op_expr(TokenNode* parent, Vec* ops, int i) {
-    if (ops->len == i)
+// Builds a tree of ops_tokens
+Error op_expr(TokenNode* parent, Vec* ops_tokens, int i) {
+    if (ops_tokens->len == i)
         return ERR_NONE;
-    Token* op_tok = get_vec(ops, i);
+    Token* op_tok = get_vec(ops_tokens, i);
     TokenNode* op_node = new_token_node(op_tok);
     push_vec(parent->children, op_node);
     if (parent->children->len - 1 == 0)
-        return op_expr(parent, ops, i + 1);
+        return op_expr(parent, ops_tokens, i + 1);
     else if (parent->children->len - 1 == 1)
-        return op_expr(op_node, ops, i + 1);
+        return op_expr(op_node, ops_tokens, i + 1);
     else return ERR_FORMATTED_AST_WRONG;
 }
 
-// Adds value leaves to a tree of ops
+// Adds value leaves to a tree of ops_tokens
 // Right to left, two per leaf
 // Should world
 Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
+    printf("val expr called\n");
     if (vals->len == i)
         return ERR_NONE;
-    TokenNode* val_node;
-    Token* curr = get_vec(vals, i);
-    Error result;
+    TokenNode* val_node = new_token_node(get_vec(vals, i));
+    print_token_node(val_node);
+    Error result = ERR_NONE;
     // This will only ever try left hand nodes
+    printf("pre right\n");
     TokenNode* right = get_vec(parent->children, 0);
+    print_token_node(right);
     TokenNode* left = get_vec(parent->children, 1);
-
+    // printf("val\n");
+    print_token(parent->token);
+    // print_token_node(right);
     // This is recursive because it needs to be called twice
-    if (!right && !left && !filled(parent->token->type)) { // parent is a leaf
-        if (curr->type == TOK_ID && !idck(id_list, curr->value))
+    if (right == NULL && left == NULL) {
+        printf("null\n");
+    }
+    printf("here\n");
+    if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is a leaf
+        printf("op node\n");
+        if (val_node->token->type == TOK_ID && !idck(id_list, val_node->token->value))
             return ERR_ID_NOT_VALID;
-        val_node = new_token_node(curr);
         push_vec(parent->children, val_node);
         i++;
         result = val_expr(parent, vals, i + 1, id_list);
         if (result != ERR_NONE || result != ERR_NOT)
             return result;
     }
-    if (right) {
+    if (right != NULL) {
+        printf("right\n");
         result = val_expr(right, vals, i, id_list);
+        printf("recursed\n");
         if (result != ERR_NONE)
             return result; 
     }
-    else if (left) {
+    else if (left != NULL) {
+        printf("right\n");
         result = val_expr(left, vals, i, id_list);
         if (result != ERR_NONE)
             return result; 
@@ -185,28 +199,36 @@ Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
     printf("STARTED EXPR FORMATTING\n");
     Token* tok = get_next_token(t);
     // Both of these are Tokens
-    Vec* ops = new_vec(2);
-    Vec* values = new_vec(2);
-    while (tok->type != TOK_SEMI) {
+    Vec* ops_tokens = new_vec(2);
+    Vec* vals_tokens = new_vec(2);
+    while (tok->type != TOK_SEMI && tok->type != TOK_NONE) {
         print_token(tok);
         if (is_op(tok->type)) {
             printf("formatted op\n");
-            push_vec(ops, tok);
+            push_vec(ops_tokens, tok);
             tok = get_next_token(t);
         }
         else if (id_exists(tok) || (tok->type == TOK_NUM)) {
             printf("formatted id\n");
-            push_vec(values, tok);
+            push_vec(vals_tokens, tok);
             tok = get_next_token(t);
         }
         else {
+            if (vals_tokens->len == ops_tokens->len + 1) {
+                printf("this\n");
+                goto DONE;
+            }
             printf("not\n");
             return ERR_NOT;
         }
-    }
+    } 
     printf("found semi-colon\n");
-    push_vec(ret_buff, ops);
-    push_vec(ret_buff, values);
+    DONE:
+    // printf("done\n");
+    push_vec(ret_buff, ops_tokens);
+    // printf("here\n");
+    push_vec(ret_buff, vals_tokens);
+    // printf("hereish\n");
     return ERR_NONE;
 }
 
@@ -340,6 +362,7 @@ void free_token_node(TokenNode* node) {
 void print_token_node(TokenNode* tok) {
     print_token(tok->token);
     printf("Token children: ");
+    if (tok->children == NULL) return;
     for (int i = 0; i < tok->children->len; i++) {
         print_token_node(get_vec(tok->children, i));
     }

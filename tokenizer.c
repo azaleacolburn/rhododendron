@@ -26,7 +26,7 @@ Token* get_next_token(Tokenizer* t) {
     }
     printf("run out string:\n%s\n", t->string);
     printf("Tokenizer string ran out\n");
-    return new_token(TOK_NONE);
+    return new_token(TOK_NONE); // This is flawed
 }
 
 // Don't worry about syntax, just tokenize
@@ -183,7 +183,7 @@ void slice(const char* str, char* result, size_t start, size_t end) {
 }
 
 int check_delimeter(char c) {
-    for (int i = 0; i < strlen(delimiters); i++) {
+    for (int i = 0; i < strlen(delimiters); i++) { // Faster to make it a literal
         if (delimiters[i] == c) return 1;
     }
     return 0;
@@ -191,7 +191,6 @@ int check_delimeter(char c) {
 
 // Doing something stupid here that adds semi-colons to the end
 char* str_remove(char* str, int start_index, int end_index) {
-    printf("si: %d, ei: %d", start_index, end_index);
     if (start_index < end_index) {
         char* buff = malloc(sizeof(char) * (end_index - start_index));
         strncpy(buff, str + start_index , end_index - start_index);
