@@ -121,9 +121,10 @@ Error expr(args()) {
     if (expr_result == ERR_NOT)
         return ERR_EXPECTED_EXPR;
     Vec* ops_tokens = get_vec(expr, 0);
-    Vec* vals = get_vec(expr, 1);
+    Vec* vals = get_vec(expr, 1); 
     Error op_tree_result = op_expr(parent, ops_tokens, 0);
     printf("expr\n");
+    // printf("parent type: %d\n", (((TokenNode*)get_vec(parent->children, 0))->token));
     Error val_expr_result = val_expr(parent, vals, 0, id_list);
     
     if (op_tree_result == ERR_NONE)
@@ -147,26 +148,27 @@ Error op_expr(TokenNode* parent, Vec* ops_tokens, int i) {
 
 // Adds value leaves to a tree of ops_tokens
 // Right to left, two per leaf
-// Should world
+// Should work
 Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
     printf("val expr called\n");
-    if (vals->len == i)
-        return ERR_NONE;
+    if (vals->len == i) return ERR_NONE;
     TokenNode* val_node = new_token_node(get_vec(vals, i));
-    print_token_node(val_node);
+    // print_token_node(val_node);
     Error result = ERR_NONE;
-    // This will only ever try left hand nodes
-    printf("pre right\n");
     TokenNode* right = get_vec(parent->children, 0);
-    print_token_node(right);
+    // print_token_node(right); // for some reason printing the tok->type is seg faulting
     TokenNode* left = get_vec(parent->children, 1);
     // printf("val\n");
-    print_token(parent->token);
+    // print_token(parent->token); // this faults too
+    // printf("past\n");
     // print_token_node(right);
     // This is recursive because it needs to be called twice
-    if (right == NULL && left == NULL) {
-        printf("null\n");
-    }
+    // if (right == NULL && left == NULL) {
+    //     printf("null\n");
+    // }
+
+    // There's an issue with parent(first right)'s token type
+    // if (parent->token->type == NULL) printf("null");
     printf("here\n");
     if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is a leaf
         printf("op node\n");
@@ -184,9 +186,9 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
         printf("recursed\n");
         if (result != ERR_NONE)
             return result; 
-    }
-    else if (left != NULL) {
-        printf("right\n");
+    } else printf("RIGHT NOT NULL\n");
+    if (left != NULL) {
+        printf("left\n");
         result = val_expr(left, vals, i, id_list);
         if (result != ERR_NONE)
             return result; 
@@ -360,7 +362,10 @@ void free_token_node(TokenNode* node) {
 }
 
 void print_token_node(TokenNode* tok) {
-    print_token(tok->token);
+    printf("here\n");
+    printf("address %p\n", tok);
+    printf("tok address %p\n", tok->token);
+    print_token(tok->token); // this imght be a null arg
     printf("Token children: ");
     if (tok->children == NULL) return;
     for (int i = 0; i < tok->children->len; i++) {

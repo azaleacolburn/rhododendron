@@ -10,6 +10,7 @@ Token* new_token(TokType type) {
 };
 
 void print_tok_type(TokType type) {
+    printf("hereis\n"); 
     char* p;
     switch (type) {
         case TOK_ADD:
@@ -119,7 +120,13 @@ void print_tok_type(TokType type) {
 }
 
 void print_token(Token* tok) {
-    print_tok_type(tok->type);
+    // tok->type segfaults
+    printf("type: %d\n", tok->type);
+    printf("hherelol\n");
+    if (tok == NULL) printf("null token\n"); 
+     // or here
+    print_tok_type(tok->type); // seg fault here
+    printf("her3e\n");
     if (tok->value != NULL)
         printf("value: %s\n", (char*)tok->value);    
 };
