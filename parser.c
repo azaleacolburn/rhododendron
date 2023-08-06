@@ -1,7 +1,7 @@
 #include<string.h>
 #include<stdlib.h>
 #include<stdio.h>
-#include<stdbool.h>
+#include<assert.h>
 #include"parser.h"
 
 #define is_change_tok(t) ( \
@@ -151,14 +151,21 @@ Error expr(args()) {
 Error op_expr(TokenNode* parent, Vec* ops_tokens, int i) {
     if (ops_tokens->len == i)
         return ERR_NONE;
-    Token* op_tok = get_vec(ops_tokens, i);
-    TokenNode* op_node = new_token_node(op_tok);
+    TokenNode* op_node = new_token_node(get_vec(ops_tokens, i));
+    printf("op expr\n");
     push_vec(parent->children, op_node);
-    if (parent->children->len - 1 == 0)
-        return op_expr(parent, ops_tokens, i + 1);
-    else if (parent->children->len - 1 == 1)
-        return op_expr(op_node, ops_tokens, i + 1);
-    else return ERR_FORMATTED_AST_WRONG;
+    printf("parent length:%zu\n", parent->children->len);
+    print_token_node(parent);
+    assert(parent->children->len != 0);
+    printf("%d\n\n", i);
+    if (i != 0) { // Checks if parent is the assignment node
+        if (parent->children->len == 1)
+            return op_expr(parent, ops_tokens, i + 1); // This is causing parent node buildup
+        else if (parent->children->len == 2)
+            return op_expr(op_node, ops_tokens, i + 1);
+        else return ERR_FORMATTED_AST_WRONG; // This is true
+    } else return op_expr(op_node, ops_tokens, 1);
+    
 }
 
 // Adds value leaves to a tree of ops_tokens
