@@ -2,7 +2,7 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<stdbool.h>
-#include"rdp.h"
+#include"parser.h"
 
 #define is_change_tok(t) ( \
                 t == TOK_B_AND_EQ || \
@@ -50,7 +50,10 @@ Error declare(args()) {
     if (tok->type == TOK_DECLARE) {
         TokenNode* dec_tok = new_token_node(tok);
         printf("test\n");
-        push_vec(parent->children, dec_tok);
+        push_vec(parent->children, dec_tok); // maybe this
+        // if (dec_tok->token->type);
+        print_token_node(parent);
+        
         printf("Declaration found and token pushed to tree\n");
         Error assignment_result = assign(t, dec_tok, id_list);
         return assignment_result;
@@ -61,17 +64,22 @@ Error declare(args()) {
 }
 
 Error assign(args()) {
+    // print_token_node(parent);
+    // printf("parent children length: %zu\n", assign->children->len);
     TokenNode* assign_node = new_token_node(new_token(TOK_ASSIGN));
     Error var_id_result = var_id(t, assign_node, id_list);
     printf("assign\n");
     if (var_id_result == ERR_NONE) {
         Token* change_tok = get_next_token(t);
-        print_tok_type(change_tok->type);
+        printf("change token:\n");
+        print_token(change_tok);
+        // print_tok_type(change_tok->type);
         if (is_change_tok(change_tok->type)) {
             printf("change\n");
             TokenNode* change_node = new_token_node(change_tok);
-            push_vec(assign_node->children, change_node);
-            Error expr_result = expr(t, assign_node, id_list);
+            push_vec(assign_node->children, change_node); // change_node is the problem
+            printf("parent children length: %zu\n", assign_node->children->len); 
+            Error expr_result = expr(t, assign_node, id_list); // This is the expr is coming from
             if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
             else if (expr_result == ERR_NONE)
                 push_vec(parent->children, assign_node);
@@ -85,18 +93,20 @@ Error assign(args()) {
 
 // Can be used for processing any id
 Error var_id(args()) {
+    print_token_node(parent);
     printf("started variable iding\n");
     Token* id_tok = get_next_token(t);
     // print_token(id_tok);
-    printf("%d\n", id_tok->type);
+    // printf("var id tok type\n");
     if (id_tok->type == TOK_ID) {
         printf("kwck\n");
         if (kwck(id_tok->value) == TOK_NONE) {
             if (!idck(id_list, id_tok->value)) {
                 printf("new id: %s\n", (char*)id_tok->value);
-                push_vec(id_list, id_tok->value);
+                push_vec(id_list, id_tok->value); // We lose access to this value when we do this. Do we? OML WTF
             }
             TokenNode* id_node = new_token_node(id_tok);
+            print_token_node(id_node);
             push_vec(parent->children, id_tok);
             return ERR_NONE;
         } else return ERR_KEYWORD_PLACEMENT;
@@ -116,6 +126,9 @@ Error var_id(args()) {
 
 // Parses expressions cleverly, by splitting vals_tokens and operations up
 Error expr(args()) {
+    printf("think\n");
+    // This is the last print, by here you can't print it
+    print_token_node(parent); // so here this problem is being haved
     Vec* expr = new_vec(10);
     Error expr_result = format_expression(t, id_list, expr);
     if (expr_result == ERR_NOT)
@@ -125,6 +138,7 @@ Error expr(args()) {
     Error op_tree_result = op_expr(parent, ops_tokens, 0);
     printf("expr\n");
     // printf("parent type: %d\n", (((TokenNode*)get_vec(parent->children, 0))->token));
+    if (((TokenNode*)get_vec(parent->children, 0))->token->type) printf("this\n"); // This is toxic
     Error val_expr_result = val_expr(parent, vals, 0, id_list);
     
     if (op_tree_result == ERR_NONE)
@@ -168,9 +182,11 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
     // }
 
     // There's an issue with parent(first right)'s token type
-    // if (parent->token->type == NULL) printf("null");
-    printf("here\n");
-    if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is a leaf
+    // if (parent->token- >type == NULL) printf("null");
+    printf("here\n"); // last
+    // if (right == NULL && left == NULL) printf("here\n");
+    if (!filled(parent->token->type)) printf("y\n"); // This type is poisoned on the second way through
+    if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is a leaf 
         printf("op node\n");
         if (val_node->token->type == TOK_ID && !idck(id_list, val_node->token->value))
             return ERR_ID_NOT_VALID;
@@ -362,11 +378,11 @@ void free_token_node(TokenNode* node) {
 }
 
 void print_token_node(TokenNode* tok) {
-    printf("here\n");
-    printf("address %p\n", tok);
-    printf("tok address %p\n", tok->token);
+    // printf("here\n");
+    // printf("address %p\n", tok);
+    // printf("tok address %p\n", tok->token);
     print_token(tok->token); // this imght be a null arg
-    printf("Token children: ");
+    printf("Token children:\n");
     if (tok->children == NULL) return;
     for (int i = 0; i < tok->children->len; i++) {
         print_token_node(get_vec(tok->children, i));

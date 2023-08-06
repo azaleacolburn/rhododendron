@@ -5,19 +5,16 @@
 Vec* new_vec(size_t initial_capacity) {
     Vec* vec = malloc(sizeof(Vec));
     if (vec != NULL) {
-        vec->data = malloc(initial_capacity * sizeof(void*));
+        vec->data = calloc(initial_capacity, sizeof(void*));
         vec->capacity = initial_capacity;
         vec->len = 0;
-    }
+    } else return NULL;
     return vec;
 }
 
 void* get_vec(Vec *vec, size_t n) {
     if(vec && n < vec->capacity)
         return vec->data[n];
-    /* return some error value, i'm doing -1 here, 
-     * std::Vec would throw an exception if using at() 
-     * or have UB if using [] */
     return NULL;
 }
 

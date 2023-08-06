@@ -1,6 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
-#include"rdp.h"
+#include"parser.h"
 
 Vec* readFile(char* path)
 {
@@ -35,7 +35,7 @@ void test_tokenizer() {
 
 int main(int argc, char* argv[]) {
     // test_tokenizer();
-    Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/text.txt");
+    Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/main.txt");
     Error success_code = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
     printf("Success Code: %s", error_message(success_code));
 }
