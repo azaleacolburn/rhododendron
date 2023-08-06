@@ -36,8 +36,10 @@ Error program(char* string, long file_size) {
     Vec* id_list = new_vec(10);
     // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
-    while (strlen(t->string) > 0) {
+    while (strlen(t->string) > 0) { // Todo: fix this stupid loop shit
         Error result = program_check(t, program_node, id_list);
+        printf("\n\nAST:\n");
+        print_token_node(program_node);
         return result;
     }
     return ERR_NOT;
