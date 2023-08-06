@@ -67,7 +67,9 @@ Error assign(args()) {
     // print_token_node(parent);
     // printf("parent children length: %zu\n", assign->children->len);
     TokenNode* assign_node = new_token_node(new_token(TOK_ASSIGN));
-    Error var_id_result = var_id(t, assign_node, id_list);
+    printf("parent children length: %zu\n1 printing\n", assign_node->children->len);
+    print_token_node(assign_node);
+    Error var_id_result = var_id(t, assign_node, id_list); // the problem node is being appended to assign_node in here
     printf("assign\n");
     if (var_id_result == ERR_NONE) {
         Token* change_tok = get_next_token(t);
@@ -78,7 +80,8 @@ Error assign(args()) {
             printf("change\n");
             TokenNode* change_node = new_token_node(change_tok);
             push_vec(assign_node->children, change_node); // change_node is the problem
-            printf("parent children length: %zu\n", assign_node->children->len); 
+            printf("parent children length: %zu\n2 printing\n", assign_node->children->len);
+            print_token_node(assign_node);
             Error expr_result = expr(t, assign_node, id_list); // This is the expr is coming from
             if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
             else if (expr_result == ERR_NONE)
@@ -95,19 +98,17 @@ Error assign(args()) {
 Error var_id(args()) {
     print_token_node(parent);
     printf("started variable iding\n");
-    Token* id_tok = get_next_token(t);
-    // print_token(id_tok);
+    TokenNode* id_node = new_token_node(get_next_token(t));
+    // print_token(id_node->token);
     // printf("var id tok type\n");
-    if (id_tok->type == TOK_ID) {
+    if (id_node->token->type == TOK_ID) {
         printf("kwck\n");
-        if (kwck(id_tok->value) == TOK_NONE) {
-            if (!idck(id_list, id_tok->value)) {
-                printf("new id: %s\n", (char*)id_tok->value);
-                push_vec(id_list, id_tok->value); // We lose access to this value when we do this. Do we? OML WTF
+        if (kwck(id_node->token->value) == TOK_NONE) {
+            if (!idck(id_list, id_node->token->value)) {
+                printf("new id: %s\n", (char*)id_node->token->value);
+                push_vec(id_list, id_node->token->value); // We lose access to this value when we do this. Do we? OML WTF
             }
-            TokenNode* id_node = new_token_node(id_tok);
-            print_token_node(id_node);
-            push_vec(parent->children, id_tok);
+            push_vec(parent->children, id_node);
             return ERR_NONE;
         } else return ERR_KEYWORD_PLACEMENT;
     } else return ERR_EXEPCTED_ID;
