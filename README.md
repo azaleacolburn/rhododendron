@@ -5,7 +5,10 @@ I might finish up and write a standard library as a CS Independent Studies proje
 
 main.arm represents the desired ARM64 to be generated from compiling main.txt
 
-todo:
+References:
+- [Compiler Explorer](https://godbolt.org/)
+
+Todo:
 - [x] Tokenizing
 - [x] Parsing to AST
 - [ ] Support for functions and gotos
