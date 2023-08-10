@@ -3,6 +3,7 @@
 #include<string.h>
 #include<assert.h>
 #include"tokenizer.h"
+#include"typeck.h"
 
 #define is_num(c) ((c) >= '0' && (c) <= '9')
 #define is_letter(c) ((c) <= 'a' && (c) <= 'z' || (c) >= 'A' && (c) <= 'Z')
@@ -46,7 +47,9 @@ Token* str_to_tok(char* str_tok) {
         value = str_tok;
         goto DONE;
     } else if (is_typename(str_tok)) {
-        type = TOK_DECLARE;
+        VarType num_type = num_type_ck(str_tok);
+        value = &num_type;
+        type = TOK_DECLARE; // This should type check
         goto DONE;
     }
     // } else if (idck(id_list, str_tok)) {

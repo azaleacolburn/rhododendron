@@ -40,6 +40,9 @@ Error program(char* string, long file_size) {
         Error result = program_check(t, program_node, id_list);
         printf("\n\nAST:\n");
         print_token_node(program_node);
+        free_token_node(program_node);
+        free_tokenizer(t);
+        free_vec(id_list);
         return result;
     }
     return ERR_NOT;
@@ -143,7 +146,9 @@ Error expr(args()) {
     // printf("parent type: %d\n", (((TokenNode*)get_vec(parent->children, 0))->token));
     if (((TokenNode*)get_vec(parent->children, 0))->token->type) printf("this\n"); // This is toxic
     Error val_expr_result = val_expr(parent, vals, 0, id_list);
-    
+    free_vec(vals);
+    free_vec(ops_tokens);
+    free_vec(expr);
     if (op_tree_result == ERR_NONE)
         return val_expr_result;
     else return op_tree_result;

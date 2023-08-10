@@ -39,8 +39,8 @@ Error for_loop(args());
 
 Error program_check(args());
 
-int multidlen(char** arr);
-
 void print_token_node(TokenNode* tok);
+
+void free_token_node(TokenNode* node);
 
 TokenNode* new_token_node(Token* tok);
