@@ -5,6 +5,8 @@ typedef enum TokType {
     TOK_WHILE,
     TOK_DECLARE,
     TOK_ASSIGN,
+    TOK_ADDRESS,
+    TOK_VAR,
     TOK_NUM,
     TOK_ADD,
     TOK_MUL,
