@@ -1,6 +1,1 @@
-#define eq =
-#define I int i
-#define ONE 1
-#define P +
-
-I eq ONE P ONE;
+// Ask Andrew about this, I really don't know where to start
