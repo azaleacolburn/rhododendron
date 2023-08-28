@@ -92,7 +92,7 @@ Token* str_to_tok(char* str_tok) {
             type = TOK_B_OR;
             break;
         case '&':
-            if (str_tok[1] == NULL) {
+            if (str_tok[1] == '\0') {
                 type = TOK_B_AND;
             }
             if (str_tok[1] == '=') {

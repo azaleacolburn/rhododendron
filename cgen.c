@@ -2,8 +2,7 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
-#include"parser.h"
-#include"register.h"
+#include"cgen.h"
 
 #define add_comma(ret) ret = strcat(ret, ", ")
 // Inits new "ret"

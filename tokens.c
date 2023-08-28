@@ -115,6 +115,12 @@ void print_tok_type(TokType type) {
         case TOK_SEMI:
             p = ";";
             break;
+        case TOK_ADDRESS:
+            p = "*";
+            break;
+        case TOK_VAR:
+            p = "var";
+            break;
     }
     printf("Token Type: %s\n", p);
 }

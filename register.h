@@ -1,7 +1,7 @@
 // Here we store the registers being used and by what
 // Ask Andrew for help
 #include<stdlib.h>
-#include"vector.h"
+#include"parser.h"
 typedef struct RegisterTracker {
     Vec* x;
     Vec* w;

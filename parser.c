@@ -29,7 +29,7 @@
 
 #define id_exists(tok) (tok->type == TOK_ID && idck(id_list, tok->value))
 
-Error program(char* string, long file_size) {
+Vec* program(char* string, long file_size) {
     printf("here with content:\n%s\n", string);
     TokenNode* program_node = new_token_node(new_token(TOK_PROGRAM));
     Tokenizer* t = new_tokenizer(string);
@@ -42,12 +42,18 @@ Error program(char* string, long file_size) {
         print_token_node(program_node);
         free_tokenizer(t);
         free_vec(id_list);
-        return result;
+        Vec* ret = new_vec(2);
+        Error* e = malloc(sizeof(Error));
+        *e = result;
+        set_vec(ret, e, 1);
+        return ret;
     }
     Vec* ret = new_vec(2);
-    push_vec(ret, ERR_NOT);
+    Error* e = malloc(sizeof(Error));
+    *e = ERR_NONE;
+    push_vec(ret, e);   
     push_vec(ret, program_node);
-    return ERR_NOT;
+    return ret;
 }
 
 Error declare(args()) {
