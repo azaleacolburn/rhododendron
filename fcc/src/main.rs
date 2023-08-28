@@ -16,5 +16,5 @@ fn main() -> &str {
         Err(err) => panic!(err)
     };
 
-    
+    &contents
 }
