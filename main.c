@@ -1,6 +1,8 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include"parser.h"
+#include"cgen.h"
+#include"register.h"
 
 Vec* readFile(char* path)
 {
@@ -34,8 +36,14 @@ void test_tokenizer() {
 }
 
 int main(int argc, char* argv[]) {
+    printf("%s", argv[0]);
     // test_tokenizer();
     Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/main.txt");
-    Error success_code = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
+    Vec* ret = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
+    Error success_code = get_vec(ret, 0);
+    TokenNode* node = get_vec(ret, 1);
     printf("Success Code: %s", error_message(success_code));
+
+    RegisterTracker* r = new_reg_tracker();
+    printf("%s", dlcr_code_gen(r, node));
 }

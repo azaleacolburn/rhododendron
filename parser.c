@@ -40,11 +40,13 @@ Error program(char* string, long file_size) {
         Error result = program_check(t, program_node, id_list);
         printf("\n\nAST:\n");
         print_token_node(program_node);
-        free_token_node(program_node);
         free_tokenizer(t);
         free_vec(id_list);
         return result;
     }
+    Vec* ret = new_vec(2);
+    push_vec(ret, ERR_NOT);
+    push_vec(ret, program_node);
     return ERR_NOT;
 }
 
