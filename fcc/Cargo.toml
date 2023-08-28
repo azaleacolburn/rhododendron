@@ -10,4 +10,5 @@ edition = "2021"
 
 [dependencies]
 bindgen = "0.66.1"
+bindgen-cli = "0.66.1"
 clap = { version = "4.0", features = ["derive"] }
