@@ -13,7 +13,7 @@ typedef enum Types {
     TYPE_CHAR
 } Types;
 
-Error program(char* strin, long file_size);
+Vec* program(char* string, long file_size);
 
 Error declare(args());
 

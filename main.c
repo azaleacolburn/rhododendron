@@ -40,8 +40,8 @@ int main(int argc, char* argv[]) {
     Vec* ret = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
     Error* success_code = get_vec(ret, 0);
     TokenNode* node = get_vec(ret, 1);
-    printf("Success Code: %s", error_message(success_code));
+    printf("Success Code: %s", error_message(*success_code));
 
-    RegisterTracker* r = new_reg_tracker();
-    printf("%s", declr_code_gen(r, node));
+    // RegisterTracker* r = new_reg_tracker();
+    // printf("%s", declr_code_gen(r, node));
 }

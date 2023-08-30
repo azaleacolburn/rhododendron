@@ -20,7 +20,6 @@ typedef enum regType {
     REG_W,
     REG_WXR,
     REG_XZR,
-    REG_SP
 } regType;
 
 RegisterTracker* new_reg_tracker();
