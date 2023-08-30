@@ -3,6 +3,7 @@
 #include"error.h"
 
 char* error_message(Error err) {
+    // printf("here\n");
     switch (err) {
         case ERR_MISSING_DECLARATION:
             return "Expected '='";

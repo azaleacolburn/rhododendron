@@ -19,7 +19,7 @@ void* get_vec(Vec *vec, size_t n) {
 }
 
 void set_vec(Vec* vec, void* item, size_t index) {
-    if (vec && index > vec->capacity)
+    if (vec && index < vec->capacity)
         vec->data[index] = item;
     else realloc_vec(vec, index * 2);
 }

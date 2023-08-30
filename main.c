@@ -40,6 +40,13 @@ int main(int argc, char* argv[]) {
     Vec* ret = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
     Error* success_code = get_vec(ret, 0);
     TokenNode* node = get_vec(ret, 1);
+    if (success_code == NULL) {
+        printf("success code null\n");
+    }
+    if (node == NULL) {
+        printf("node is null\n");
+    }
+    printf("code: %d", *success_code); // success code is null
     printf("Success Code: %s", error_message(*success_code));
 
     // RegisterTracker* r = new_reg_tracker();

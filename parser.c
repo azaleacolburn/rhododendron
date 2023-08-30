@@ -36,24 +36,20 @@ Vec* program(char* string, long file_size) {
     Vec* id_list = new_vec(10);
     // Vec* error_list = new_vec(2); // Might use this later
     // Every starting token should have a function here
-    while (strlen(t->string) > 0) { 
-        Error result = program_check(t, program_node, id_list);
-        printf("\n\nAST:\n");
-        print_token_node(program_node);
-        free_tokenizer(t);
-        free_vec(id_list);
-        Vec* ret = new_vec(2);
-        Error* e = malloc(sizeof(Error));
-        *e = result;
-        set_vec(ret, e, 1);
-        return ret;
-    }
+    // while (strlen(t->string) > 0) { 
+    Error result = program_check(t, program_node, id_list);
+    printf("\n\nAST:\n");
+    print_token_node(program_node);
+    free_tokenizer(t);
+    free_vec(id_list);
     Vec* ret = new_vec(2);
     Error* e = malloc(sizeof(Error));
-    *e = ERR_NONE;
-    push_vec(ret, e);   
-    push_vec(ret, program_node);
+    *e = result;
+    set_vec(ret, program_node, 1);
+    set_vec(ret, e, 0);
     return ret;
+    // }
+t;
 }
 
 Error declare(args()) {
