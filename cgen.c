@@ -13,7 +13,13 @@
 // recursion is key
 char* declr_code_gen(RegisterTracker* reg_t, TokenNode* node) {
     char* reg;
-    itoa(*assign_register(reg_t, REG_W), reg, 10);
+    int* reg_int = assign_register(reg_t, REG_W);
+    if (reg_int == NULL) {
+        printf("reg int null\n");
+    }
+    printf("reg: %d\n", *reg_int);
+    itoa(*reg_int, reg, 10);
+    printf("past itoa\n");
     mov(reg, (char*)node->token->value);
     printf("ret: %s", ret);
     free(reg);

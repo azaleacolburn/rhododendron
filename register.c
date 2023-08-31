@@ -2,10 +2,8 @@
 
 RegisterTracker* new_reg_tracker() {
     RegisterTracker* tracker = malloc(sizeof(RegisterTracker));
-    for (int i = 0; i < 31; i++) {
-        push_vec(tracker->x, NULL);
-        push_vec(tracker->w, NULL);
-    }
+    tracker->w = new_vec(31);
+    tracker->x = new_vec(31);
     return tracker;
 }
 
@@ -22,18 +20,18 @@ int* assign_register(RegisterTracker* tracker, regType type) {
     int* one = malloc(sizeof(int));
     *one = 1;
     switch (type) {
-        case REG_W:  {
+        case REG_W: {
             push_vec(tracker->w, one);
-            *ret = tracker->w->len;
+            *ret = tracker->w->len - 1;
             return ret;
         }
-        case REG_ARG_RET:  {    
-            for (int i = 0; i < 31; i++) {
-                if (get_vec(tracker->x, i) == NULL) {
-                    set_vec(tracker->x, one, i);
-                   *ret = i;
-                   return ret;
-                }
+        case REG_ARG_RET: {
+            if (get_vec(tracker->x, 8) == NULL) {
+                push_vec(tracker->x, one);
+                *ret = tracker->x->len - 1;
+                return ret;
+            } else {
+                // send signal to push not used registers to memory
             }
         }
         case REG_TEMP:  {
