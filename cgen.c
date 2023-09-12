@@ -1,16 +1,21 @@
-// Ask Andrew about this, I think I'm doing this wrong
 #include"cgen.h"
 
-#define add_comma(ret) ret = strcat(ret, ", ")
-// Inits new "ret"
+// #define add_comma(ret) ret = strcat(ret, ", ")
+// // Inits new "ret"
 #define mov(reg, val) \
-    char* ret = strcat("mov ", reg); \
-    add_comma(ret); \
-    ret = strcat(ret, val); \
+    char* ret; \
+    sprintf(ret, "mov %s, %s", reg, val);
+#define push(reg, size) \
+    char* ret; \
+    sprintf(ret, "str %s, [sp, #-%s]", reg, size);;
+#define pop(reg, size) \
+    char* ret; \
+    sprintf(ret, "str %s, [sp], #%s", reg, size);
 
 // generates a single mov statement
 // recurses or calls other functions if it needs to evaluate an expression
 // recursion is key
+// this system can only handle one ret at a time, which is fine cause recursion
 char* declr_code_gen(RegisterTracker* reg_t, TokenNode* node) {
     char* reg;
     int* reg_int = assign_register(reg_t, REG_W);

@@ -1,3 +1,4 @@
+// Ask Andrew about how to model registers in the temporal dimension
 #include"register.h"
 
 RegisterTracker* new_reg_tracker() {
