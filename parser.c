@@ -191,6 +191,9 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
     TokenNode* right = get_vec(parent->children, 0);
     // print_token_node(right); // for some reason printing the tok->type is seg faulting
     TokenNode* left = get_vec(parent->children, 1);
+    if (is_num(right->token->value) && is_num(left->token->value)) {
+        
+    }
     // printf("val\n");
     // print_token(parent->token); // this faults too
     // printf("past\n");
