@@ -191,8 +191,48 @@ Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
     TokenNode* right = get_vec(parent->children, 0);
     // print_token_node(right); // for some reason printing the tok->type is seg faulting
     TokenNode* left = get_vec(parent->children, 1);
-    if (is_num(right->token->value) && is_num(left->token->value)) {
-        
+    TokenNode* prevNode = new_token_node(get_vec(vals, i-1));
+    if (val_node != NULL && prevNode != NULL) {
+        if (val_node->token->type == TOK_NUM && val_node->token->type == TOK_NUM) {
+            TokType op = parent->token->type;
+            int val = 0;
+            switch (op) {
+                case TOK_MUL:
+                    val = *(int*)prevNode->token->value * *(int*)val_node->token->value;
+                    break;
+                case TOK_ADD:
+                    val = *(int*)prevNode->token->value + *(int*)val_node->token->value;
+                    break;
+                case TOK_SUB:
+                    val = *(int*)prevNode->token->value - *(int*)val_node->token->value;
+                    break;
+                case TOK_DIV:
+                    val = *(int*)prevNode->token->value / *(int*)val_node->token->value;
+                    break;
+                case TOK_B_AND:
+                    val = *(int*)prevNode->token->value & *(int*)val_node->token->value;
+                    break;
+                case TOK_B_OR:
+                    val = *(int*)prevNode->token->value | *(int*)val_node->token->value;
+                    break;
+                case TOK_B_XOR:
+                    val = *(int*)prevNode->token->value ^ *(int*)val_node->token->value;
+                    break;
+                case TOK_B_AND_EQ:
+                    val = *(int*)prevNode->token->value &= *(int*)val_node->token->value;
+                    break;
+                case TOK_B_OR_EQ:
+                    val = *(int*)prevNode->token->value |= *(int*)val_node->token->value;
+                    break;
+                case TOK_B_XOR_EQ:
+                    val = *(int*)prevNode->token->value ^= *(int*)val_node->token->value;
+                    break;
+            }
+            Token* tok = new_token(TOK_NUM);
+            tok->value = &val;
+            TokenNode* new_node = new_token_node(tok);
+            parent = new_node;
+        }
     }
     // printf("val\n");
     // print_token(parent->token); // this faults too

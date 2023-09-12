@@ -36,8 +36,8 @@ _expr:
 
 // The byte to be printed will be placed on the stack as an arg
 // Args: 
-// - sp0: the bytes to be written
-// - sp1: the number of bytes to be written
+// - stac: the bytes to be written
+// - stack: the number of bytes to be written
 _print:
     ; mov  x0,  #1                      // the print part 
     ldr x1, [sp, #8]
