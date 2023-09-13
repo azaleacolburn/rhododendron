@@ -3,27 +3,28 @@
 
 ; .text
 _main:
-    adr x0, helloworld
-    mov x1, #12
-    ; store them on the stack
-    str x0, [sp, #-8]
-    str x1, [sp, #-8]
+    mov x2, #12
+    adr x1, helloworld
+    ; mov x5, #3
+    ; store args on the stack
+    str x2, [sp, #-4]
+    str x1, [sp, #-4]
     ; overwrite regs
-    mov x0, #0 
-    mov x1, #0
+    ; mov x0, #0 
+    ; mov x1, #0
     ; ldr x1, =helloworld
     
     b _print
-    ; b _stack
+    ; b _stack_test
     ; b _expr
     ; b _reboot
     b _terminate
 
-_stack:
+_stack_test:
     mov x0, #2
-    str x0, [sp, #-8]! ; decrement the stack by 4
+    str x0, [sp, #-8] ; decrement the stack by 4
     mov x0, #3
-    ldr x0, [sp], #8 ; increment the stak by 4
+    ldr x0, [sp], #8 ; increment the stack by 4
 
 _expr:
     mov x9, #2
@@ -36,17 +37,21 @@ _expr:
 
 // The byte to be printed will be placed on the stack as an arg
 // Args: 
-// - stac: the bytes to be written
+// In this order on the stack
+// This means length first, address second
+// - stack: the address of the first byte
 // - stack: the number of bytes to be written
 _print:
-    ; mov  x0,  #1                      // the print part 
-    ldr x1, [sp, #8]
-    ldr x0, [sp, #-8]
-    // adr x1, helloworld
-    // mov  x1,  sp                   // x1 points to the byte to be written
-    // mov  x2,  #12                     // The byte length of the buffer(or sp later)
+    ldr x1, [sp], #4
+    ldr x2, [sp], #4
+    str x0, [sp, #-4]
+    mov  x0,  #1
+    adr x1, helloworld
+    ; mov  x1,  sp                   // x1 points to the byte to be written
+    ; mov  x2,  #12                   // The byte length of the buffer(or sp later)
     mov  x16,  #4                     // syscall will be a print
     svc  #0                           // syscall
+    ldr x0, [sp], #4
 
 _reboot:
     mov x0, #1                        // instant reboot
