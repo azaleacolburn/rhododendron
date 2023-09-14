@@ -42,8 +42,8 @@ _expr:
 // - stack: the address of the first byte
 // - stack: the number of bytes to be written
 _print:
-    ldr x1, [sp], #4
-    ldr x2, [sp], #4
+    ldr x1, [sp, #4]
+    ldr x2, [sp, #4]
     str x0, [sp, #-4]
     mov  x0,  #1
     adr x1, helloworld
