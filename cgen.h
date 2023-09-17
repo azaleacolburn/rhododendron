@@ -4,10 +4,10 @@
 #include<math.h>
 #include"register.h"
 
-// We ned register assignment I think
-// We need arithmatic stuff
-// We need to read the AST
+char* code_gen(TokenNode* parent);
 
-char* declr_code_gen(RegisterTracker* reg, TokenNode* node);
+Vec* declare_code_gen(TokenNode* parent, RegisterTracker* tracker);
 
 char* itoa(int num, char* buffer, int base);
+
+Vec* expr_code_gen(TokenNode* parent, RegisterTracker* tracker);

@@ -42,6 +42,5 @@ int main(int argc, char* argv[]) {
     TokenNode* node = get_vec(ret, 1);
     printf("Success Code: %s\n", error_message(*success_code));
     printf("\n");
-    RegisterTracker* r = new_reg_tracker();
-    printf("%s", declr_code_gen(r, node));
+    printf("%s", code_gen(node));
 }

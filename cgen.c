@@ -4,55 +4,42 @@
 // // Inits new "ret"
 #define TOK_IS_OP(t) t == TOK_B_AND || t == TOK_B_OR || t == TOK_B_XOR || t == TOK_ADD || t == TOK_SUB || t == TOK_DIV || t == TOK_MUL
 
+// D: never used this D:
 #define push(reg, size) \
     char* ret; \
     sprintf(ret, "str %s, [sp, #-%s]", reg, size);
 #define pop(reg, size) \
     char* ret; \
     sprintf(ret, "ldr %s, [sp], #%s", reg, size);
-// generates a single mov statement
-// recurses or calls other functions if it needs to evaluate an expression
-// recursion is key
-// // this system can only handle one ret at a time, which is fine cause recursion
-// char* declr_code_gen(RegisterTracker* reg_t, TokenNode* node) {
-//     char* reg;
-//     int* reg_int = assign_register(reg_t, REG_W);
-//     if (reg_int == NULL) {
-//         printf("reg int null\n");
-//     }
-//     printf("reg: %d\n", *reg_int);
-//     itoa(*reg_int, reg, 10);
-//     printf("past itoa\n");
-//     mov(reg, (char*)node->token->value);
-//     printf("ret: %s", ret);
-//     free(reg);
-//     // free(ret);
-//     return ret;
-// }
 
 // Time to iterate over the tree depth first
 char* code_gen(TokenNode* parent) {
     char* ret;
     RegisterTracker* tracker = new_reg_tracker();
-    tracker->sp = 32;
     if (parent->token->type == TOK_PROGRAM) {
+        tracker->sp = parent->children->len; // find how to calculate this number in advance, fornow I will use the number of children of the parent, althoug this will break down once loops and conditionals are implemented here
         TokenNode* node = (TokenNode*)get_vec(parent->children, 0);
-        if (node->token->type == TOK_ASSIGN) { // This is un-dynamic code that needs to be refactored
+        if (node->token->type == TOK_DECLARE) { // This is un-dynamic code that needs to be refactored
             Vec* declare_result = declare_code_gen(node, tracker);
         } else if (1) { // placeholder so the linter shuts up
-
+            // Other potential things like statements
         }
     }
+    return ret;
 }
 
 // Returns the code and the memory address of the register
 Vec* declare_code_gen(TokenNode* parent, RegisterTracker* tracker) { // remember that this will be called many times
+    if (((TokenNode*)get_vec(parent->children, 0))->token->type != TOK_ASSIGN) return NULL;
+    else parent = get_vec(parent->children, 0); // moves past the assignment token
     char* ret;
     Vec* res = expr_code_gen(get_vec(parent->children, 0), tracker);
-    int reg = get_vec(res, 1);
-    int adr; // comes from decrementing the size of the stack, which needs to be decided on before hand.
-    sprintf(ret, "%s\n%s", ret, get_vec(res, 0));
-    sprintf(ret, "%s\nstr x%d, [sp, %d]", ret, reg, adr);
+    int* reg = (int*)get_vec(res, 1);
+    char* code = get_vec(res, 0);
+    int adr = tracker->sp -= 4; // comes from decrementing the size of the stack, which needs to be decided on before hand.
+    sprintf(ret, "%s\n%s", ret, code);
+    sprintf(ret, "%s\nstr x%d, [sp, %d]", ret, *reg, adr);
+    return res;
 }
 
 // Right now we check the parent
@@ -65,14 +52,17 @@ Vec* expr_code_gen(TokenNode* parent, RegisterTracker* tracker) {
     push_vec(ret_vec, ret);
     if (TOK_IS_OP(parent->token->type)) {
         Vec* children = parent->children;
+
         TokenNode* left = get_vec(children, 0);
+        char* left_res = (char*)get_vec(expr_code_gen(left, tracker), 0);
+        sprintf(ret, "%s\n%s", ret, left_res);
+
+        TokenNode* right = NULL;
         if (children->len == 2) {
-            TokenNode* right = get_Vec(children, 1);
+            right = get_vec(children, 1);
+            char* right_res = (char*)get_vec(expr_code_gen(right, tracker), 0);
+            sprintf(ret, "%s\n%s", ret, right_res);
         }
-        char* left = get_vec(expr_code_gen(left, tracker), 0);
-        sprintf(ret, "%s\n%s", ret, left);
-        char* right = get_ve(expr_code_gen(right, tracker), 0);
-        sprintf(ret, "%s\n%s", ret, right);
         // Then perform operation and mov into new register that we keep track of
         // might refactor to deal with parent's roots, and not recurse parent into value
         int reg_A = *assign_register(tracker, REG_GEN_X); // assign register needs a refactor for this to work
@@ -94,7 +84,7 @@ Vec* expr_code_gen(TokenNode* parent, RegisterTracker* tracker) {
                 sprintf(ret, "%s\nsdiv x%d, x%d, x%d", ret, reg_A, reg_B, reg_A);
         }
         free_reg(tracker, REG_GEN_X, reg_B);
-        push_vec(ret_vec, reg_A); 
+        push_vec(ret_vec, &reg_A); // Leaks memory
     } else {
         char* reg_buff;
         itoa(*assign_register(tracker, REG_GEN_X), reg_buff, 10);
