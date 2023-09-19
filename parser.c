@@ -29,6 +29,60 @@
 
 #define id_exists(tok) (tok->type == TOK_ID && idck(id_list, tok->value))
 
+#define arithmetic_simplify() \
+    left = get_vec(parent->children, 0); \
+    right = get_vec(parent->children, 1); \
+    if (right != NULL && left != NULL) { \
+        if (right->token->type == TOK_NUM && left->token->type == TOK_NUM) { \
+            TokType op = parent->token->type; \
+            printf("OP: "); \
+            print_tok_type(op); \
+            int val = 0; \
+            switch (op) { \
+                case TOK_MUL: \
+                    val = *(int*)right->token->value* *(int*)left->token->value; \
+                    break; \
+                case TOK_ADD: \
+                    val = *(int*)right->token->value+ *(int*)left->token->value; \
+                    break; \
+                case TOK_SUB: \
+                    val = *(int*)right->token->value- *(int*)left->token->value; \
+                    break; \
+                case TOK_DIV: \
+                    val = *(int*)right->token->value/ *(int*)left->token->value; \
+                    break; \
+                case TOK_B_AND: \
+                    val = *(int*)right->token->value& *(int*)left->token->value; \
+                    break; \
+                case TOK_B_OR: \
+                    val = *(int*)right->token->value| *(int*)left->token->value; \
+                    break; \
+                case TOK_B_XOR: \
+                    val = *(int*)right->token->value^ *(int*)left->token->value; \
+                    break; \
+                case TOK_B_AND_EQ: \
+                    val = *(int*)right->token->value&= *(int*)left->token->value; \
+                    break; \
+                case TOK_B_OR_EQ: \
+                    val = *(int*)right->token->value|= *(int*)left->token->value; \
+                    break; \
+                case TOK_B_XOR_EQ: \
+                    val = *(int*)right->token->value^= *(int*)left->token->value; \
+                    break; \
+                default: \
+                    break; \
+            } \
+            printf("val: %d\n", val); \
+            printf("made it to simplifying arithmetic expressions\n"); \
+            Token* tok = new_token(TOK_NUM); \
+            tok->value = &val; \
+            TokenNode* new_node = new_token_node(tok); \
+            print_token(parent->token); \
+            parent = new_node; \
+            return result; \
+        } \
+    }
+
 Vec* program(char* string, long file_size) {
     printf("here with content:\n%s\n", string);
     TokenNode* program_node = new_token_node(new_token(TOK_PROGRAM));
@@ -48,8 +102,6 @@ Vec* program(char* string, long file_size) {
     set_vec(ret, program_node, 1);
     set_vec(ret, e, 0);
     return ret;
-    // }
-t;
 }
 
 Error declare(args()) {
@@ -135,33 +187,88 @@ Error var_id(args()) {
 //        2           5
 
 // Parses expressions cleverly, by splitting vals_tokens and operations up
+// Error expr(args()) {
+//     printf("think\n");
+//     // This is the last print, by here you can't print it
+//     print_token_node(parent); // so here this problem is being haved
+//     Vec* expr = new_vec(10);
+//     Error expr_result = format_expression(t, id_list, expr);
+//     if (expr_result == ERR_NOT)
+//         return ERR_EXPECTED_EXPR;
+//     Vec* ops_tokens = get_vec(expr, 0);
+//     Vec* vals = get_vec(expr, 1);
+//     printf("VALS: ");
+//     for (int i = 0; i < vals->len; i++) {
+//         char* val = (char*)((Token*)get_vec(vals, i))->value;
+//         printf("%s ", val);
+//     }
+//     printf("\n");
+//     Error op_tree_result = op_expr(parent, ops_tokens, 0);
+//     printf("expr\n");
+//     // printf("parent type: %d\n", (((TokenNode*)get_vec(parent->children, 0))->token));
+//     if (((TokenNode*)get_vec(parent->children, 0))->token->type) printf("this\n"); // This is toxic
+//     Error val_expr_result = val_expr(parent, vals, 0, id_list);
+//     free_vec(vals);
+//     free_vec(ops_tokens);
+//     free_vec(expr);
+//     if (op_tree_result == ERR_NONE)
+//         return val_expr_result;
+//     else return op_tree_result;
+// }
+
 Error expr(args()) {
-    printf("think\n");
-    // This is the last print, by here you can't print it
-    print_token_node(parent); // so here this problem is being haved
-    Vec* expr = new_vec(10);
-    Error expr_result = format_expression(t, id_list, expr);
-    if (expr_result == ERR_NOT)
-        return ERR_EXPECTED_EXPR;
-    Vec* ops_tokens = get_vec(expr, 0);
-    Vec* vals = get_vec(expr, 1);
-    printf("VALS: ");
-    for (int i = 0; i < vals->len; i++) {
-        char* val = (char*)((Token*)get_vec(vals, i))->value;
-        printf("%s ", val);
+    Token* left = get_next_token(t);
+    Token* input = get_next_token(t);
+    while (is_op(input)) {
+        Token* op = get_next_token(t);
+        Token* right = expr(t, parent, id_list);
+        TokenNode* op_node = new_token_node(op);
+
+        if (op->type == TOK_ADD) {
+            if (left->type == TOK_NUM && right->type == TOK_NUM) {
+                Token* tok = new_token(TOK_NUM);
+                tok->value = *(int*)(left->value) + *(int*)right->value;
+                TokenNode* node = new_token_node(tok);
+                push_vec(parent->children, node);
+            } else {
+                push_vec(parent->children, op_node);
+                
+            }
+        } else if (op->type == TOK_SUB) {
+            if (left->type == TOK_NUM && right->type == TOK_NUM) {
+                Token* tok = new_token(TOK_NUM);
+                tok->value = *(int*)(left->value) - *(int*)right->value;
+                TokenNode* node = new_token_node(tok);
+                push_vec(parent->children, node);
+            } else {
+                push_vec(parent->children, op_node);
+                
+            }
+        } else if (op->type == TOK_MUL) {
+            if (left->type == TOK_NUM && right->type == TOK_NUM) {
+                Token* tok = new_token(TOK_NUM);
+                tok->value = *(int*)(left->value) * *(int*)right->value;
+                TokenNode* node = new_token_node(tok);
+                push_vec(parent->children, node);
+            } else {
+                push_vec(parent->children, op_node);
+                
+            }
+        } else if (op->type == TOK_DIV) {
+            if (left->type == TOK_NUM && right->type == TOK_NUM) {
+                Token* tok = new_token(TOK_NUM);
+                tok->value = *(int*)(left->value) + *(int*)right->value;
+                TokenNode* node = new_token_node(tok);
+                push_vec(parent->children, node);
+            } else {
+                push_vec(parent->children, op_node);
+                
+            }
+        }
+        else if (op->type == TOK_O_PAREN) {
+
+        }
     }
-    printf("\n");
-    Error op_tree_result = op_expr(parent, ops_tokens, 0);
-    printf("expr\n");
-    // printf("parent type: %d\n", (((TokenNode*)get_vec(parent->children, 0))->token));
-    if (((TokenNode*)get_vec(parent->children, 0))->token->type) printf("this\n"); // This is toxic
-    Error val_expr_result = val_expr(parent, vals, 0, id_list);
-    free_vec(vals);
-    free_vec(ops_tokens);
-    free_vec(expr);
-    if (op_tree_result == ERR_NONE)
-        return val_expr_result;
-    else return op_tree_result;
 }
 
 // Builds a tree of ops_tokens
@@ -191,103 +298,44 @@ Error op_expr(TokenNode* parent, Vec* ops_tokens, int i) {
 // Should work
 Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
     printf("val expr called\n\n");
-    print_token_node(parent);
     printf("\nPARENT: \n");
     print_tok_type(parent->token->type);
+    printf("here\n");
     if (vals->len == i) return ERR_NONE;
-    TokenNode* val_node = new_token_node(get_vec(vals, i));
-    // print_token_node(val_node);
     Error result = ERR_NONE;
-    TokenNode* right = get_vec(parent->children, 0);
-    // print_token_node(right); // for some reason printing the tok->type is seg faulting
-    TokenNode* left = get_vec(parent->children, 1);
-    Token* prevVal = get_vec(vals, i-1);
-    if (val_node != NULL && prevVal != NULL) {
-        if (val_node->token->type == TOK_NUM && prevVal->type == TOK_NUM) {
-            TokType op = parent->token->type;
-            int val = 0;
-            switch (op) {
-                case TOK_MUL:
-                    val = *(int*)prevVal->value * *(int*)val_node->token->value;
-                    break;
-                case TOK_ADD:
-                    val = *(int*)prevVal->value + *(int*)val_node->token->value;
-                    break;
-                case TOK_SUB:
-                    val = *(int*)prevVal->value - *(int*)val_node->token->value;
-                    break;
-                case TOK_DIV:
-                    val = *(int*)prevVal->value / *(int*)val_node->token->value;
-                    break;
-                case TOK_B_AND:
-                    val = *(int*)prevVal->value & *(int*)val_node->token->value;
-                    break;
-                case TOK_B_OR:
-                    val = *(int*)prevVal->value | *(int*)val_node->token->value;
-                    break;
-                case TOK_B_XOR:
-                    val = *(int*)prevVal->value ^ *(int*)val_node->token->value;
-                    break;
-                case TOK_B_AND_EQ:
-                    val = *(int*)prevVal->value &= *(int*)val_node->token->value;
-                    break;
-                case TOK_B_OR_EQ:
-                    val = *(int*)prevVal->value |= *(int*)val_node->token->value;
-                    break;
-                case TOK_B_XOR_EQ:
-                    val = *(int*)prevVal->value ^= *(int*)val_node->token->value;
-                    break;
-                default:
-                    break;
-            }
-            printf("made it to simplifying arithmetic expressions\n");
-            Token* tok = new_token(TOK_NUM);
-            tok->value = &val;
-            TokenNode* new_node = new_token_node(tok);
-            parent = new_node;
-        }
-    }
-    // printf("val\n");
-    // print_token(parent->token); // this faults too
-    // printf("past\n");
-    // print_token_node(right);
-    // This is recursive because it needs to be called twice
-    // if (right == NULL && left == NULL) {
-    //     printf("null\n");
-    // }
+
+    TokenNode* left = get_vec(parent->children, 0);
+    TokenNode* right = get_vec(parent->children, 1);
 
     // There's an issue with parent(first right)'s token type
     // if (parent->token- >type == NULL) printf("null");
-    printf("here\n"); // last
     // if (right == NULL && left == NULL) printf("here\n");
-    if (!filled(parent->token->type)) printf("y\n"); // This type is poisoned on the second way through
-    if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is a leaf 
+    if (!filled(parent->token->type) && parent->children->len < 2) {
+    // if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is an op leaf 
         printf("op node\n");
-        if (val_node->token->type == TOK_ID && !idck(id_list, val_node->token->value))
-            return ERR_ID_NOT_VALID;
-        push_vec(parent->children, val_node);
+        push_vec(parent->children, left);
         i++;
         result = val_expr(parent, vals, i + 1, id_list);
+        arithmetic_simplify()
         if (result != ERR_NONE || result != ERR_NOT)
             return result;
     }
     if (right != NULL) {
         printf("right\n");
+        if (right->token->type == TOK_ID && !idck(id_list, right->token->value))
+            return ERR_ID_NOT_VALID;
         result = val_expr(right, vals, i, id_list);
-        printf("recursed\n");
-        if (result != ERR_NONE)
+        if (result != ERR_NONE) {
             return result;
-        if (result == ERR_NOT) {
-            parent = get_vec(parent->children, 0);
         }
     } else printf("RIGHT NOT NULL\n");
     if (left != NULL) {
         printf("left\n");
+        if (left->token->type == TOK_ID && !idck(id_list, left->token->value))
+            return ERR_ID_NOT_VALID;
         result = val_expr(left, vals, i, id_list);
-        if (result != ERR_NONE)
+        if (result != ERR_NONE) {
             return result;
-        if (result == ERR_NOT) {
-            parent = get_vec(parent->children, 0);
         }
     }
     return ERR_NONE;

@@ -97,20 +97,16 @@ Vec* expr_code_gen(TokenNode* parent, RegisterTracker* tracker) {
     return ret_vec;
 }
 
-char* itoa(int num, char* buffer, int base) // Issue seems to be with itoa function returning a char* instead of a literal
-{
+char* itoa(int num, char* buffer, int base) {
     int current = 0;
-    if (num == 0) 
-    {
+    if (num == 0) { 
         buffer[0] = '0';
         buffer[1] = '\0';
         return buffer;  
     }
     int num_digits = 0;  
-    if (num < 0)
-    {  
-        if (base == 10) 
-        {  
+    if (num < 0) {  
+        if (base == 10) {  
             num_digits++;
             buffer[0] = '-';
             current++; 
@@ -118,8 +114,7 @@ char* itoa(int num, char* buffer, int base) // Issue seems to be with itoa funct
         } else return NULL;
     }  
     num_digits += (int)floor(log(num) / log(base)) + 1;  
-    while (current < num_digits)   
-    {  
+    while (current < num_digits) {  
         int base_val = (int) pow(base, num_digits-1-current);  
         int num_val = num / base_val;  
         char value = num_val + '0';  
