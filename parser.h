@@ -8,6 +8,11 @@ typedef struct TokenNode {
     Vec* children;
 } TokenNode;
 
+typedef union ASTReturn {
+    TokenNode* ast;
+    Error err;
+} ASTReturn;
+
 typedef enum Types {
     TYPE_INT,
     TYPE_CHAR
@@ -21,11 +26,13 @@ Error assign(args());
 
 Error var_id(args());
 
-Error expr(args());
+Error handle_expr(args());
 
-Error op_expr(TokenNode* parent, Vec* ops, int i);
+ASTReturn parse_expr(Tokenizer* t);
 
-Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list);
+ASTReturn parse_factor(Tokenizer* t);
+
+TokenNode* parse_term(Tokenizer* t);
 
 Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff);
 

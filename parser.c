@@ -25,6 +25,8 @@
                 t == TOK_MUL || \
                 t == TOK_DIV || \
                 t == TOK_SUB)
+#define is_add(t) t == TOK_ADD || t == TOK_SUB
+
 #define filled(type) (type == TOK_NUM || type == TOK_ID)
 
 #define id_exists(tok) (tok->type == TOK_ID && idck(id_list, tok->value))
@@ -216,168 +218,197 @@ Error var_id(args()) {
 //     else return op_tree_result;
 // }
 
-Error expr(args()) {
-    Token* left = get_next_token(t);
-    Token* input = get_next_token(t);
-    while (is_op(input)) {
-        Token* op = get_next_token(t);
-        Token* right = expr(t, parent, id_list);
-        TokenNode* op_node = new_token_node(op);
+Error expr_handle(args()) {
+    ASTReturn* result = parse_expr(t);
+    push_vec(parent->children, result->ast);
+    return result->err;
+}
 
-        if (op->type == TOK_ADD) {
-            if (left->type == TOK_NUM && right->type == TOK_NUM) {
-                Token* tok = new_token(TOK_NUM);
-                tok->value = *(int*)(left->value) + *(int*)right->value;
-                TokenNode* node = new_token_node(tok);
-                push_vec(parent->children, node);
-            } else {
-                push_vec(parent->children, op_node);
-                
-            }
-        } else if (op->type == TOK_SUB) {
-            if (left->type == TOK_NUM && right->type == TOK_NUM) {
-                Token* tok = new_token(TOK_NUM);
-                tok->value = *(int*)(left->value) - *(int*)right->value;
-                TokenNode* node = new_token_node(tok);
-                push_vec(parent->children, node);
-            } else {
-                push_vec(parent->children, op_node);
-                
-            }
-        } else if (op->type == TOK_MUL) {
-            if (left->type == TOK_NUM && right->type == TOK_NUM) {
-                Token* tok = new_token(TOK_NUM);
-                tok->value = *(int*)(left->value) * *(int*)right->value;
-                TokenNode* node = new_token_node(tok);
-                push_vec(parent->children, node);
-            } else {
-                push_vec(parent->children, op_node);
-                
-            }
-        } else if (op->type == TOK_DIV) {
-            if (left->type == TOK_NUM && right->type == TOK_NUM) {
-                Token* tok = new_token(TOK_NUM);
-                tok->value = *(int*)(left->value) + *(int*)right->value;
-                TokenNode* node = new_token_node(tok);
-                push_vec(parent->children, node);
-            } else {
-                push_vec(parent->children, op_node);
-                
-            }
-        }
-        else if (op->type == TOK_O_PAREN) {
+ASTReturn parse_expr(Tokenizer* t) {
+    Token* left = parse_term(t);
+    Token* curr = get_next_token(t);
+    while (is_add(curr)) {
+        Token* op;
+        *op = *curr;
+        curr = get_next_token(t);
 
+        TokenNode* right = parse_term(t).ast;
+        TokenNode* op_tok = new_token_node(op);
+        
+        push_vec(op_tok->children, left);
+        push_vec(op_tok->children, right);
+
+        left = op_tok;
+    }
+    ASTReturn ret;
+    ret.ast = left;
+    return ret;
+}
+
+ASTReturn parse_term(Tokenizer* t) {
+    ASTReturn factor_res = parse_factor(t);
+    if (factor_res.err != NULL) return factor_res;
+    TokenNode* left = factor_res.ast;
+    Token* curr = get_next_token(t);
+    while (curr->type == TOK_MUL || curr->type == TOK_DIV) {
+        Token* op;
+        *op = *curr;
+
+        curr = get_next_token(t);
+        ASTReturn right_result = parse_factor(t);
+        if (right_result.err != NULL) return factor_res;
+        TokenNode* right = right_result.ast;
+
+        TokenNode* op_tok = new_token(op);
+        push_vec(op_tok->children, left);
+        push_vec(op_tok->children, right);
+
+        left = op_tok;
+    }
+    ASTReturn ret;
+    ret.err = NULL;
+    ret.ast = left;
+    return ret;
+}
+
+ASTReturn parse_factor(Tokenizer* t) { // all of these should return ASTReturn
+    ASTReturn ret;
+    Token* factor_token = get_next_token(t);
+    if (factor_token->type == TOK_NUM) {
+        // Create a number node
+        TokenNode* num_node = new_token_node(factor_token);
+        set_vec(num_node->token, NULL, 0);
+        set_vec(num_node->token, NULL, 1);
+        ret.ast = num_node;
+        return ret;
+    } else if (factor_token->type == TOK_VAR) {
+        ret.ast = new_token_node(factor_token);
+        return ret;
+    } else if (factor_token->type == TOK_O_PAREN) {
+        factor_token = get_next_token(t);
+        ASTReturn expr_node_ret = parse_expr(t); // parse expressions needs to return two values
+        if (expr_node_ret.err != NULL)
+            return expr_node_ret;
+        TokenNode* expr_node = expr_node_ret.ast;
+        if (get_next_token(t)->type != TOK_C_PAREN) {
+            ret.err = ERR_MISSING_C_PARAEN;
+            return ret;
         }
+        ret.ast = expr_node;
+        return ret;
+    } else {
+        ret.err = ERR_EXPECTED_EXPR;
+        return ret;
     }
 }
 
 // Builds a tree of ops_tokens
-Error op_expr(TokenNode* parent, Vec* ops_tokens, int i) {
-    if (ops_tokens->len == i)
-        return ERR_NONE;
-    TokenNode* op_node = new_token_node(get_vec(ops_tokens, i));
-    printf("op expr\n");
-    print_tok_type(op_node->token->type);
-    push_vec(parent->children, op_node);
-    // printf("parent length:%zu\n", parent->children->len);
-    // print_token_node(parent);
-    assert(parent->children->len != 0);
-    printf("%d\n\n", i);
-    if (i != 0) { // Checks if parent is the assignment node
-        if (parent->children->len == 1)
-            return op_expr(parent, ops_tokens, i + 1); // This is causing parent node buildup
-        else if (parent->children->len == 2)
-            return op_expr(op_node, ops_tokens, i + 1);
-        else return ERR_FORMATTED_AST_WRONG; // This is true
-    } else return op_expr(op_node, ops_tokens, 1);
+// Error op_expr(TokenNode* parent, Vec* ops_tokens, int i) {
+//     if (ops_tokens->len == i)
+//         return ERR_NONE;
+//     TokenNode* op_node = new_token_node(get_vec(ops_tokens, i));
+//     printf("op expr\n");
+//     print_tok_type(op_node->token->type);
+//     push_vec(parent->children, op_node);
+//     // printf("parent length:%zu\n", parent->children->len);
+//     // print_token_node(parent);
+//     assert(parent->children->len != 0);
+//     printf("%d\n\n", i);
+//     if (i != 0) { // Checks if parent is the assignment node
+//         if (parent->children->len == 1)
+//             return op_expr(parent, ops_tokens, i + 1); // This is causing parent node buildup
+//         else if (parent->children->len == 2)
+//             return op_expr(op_node, ops_tokens, i + 1);
+//         else return ERR_FORMATTED_AST_WRONG; // This is true
+//     } else return op_expr(op_node, ops_tokens, 1);
     
-}
+// }
 
 // Adds value leaves to a tree of ops_tokens
 // Right to left, two per leaf
 // Should work
-Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
-    printf("val expr called\n\n");
-    printf("\nPARENT: \n");
-    print_tok_type(parent->token->type);
-    printf("here\n");
-    if (vals->len == i) return ERR_NONE;
-    Error result = ERR_NONE;
+// Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
+//     printf("val expr called\n\n");
+//     printf("\nPARENT: \n");
+//     print_tok_type(parent->token->type);
+//     printf("here\n");
+//     if (vals->len == i) return ERR_NONE;
+//     Error result = ERR_NONE;
 
-    TokenNode* left = get_vec(parent->children, 0);
-    TokenNode* right = get_vec(parent->children, 1);
+//     TokenNode* left = get_vec(parent->children, 0);
+//     TokenNode* right = get_vec(parent->children, 1);
 
-    // There's an issue with parent(first right)'s token type
-    // if (parent->token- >type == NULL) printf("null");
-    // if (right == NULL && left == NULL) printf("here\n");
-    if (!filled(parent->token->type) && parent->children->len < 2) {
-    // if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is an op leaf 
-        printf("op node\n");
-        push_vec(parent->children, left);
-        i++;
-        result = val_expr(parent, vals, i + 1, id_list);
-        arithmetic_simplify()
-        if (result != ERR_NONE || result != ERR_NOT)
-            return result;
-    }
-    if (right != NULL) {
-        printf("right\n");
-        if (right->token->type == TOK_ID && !idck(id_list, right->token->value))
-            return ERR_ID_NOT_VALID;
-        result = val_expr(right, vals, i, id_list);
-        if (result != ERR_NONE) {
-            return result;
-        }
-    } else printf("RIGHT NOT NULL\n");
-    if (left != NULL) {
-        printf("left\n");
-        if (left->token->type == TOK_ID && !idck(id_list, left->token->value))
-            return ERR_ID_NOT_VALID;
-        result = val_expr(left, vals, i, id_list);
-        if (result != ERR_NONE) {
-            return result;
-        }
-    }
-    return ERR_NONE;
-}
+//     // There's an issue with parent(first right)'s token type
+//     // if (parent->token- >type == NULL) printf("null");
+//     // if (right == NULL && left == NULL) printf("here\n");
+//     if (!filled(parent->token->type) && parent->children->len < 2) {
+//     // if (right == NULL && left == NULL && !filled(parent->token->type)) { // parent is an op leaf 
+//         printf("op node\n");
+//         push_vec(parent->children, left);
+//         i++;
+//         result = val_expr(parent, vals, i + 1, id_list);
+//         arithmetic_simplify()
+//         if (result != ERR_NONE || result != ERR_NOT)
+//             return result;
+//     }
+//     if (right != NULL) {
+//         printf("right\n");
+//         if (right->token->type == TOK_ID && !idck(id_list, right->token->value))
+//             return ERR_ID_NOT_VALID;
+//         result = val_expr(right, vals, i, id_list);
+//         if (result != ERR_NONE) {
+//             return result;
+//         }
+//     } else printf("RIGHT NOT NULL\n");
+//     if (left != NULL) {
+//         printf("left\n");
+//         if (left->token->type == TOK_ID && !idck(id_list, left->token->value))
+//             return ERR_ID_NOT_VALID;
+//         result = val_expr(left, vals, i, id_list);
+//         if (result != ERR_NONE) {
+//             return result;
+//         }
+//     }
+//     return ERR_NONE;
+// }
 
 // Modifies ret_buff like a return value
-Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
-    printf("STARTED EXPR FORMATTING\n");
-    Token* tok = get_next_token(t);
-    // Both of these are Tokens
-    Vec* ops_tokens = new_vec(2);
-    Vec* vals_tokens = new_vec(2);
-    while (tok->type != TOK_SEMI && tok->type != TOK_NONE) {
-        print_token(tok);
-        if (is_op(tok->type)) {
-            printf("formatted op\n");
-            push_vec(ops_tokens, tok);
-            tok = get_next_token(t);
-        }
-        else if (id_exists(tok) || (tok->type == TOK_NUM)) {
-            printf("formatted id\n");
-            push_vec(vals_tokens, tok);
-            tok = get_next_token(t);
-        }
-        else {
-            if (vals_tokens->len == ops_tokens->len + 1) {
-                printf("this\n");
-                goto DONE;
-            }
-            printf("not\n");
-            return ERR_NOT;
-        }
-    } 
-    printf("found semi-colon\n");
-    DONE:
-    // printf("done\n");
-    push_vec(ret_buff, ops_tokens);
-    // printf("here\n");
-    push_vec(ret_buff, vals_tokens);
-    // printf("hereish\n");
-    return ERR_NONE;
-}
+// Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff) {
+//     printf("STARTED EXPR FORMATTING\n");
+//     Token* tok = get_next_token(t);
+//     // Both of these are Tokens
+//     Vec* ops_tokens = new_vec(2);
+//     Vec* vals_tokens = new_vec(2);
+//     while (tok->type != TOK_SEMI && tok->type != TOK_NONE) {
+//         print_token(tok);
+//         if (is_op(tok->type)) {
+//             printf("formatted op\n");
+//             push_vec(ops_tokens, tok);
+//             tok = get_next_token(t);
+//         }
+//         else if (id_exists(tok) || (tok->type == TOK_NUM)) {
+//             printf("formatted id\n");
+//             push_vec(vals_tokens, tok);
+//             tok = get_next_token(t);
+//         }
+//         else {
+//             if (vals_tokens->len == ops_tokens->len + 1) {
+//                 printf("this\n");
+//                 goto DONE;
+//             }
+//             printf("not\n");
+//             return ERR_NOT;
+//         }
+//     } 
+//     printf("found semi-colon\n");
+//     DONE:
+//     // printf("done\n");
+//     push_vec(ret_buff, ops_tokens);
+//     // printf("here\n");
+//     push_vec(ret_buff, vals_tokens);
+//     // printf("hereish\n");
+//     return ERR_NONE;
+// }
 
 Error statement(args()) {
     Error result;
@@ -405,13 +436,13 @@ Error conditional(args()) {
     if (tok->type == TOK_O_PAREN) {
         Token* dummy;
         TokenNode* comparitor_node = new_token_node(dummy);
-        Error expr_result = expr(t, comparitor_node, id_list);
+        Error expr_result = handle_expr(t, comparitor_node, id_list);
         if (expr_result == ERR_NONE) {
             Token* comparitor = get_next_token(t);
             print_tok_type(comparitor->type);
             comparitor_node->token = comparitor;
             push_vec(parent->children, comparitor_node);
-            expr_result = expr(t, comparitor_node, id_list);
+            expr_result = handle_expr(t, comparitor_node, id_list);
             if (expr_result == ERR_NONE) {
                 if (get_next_token(t)->type == TOK_C_PAREN && get_next_token(t)->type == TOK_O_CURL) {
                     // Check all possibilities
