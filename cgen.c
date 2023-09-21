@@ -6,11 +6,9 @@
 
 // D: never used this D:
 #define push(reg, size) \
-    char* ret; \
-    sprintf(ret, "str %s, [sp, #-%s]", reg, size);
+    sprintf(ret, "%s\nstr %s, [sp, #-%s]", ret, reg, size);
 #define pop(reg, size) \
-    char* ret; \
-    sprintf(ret, "ldr %s, [sp], #%s", reg, size);
+    sprintf(ret, "%s\nldr %s, [sp], #%s", ret, reg, size);
 
 // Time to iterate over the tree depth first
 char* code_gen(TokenNode* parent) {

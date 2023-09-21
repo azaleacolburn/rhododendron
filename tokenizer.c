@@ -5,6 +5,14 @@
 #include"tokenizer.h"
 #include"typeck.h"
 
+// Figure out how this works
+// #define macro(x) {is_num(x);is_letter(x)
+
+// if (1) macro(8);
+// else {
+
+// }
+
 #define is_num(c) ((c) >= '0' && (c) <= '9')
 #define is_letter(c) ((c) <= 'a' && (c) <= 'z' || (c) >= 'A' && (c) <= 'Z')
 #define is_typename(s) (is_char(s) || is_int(s))
@@ -28,6 +36,17 @@ Token* get_next_token(Tokenizer* t) {
     // printf("run out string:\n%s\n", t->string);
     // printf("Tokenizer string ran out\n");
     return new_token(TOK_NONE); // This is flawed
+}
+
+Token* get_curr_token(Tokenizer* t) {
+    char* str;
+    for (int i = 0; i < strlen(t->string); i++) {
+        if (check_delimeter(t->string[i])) {
+            str = str_get(str, 0, i);
+            return str_to_tok(str);
+        }
+    }
+    return new_token(TOK_NONE);
 }
 
 // Don't worry about syntax, just tokenize
@@ -208,6 +227,18 @@ char* str_remove(char* str, int start_index, int end_index) {
         return "";
     } else {
         printf("start index larger than end index\n");
+        return "";
+    }
+}
+
+char* str_get(char* str, int start_index, int end_index) {
+    if(start_index < end_index) {
+        char* buff = malloc(sizeof(char) * (end_index - start_index));
+        strncpy(buff, str + start_index, end_index - start_index);
+        return buff;
+    } else if (start_index == end_index) return "";
+    else {
+        printf("start index larger than end index");
         return "";
     }
 }

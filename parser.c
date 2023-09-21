@@ -27,6 +27,7 @@
                 t == TOK_MUL || \
                 t == TOK_DIV || \
                 t == TOK_SUB)
+                
 #define is_add(t) t->type == TOK_ADD || t->type == TOK_SUB
 
 #define filled(type) (type == TOK_NUM || type == TOK_ID)
@@ -138,15 +139,17 @@ Error assign(args()) {
     printf("assign\n");
     if (var_id_result == ERR_NONE) {
         Token* change_tok = get_next_token(t);
-        printf("change token:\n");
-        print_token(change_tok);
+        // printf("change token:\n");
+        // print_token(change_tok);
         // print_tok_type(change_tok->type);
         if (is_change_tok(change_tok->type)) {
             printf("change\n");
-            TokenNode* change_node = new_token_node(change_tok);
-            push_vec(assign_node->children, change_node); // change_node is the problem
-            printf("parent children length: %zu\n2 printing\n", assign_node->children->len);
-            print_token_node(assign_node);
+            // TokenNode* change_node = new_token_node(change_tok);
+            // push_vec(assign_node->children, change_node); // change_node is the problem
+            // printf("parent children length: %zu\n2 printing\n", assign_node->children->len);
+            printf("ASSIGNMENT NODE\n\n");
+            print_token(assign_node->token);
+            printf("\n");
             Error expr_result = handle_expr(t, assign_node, id_list); // This is the expr is coming from
             if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
             else if (expr_result == ERR_NONE)
@@ -180,7 +183,7 @@ Error var_id(args()) {
 }
 
 // Beautiful, recursive expression analysis
-
+// Pass in the node before the comparitor node actually
 Error handle_expr(args()) {
     ASTReturn* result = parse_expr(t);
     if (result->tag == TAG_ERR) return result->value.err;
@@ -190,10 +193,14 @@ Error handle_expr(args()) {
 }
 
 ASTReturn* parse_expr(Tokenizer* t) {
+    printf("PARSE EXPR CALLED\n");
     ASTReturn* left_ret = parse_term(t);
     if (left_ret->tag == TAG_ERR) return left_ret;
     TokenNode* left = left_ret->value.ast;
     Token* curr = get_next_token(t);
+    printf("CURR\n\n");
+    print_token(curr); // this 1 value is being consumed instead of the plus value
+    printf("\n");
     while (is_add(curr)) {
         Token* op;
         *op = *curr;
@@ -213,6 +220,7 @@ ASTReturn* parse_expr(Tokenizer* t) {
 }
 
 ASTReturn* parse_term(Tokenizer* t) {
+    printf("PARSE TERM CALLED\n");
     ASTReturn* factor_res = parse_factor(t);
     if (factor_res->tag == TAG_ERR) return factor_res;
     TokenNode* left = factor_res->value.ast;
@@ -236,7 +244,11 @@ ASTReturn* parse_term(Tokenizer* t) {
 }
 
 ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
+    printf("PARSE FACTOR CALLED\n");
+    printf("FACTOR TOKEN\n\n");
     Token* factor_token = get_next_token(t);
+    print_token(factor_token);
+    printf("\n");
     if (factor_token->type == TOK_NUM) {
         // Create a number node
         TokenNode* num_node = new_token_node(factor_token);
@@ -257,9 +269,8 @@ ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
             return new_err_return(ERR_MISSING_C_PARAEN);
         }
         return new_ast_return(expr_node);
-    } else {
-        return new_err_return(ERR_EXPECTED_EXPR);
     }
+    return new_err_return(ERR_EXPECTED_EXPR);
 }
 
 ASTReturn* new_ast_return(TokenNode* node) {
@@ -429,8 +440,7 @@ Error conditional(args()) {
             Token* comparitor = get_next_token(t);
             print_tok_type(comparitor->type);
             comparitor_node->token = comparitor;
-            push_vec(parent->children, comparitor_node);
-            expr_result = handle_expr(t, comparitor_node, id_list);
+            // expr_result = handle_expr(t, comparitor_node, id_list);
             if (expr_result == ERR_NONE) {
                 if (get_next_token(t)->type == TOK_C_PAREN && get_next_token(t)->type == TOK_O_CURL) {
                     // Check all possibilities

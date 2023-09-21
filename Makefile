@@ -1,4 +1,4 @@
 SOURCES := $(wildcard ./*.c)
 
-compiler: $(SOURCES)
-	gcc $(SOURCES) -o compiler -Wno-switch
+fcc: $(SOURCES)
+	gcc $(SOURCES) -o fcc -Wno-switch

@@ -23,7 +23,7 @@ Vec* readFile(char* path)
     return ret;
 }
 
-void test_tokenizer() {
+void test_tokenizer(void) {
     Tokenizer* t = new_tokenizer("first second third fourth");
     print_token(get_next_token(t));
     print_token(get_next_token(t));
