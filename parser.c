@@ -25,7 +25,7 @@
                 t == TOK_MUL || \
                 t == TOK_DIV || \
                 t == TOK_SUB)
-#define is_add(t) t == TOK_ADD || t == TOK_SUB
+#define is_add(t) t->type == TOK_ADD || t->type == TOK_SUB
 
 #define filled(type) (type == TOK_NUM || type == TOK_ID)
 
@@ -145,7 +145,7 @@ Error assign(args()) {
             push_vec(assign_node->children, change_node); // change_node is the problem
             printf("parent children length: %zu\n2 printing\n", assign_node->children->len);
             print_token_node(assign_node);
-            Error expr_result = expr(t, assign_node, id_list); // This is the expr is coming from
+            Error expr_result = handle_expr(t, assign_node, id_list); // This is the expr is coming from
             if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
             else if (expr_result == ERR_NONE)
                 push_vec(parent->children, assign_node);
@@ -218,21 +218,27 @@ Error var_id(args()) {
 //     else return op_tree_result;
 // }
 
-Error expr_handle(args()) {
+Error handle_expr(args()) {
     ASTReturn* result = parse_expr(t);
-    push_vec(parent->children, result->ast);
-    return result->err;
+    if (result->tag == TAG_ERR) return result->value.err;
+    
+    push_vec(parent->children, result->value.ast);
+    return ERR_NONE;
 }
 
-ASTReturn parse_expr(Tokenizer* t) {
-    Token* left = parse_term(t);
+ASTReturn* parse_expr(Tokenizer* t) {
+    ASTReturn* left_ret = parse_term(t);
+    if (left_ret->tag == TAG_ERR) return left_ret;
+    TokenNode* left = left_ret->value.ast;
     Token* curr = get_next_token(t);
     while (is_add(curr)) {
         Token* op;
         *op = *curr;
         curr = get_next_token(t);
 
-        TokenNode* right = parse_term(t).ast;
+        ASTReturn* right_ret = parse_term(t);
+        if (right_ret->tag == TAG_ERR) return right_ret;
+        TokenNode* right = right_ret->value.ast;
         TokenNode* op_tok = new_token_node(op);
         
         push_vec(op_tok->children, left);
@@ -240,66 +246,69 @@ ASTReturn parse_expr(Tokenizer* t) {
 
         left = op_tok;
     }
-    ASTReturn ret;
-    ret.ast = left;
-    return ret;
+    return new_ast_return(left);
 }
 
-ASTReturn parse_term(Tokenizer* t) {
-    ASTReturn factor_res = parse_factor(t);
-    if (factor_res.err != NULL) return factor_res;
-    TokenNode* left = factor_res.ast;
+ASTReturn* parse_term(Tokenizer* t) {
+    ASTReturn* factor_res = parse_factor(t);
+    if (factor_res->tag == TAG_ERR) return factor_res;
+    TokenNode* left = factor_res->value.ast;
     Token* curr = get_next_token(t);
     while (curr->type == TOK_MUL || curr->type == TOK_DIV) {
         Token* op;
         *op = *curr;
 
         curr = get_next_token(t);
-        ASTReturn right_result = parse_factor(t);
-        if (right_result.err != NULL) return factor_res;
-        TokenNode* right = right_result.ast;
+        ASTReturn* right_result = parse_factor(t);
+        if (right_result->tag == TAG_ERR) return right_result;
+        TokenNode* right = right_result->value.ast;
 
-        TokenNode* op_tok = new_token(op);
+        TokenNode* op_tok = new_token_node(op);
         push_vec(op_tok->children, left);
         push_vec(op_tok->children, right);
 
         left = op_tok;
     }
-    ASTReturn ret;
-    ret.err = NULL;
-    ret.ast = left;
-    return ret;
+    return new_ast_return(left);
 }
 
-ASTReturn parse_factor(Tokenizer* t) { // all of these should return ASTReturn
-    ASTReturn ret;
+ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
     Token* factor_token = get_next_token(t);
     if (factor_token->type == TOK_NUM) {
         // Create a number node
         TokenNode* num_node = new_token_node(factor_token);
-        set_vec(num_node->token, NULL, 0);
-        set_vec(num_node->token, NULL, 1);
-        ret.ast = num_node;
-        return ret;
+        set_vec(num_node->children, NULL, (size_t)0);
+        set_vec(num_node->children, NULL, (size_t)1);
+        return new_ast_return(num_node);
     } else if (factor_token->type == TOK_VAR) {
-        ret.ast = new_token_node(factor_token);
-        return ret;
+        return new_ast_return(new_token_node(factor_token));
     } else if (factor_token->type == TOK_O_PAREN) {
         factor_token = get_next_token(t);
-        ASTReturn expr_node_ret = parse_expr(t); // parse expressions needs to return two values
-        if (expr_node_ret.err != NULL)
+        ASTReturn* expr_node_ret = parse_expr(t);
+        if (expr_node_ret->tag == TAG_ERR)
             return expr_node_ret;
-        TokenNode* expr_node = expr_node_ret.ast;
+        TokenNode* expr_node = expr_node_ret->value.ast;
         if (get_next_token(t)->type != TOK_C_PAREN) {
-            ret.err = ERR_MISSING_C_PARAEN;
-            return ret;
+            return new_err_return(ERR_MISSING_C_PARAEN);
         }
-        ret.ast = expr_node;
-        return ret;
+        return new_ast_return(expr_node);
     } else {
-        ret.err = ERR_EXPECTED_EXPR;
-        return ret;
+        return new_err_return(ERR_EXPECTED_EXPR);
     }
+}
+
+ASTReturn* new_ast_return(TokenNode* node) {
+    ASTReturn* ret = malloc(sizeof(ASTReturn));
+    ret->tag = TAG_AST;
+    ret->value.ast = node;
+    return ret;
+}
+
+ASTReturn* new_err_return (Error err) {
+    ASTReturn* ret = malloc(sizeof(ASTReturn));
+    ret->tag = TAG_ERR;
+    ret->value.err = err;
+    return ret;
 }
 
 // Builds a tree of ops_tokens

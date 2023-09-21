@@ -8,10 +8,15 @@ typedef struct TokenNode {
     Vec* children;
 } TokenNode;
 
-typedef union ASTReturn {
-    TokenNode* ast;
-    Error err;
+typedef enum ASTReturnTag {TAG_ERR, TAG_AST} ASTReturnTag;
+
+typedef union ASTReturnValue {TokenNode* ast; Error err;} ASTReturnValue;
+
+typedef struct ASTReturn {
+    ASTReturnTag tag;
+    ASTReturnValue value;
 } ASTReturn;
+
 
 typedef enum Types {
     TYPE_INT,
@@ -28,11 +33,11 @@ Error var_id(args());
 
 Error handle_expr(args());
 
-ASTReturn parse_expr(Tokenizer* t);
+ASTReturn* parse_expr(Tokenizer* t);
 
-ASTReturn parse_factor(Tokenizer* t);
+ASTReturn* parse_factor(Tokenizer* t);
 
-TokenNode* parse_term(Tokenizer* t);
+ASTReturn* parse_term(Tokenizer* t);
 
 Error format_expression(Tokenizer* t, Vec* id_list, Vec* ret_buff);
 
@@ -51,3 +56,7 @@ void print_token_node(TokenNode* tok);
 void free_token_node(TokenNode* node);
 
 TokenNode* new_token_node(Token* tok);
+
+ASTReturn* new_err_return (Error err);
+
+ASTReturn* new_ast_return(TokenNode* node);

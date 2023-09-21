@@ -20,19 +20,19 @@ Token* get_next_token(Tokenizer* t) {
     for (int i = 0; i < strlen(t->string); i++) {
         if (check_delimeter(t->string[i])) {
             str = str_remove(t->string, 0, i);
-            printf("str: %s\n", str);
-            printf("not run out string(post removal):\n%s\n", t->string);
+            // printf("str: %s\n", str);
+            // printf("not run out string(post removal):\n%s\n", t->string);
             return str_to_tok(str);
         }
     }
-    printf("run out string:\n%s\n", t->string);
-    printf("Tokenizer string ran out\n");
+    // printf("run out string:\n%s\n", t->string);
+    // printf("Tokenizer string ran out\n");
     return new_token(TOK_NONE); // This is flawed
 }
 
 // Don't worry about syntax, just tokenize
 Token* str_to_tok(char* str_tok) {
-    printf("str_token: %s\n", str_tok);
+    // printf("str_token: %s\n", str_tok);
     Token* tok;
     TokType type = TOK_NONE;
     void* value = NULL;
@@ -67,7 +67,7 @@ Token* str_to_tok(char* str_tok) {
         goto DONE;
     }
     // Check for special characters
-    printf("str_tok: %c\n", *str_tok);
+    // printf("str_tok: %c\n", *str_tok);
     switch (*str_tok) {
         case '(':
             type = TOK_O_PAREN;
@@ -175,7 +175,7 @@ Tokenizer* new_tokenizer(char* string) {
     t->string = malloc(sizeof(string));
     strcpy(t->string, string); // Not the problem
     // memset(t->string + strlen(t->string), '\0', 1);
-    printf("new tokenizer string: %s\n", t->string);
+    // printf("new tokenizer string: %s\n", t->string);
     return t;
 }
 
