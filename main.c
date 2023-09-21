@@ -36,7 +36,7 @@ void test_tokenizer() {
 int main(int argc, char* argv[]) {
     printf("%s", argv[0]);
     // test_tokenizer();
-    Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/main.txt");
+    Vec* contents = readFile("/Users/elocolburn/CompSci3/floralcc/test.txt");
     Vec* ret = program(get_vec(contents, 0), *(long*)get_vec(contents, 1));
     Error* success_code = get_vec(ret, 0);
     TokenNode* node = get_vec(ret, 1);
