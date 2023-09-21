@@ -33,6 +33,8 @@ typedef enum TokType {
     TOK_O_CURL,
     TOK_C_CURL,
     TOK_SEMI,
+    TOK_FUNC_DECLARE,
+    TOK_FUNC_CALL,
     TOK_NOT, // Fix maybe
     TOK_NONE // Not a token
 } TokType;

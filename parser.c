@@ -4,6 +4,8 @@
 #include<assert.h>
 #include"parser.h"
 
+// Everything but arithmetic experssion parsing needs to be refactored to return an ASTReturn* instead of passing around a tree tht gets modified
+
 #define is_change_tok(t) ( \
                 t == TOK_B_AND_EQ || \
                 t == TOK_B_OR_EQ || \
@@ -177,46 +179,7 @@ Error var_id(args()) {
     } else return ERR_EXEPCTED_ID;
 }
 
-// TOK_NUMs are leaves
-// Operators are branches
-// 10*(2+5)
-//  TOK_MUL 
-// /        \
-// TOK_NUM   TOK_ADD
-// /        /        \
-// 10      TOK_NUM    TOK_NUM
-//         /          /
-//        2           5
-
-// Parses expressions cleverly, by splitting vals_tokens and operations up
-// Error expr(args()) {
-//     printf("think\n");
-//     // This is the last print, by here you can't print it
-//     print_token_node(parent); // so here this problem is being haved
-//     Vec* expr = new_vec(10);
-//     Error expr_result = format_expression(t, id_list, expr);
-//     if (expr_result == ERR_NOT)
-//         return ERR_EXPECTED_EXPR;
-//     Vec* ops_tokens = get_vec(expr, 0);
-//     Vec* vals = get_vec(expr, 1);
-//     printf("VALS: ");
-//     for (int i = 0; i < vals->len; i++) {
-//         char* val = (char*)((Token*)get_vec(vals, i))->value;
-//         printf("%s ", val);
-//     }
-//     printf("\n");
-//     Error op_tree_result = op_expr(parent, ops_tokens, 0);
-//     printf("expr\n");
-//     // printf("parent type: %d\n", (((TokenNode*)get_vec(parent->children, 0))->token));
-//     if (((TokenNode*)get_vec(parent->children, 0))->token->type) printf("this\n"); // This is toxic
-//     Error val_expr_result = val_expr(parent, vals, 0, id_list);
-//     free_vec(vals);
-//     free_vec(ops_tokens);
-//     free_vec(expr);
-//     if (op_tree_result == ERR_NONE)
-//         return val_expr_result;
-//     else return op_tree_result;
-// }
+// Beautiful, recursive expression analysis
 
 Error handle_expr(args()) {
     ASTReturn* result = parse_expr(t);
@@ -282,6 +245,8 @@ ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
         return new_ast_return(num_node);
     } else if (factor_token->type == TOK_VAR) {
         return new_ast_return(new_token_node(factor_token));
+    } else if (factor_token->type == TOK_FUNC_CALL) {
+        // omg imagine if functions were a thing
     } else if (factor_token->type == TOK_O_PAREN) {
         factor_token = get_next_token(t);
         ASTReturn* expr_node_ret = parse_expr(t);
@@ -311,6 +276,21 @@ ASTReturn* new_err_return (Error err) {
     return ret;
 }
 
+// This is a mess
+// Come back to it, this might be helpful for algebraic expression analysis
+// I thought I was being clever, I wasn't. Maybe there's something useful in here though
+
+
+// TOK_NUMs are leaves
+// Operators are branches
+// 10*(2+5)
+//  TOK_MUL 
+// /        \
+// TOK_NUM   TOK_ADD
+// /        /        \
+// 10      TOK_NUM    TOK_NUM
+//         /          /
+//        2           5
 // Builds a tree of ops_tokens
 // Error op_expr(TokenNode* parent, Vec* ops_tokens, int i) {
 //     if (ops_tokens->len == i)
@@ -335,7 +315,6 @@ ASTReturn* new_err_return (Error err) {
 
 // Adds value leaves to a tree of ops_tokens
 // Right to left, two per leaf
-// Should work
 // Error val_expr(TokenNode* parent, Vec* vals, int i, Vec* id_list) {
 //     printf("val expr called\n\n");
 //     printf("\nPARENT: \n");
