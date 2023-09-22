@@ -230,6 +230,9 @@ ASTReturn* parse_term(Tokenizer* t) {
         *op = *curr;
 
         curr = get_next_token(t);
+        printf("CURR IN TERM\n\n");
+        print_token(curr);
+        printf("\n");
         ASTReturn* right_result = parse_factor(t);
         if (right_result->tag == TAG_ERR) return right_result;
         TokenNode* right = right_result->value.ast;
