@@ -194,16 +194,22 @@ Error handle_expr(args()) {
 
 ASTReturn* parse_expr(Tokenizer* t) {
     printf("PARSE EXPR CALLED\n");
-    ASTReturn* left_ret = parse_term(t);
+    ASTReturn* left_ret = parse_term(t); // this is 1 good
     if (left_ret->tag == TAG_ERR) return left_ret;
     TokenNode* left = left_ret->value.ast;
+    printf("LEFT TERM\n\n");
+    print_token(left->token);
+    printf("\n");
     Token* curr = get_next_token(t);
     printf("CURR\n\n");
-    print_token(curr); // this 1 value is being consumed instead of the plus value
+    print_token(curr); // this 1 value is being consumed instead of the plus
     printf("\n");
     while (is_add(curr)) {
         Token* op;
         *op = *curr;
+        printf("IS ARITHMETIC AND PRINTING OP: \n\n");
+        print_token(op);
+        printf("\n");
         curr = get_next_token(t);
 
         ASTReturn* right_ret = parse_term(t);
@@ -224,7 +230,10 @@ ASTReturn* parse_term(Tokenizer* t) {
     ASTReturn* factor_res = parse_factor(t);
     if (factor_res->tag == TAG_ERR) return factor_res;
     TokenNode* left = factor_res->value.ast;
-    Token* curr = get_next_token(t);
+    Token* curr = get_next_token(t); // this should move to the next token but not consume it. IE it should peek_tok
+    printf("CURR IN TERM: \n\n");
+    print_token(curr);
+    printf("\n");
     while (curr->type == TOK_MUL || curr->type == TOK_DIV) {
         Token* op;
         *op = *curr;
