@@ -210,7 +210,7 @@ ASTReturn* parse_expr(Tokenizer* t) {
         printf("IS ARITHMETIC AND PRINTING OP: \n\n");
         print_token(op);
         printf("\n");
-        curr = get_next_token(t);
+        //curr = get_next_token(t);
 
         ASTReturn* right_ret = parse_term(t);
         if (right_ret->tag == TAG_ERR) return right_ret;
@@ -230,7 +230,7 @@ ASTReturn* parse_term(Tokenizer* t) {
     ASTReturn* factor_res = parse_factor(t);
     if (factor_res->tag == TAG_ERR) return factor_res;
     TokenNode* left = factor_res->value.ast;
-    Token* curr = get_next_token(t); // this should move to the next token but not consume it. IE it should peek_tok
+    Token* curr = get_curr_token(t);
     printf("CURR IN TERM: \n\n");
     print_token(curr);
     printf("\n");

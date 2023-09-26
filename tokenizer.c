@@ -5,14 +5,6 @@
 #include"tokenizer.h"
 #include"typeck.h"
 
-// Figure out how this works
-// #define macro(x) {is_num(x);is_letter(x)
-
-// if (1) macro(8);
-// else {
-
-// }
-
 #define is_num(c) ((c) >= '0' && (c) <= '9')
 #define is_letter(c) ((c) <= 'a' && (c) <= 'z' || (c) >= 'A' && (c) <= 'Z')
 #define is_typename(s) (is_char(s) || is_int(s))
@@ -49,6 +41,7 @@ Token* get_curr_token(Tokenizer* t) {
     return new_token(TOK_NONE);
 }
 
+// The segfault you're looking for is  here
 // Don't worry about syntax, just tokenize
 Token* str_to_tok(char* str_tok) {
     // printf("str_token: %s\n", str_tok);
@@ -172,6 +165,7 @@ Token* str_to_tok(char* str_tok) {
     DONE:
     tok = new_token(type);
     tok->value = value;
+    printf("HERE\n");
     return tok;
 }
 
