@@ -259,6 +259,7 @@ ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
     printf("PARSE FACTOR CALLED\n");
     printf("FACTOR TOKEN\n\n");
     Token* factor_token = get_next_token(t);
+    printf("are we faulting here\n");
     print_token(factor_token);
     printf("\n");
     if (factor_token->type == TOK_NUM) {
