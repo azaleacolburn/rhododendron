@@ -5,7 +5,6 @@
 #include"parser.h"
 
 // Everything but arithmetic experssion parsing needs to be refactored to return an ASTReturn* instead of passing around a tree tht gets modified
-
 #define is_change_tok(t) ( \
                 t == TOK_B_AND_EQ || \
                 t == TOK_B_OR_EQ || \
@@ -205,12 +204,12 @@ ASTReturn* parse_expr(Tokenizer* t) {
     print_token(curr); // this 1 value is being consumed instead of the plus
     printf("\n");
     while (is_add(curr)) {
-        Token* op;
+        Token* op = new_token(TOK_NONE);
         *op = *curr;
         printf("IS ARITHMETIC AND PRINTING OP: \n\n");
         print_token(op);
         printf("\n");
-        //curr = get_next_token(t);
+        curr = get_next_token(t);
 
         ASTReturn* right_ret = parse_term(t);
         if (right_ret->tag == TAG_ERR) return right_ret;
@@ -227,6 +226,7 @@ ASTReturn* parse_expr(Tokenizer* t) {
 
 ASTReturn* parse_term(Tokenizer* t) {
     printf("PARSE TERM CALLED\n");
+    // printf("t: %s\n", t->string); // string is faulting here
     ASTReturn* factor_res = parse_factor(t);
     if (factor_res->tag == TAG_ERR) return factor_res;
     TokenNode* left = factor_res->value.ast;
@@ -242,6 +242,7 @@ ASTReturn* parse_term(Tokenizer* t) {
         printf("CURR IN TERM\n\n");
         print_token(curr);
         printf("\n");
+        
         ASTReturn* right_result = parse_factor(t);
         if (right_result->tag == TAG_ERR) return right_result;
         TokenNode* right = right_result->value.ast;
@@ -258,6 +259,7 @@ ASTReturn* parse_term(Tokenizer* t) {
 ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
     printf("PARSE FACTOR CALLED\n");
     printf("FACTOR TOKEN\n\n");
+    // printf("t.string: %s\n", t->string);
     Token* factor_token = get_next_token(t);
     printf("are we faulting here\n");
     print_token(factor_token);
@@ -407,7 +409,7 @@ ASTReturn* new_err_return (Error err) {
 //             if (vals_tokens->len == ops_tokens->len + 1) {
 //                 printf("this\n");
 //                 goto DONE;
-//             }
+//           }
 //             printf("not\n");
 //             return ERR_NOT;
 //         }

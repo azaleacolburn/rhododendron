@@ -17,7 +17,9 @@ static char* keywords[3] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
     char* str;
+    printf("%s\n", t->string); // string has been corrupted
     for (int i = 0; i < strlen(t->string); i++) {
+        printf("hereh\n");
         if (check_delimeter(t->string[i])) {
             str = str_remove(t->string, 0, i);
             // printf("str: %s\n", str);
@@ -212,15 +214,19 @@ int check_delimeter(char c) {
 
 // Doing something stupid here that adds semi-colons to the end
 char* str_remove(char* str, int start_index, int end_index) {
+    printf("here\n");
     if (start_index < end_index) {
         char* buff = malloc(sizeof(char) * (end_index - start_index));
         strncpy(buff, str + start_index , end_index - start_index);
         memmove(&str[start_index - 1], &str[end_index], strlen(str) - start_index);
+        printf("herepast\n");
         return buff;
     } else if (start_index == end_index) {
+        printf("hereist\n");
         return "";
     } else {
         printf("start index larger than end index\n");
+        printf("herel\n");
         return "";
     }
 }
