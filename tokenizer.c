@@ -17,7 +17,7 @@ static char* keywords[3] = {"if", "for", "while"};
 
 Token* get_next_token(Tokenizer* t) {
     char* str;
-    printf("%s\n", t->string); // string has been corrupted
+    printf("%s\n", t->string);
     for (int i = 0; i < strlen(t->string); i++) {
         printf("hereh\n");
         if (check_delimeter(t->string[i])) {
@@ -53,7 +53,11 @@ Token* str_to_tok(char* str_tok) {
     TokType kw = kwck(str_tok);
     int is_num = 1;
     for (int i = 0; i < strlen(str_tok); i++) {
-        if (str_tok[i] != ';' && !is_num(str_tok[i]))
+        if (str_tok[i] == ';') 
+            for (int j = i; j < strlen(str_tok) - 1; j++) { // this might be simplified to: str_tok[i] = str_tok[i + 1], should owrk either way though
+                str_tok[j] = str_tok[j + 1];
+            }
+        if (!is_num(str_tok[i]))
             is_num = 0;
     }
     if (is_num == 1) {

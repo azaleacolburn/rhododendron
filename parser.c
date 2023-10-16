@@ -96,6 +96,7 @@ Vec* program(char* string, long file_size) {
     // Every starting token should have a function here
     // while (strlen(t->string) > 0) { 
     Error result = program_check(t, program_node, id_list);
+    printf("you\n");
     printf("\n\nAST:\n");
     print_token_node(program_node);
     free_tokenizer(t);
@@ -150,7 +151,7 @@ Error assign(args()) {
             print_token(assign_node->token);
             printf("\n");
             Error expr_result = handle_expr(t, assign_node, id_list); // This is the expr is coming from
-            if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR;
+            if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR; // this is happen
             else if (expr_result == ERR_NONE)
                 push_vec(parent->children, assign_node);
             return expr_result;
@@ -188,6 +189,7 @@ Error handle_expr(args()) {
     if (result->tag == TAG_ERR) return result->value.err;
     
     push_vec(parent->children, result->value.ast);
+    printf("this\n");
     return ERR_NONE;
 }
 
@@ -253,13 +255,14 @@ ASTReturn* parse_term(Tokenizer* t) {
 
         left = op_tok;
     }
+    printf("here?\n");
     return new_ast_return(left);
 }
 
 ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
     printf("PARSE FACTOR CALLED\n");
-    printf("FACTOR TOKEN\n\n");
-    // printf("t.string: %s\n", t->string);
+    printf("FACTOR TOKEN\n\n"); // something is wrong
+    printf("t.string: %s\n", t->string); // I FUCKED UP
     Token* factor_token = get_next_token(t);
     printf("are we faulting here\n");
     print_token(factor_token);
@@ -285,7 +288,7 @@ ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
         }
         return new_ast_return(expr_node);
     }
-    return new_err_return(ERR_EXPECTED_EXPR);
+    return new_err_return(ERR_EXPECTED_EXPR); // this could have happened
 }
 
 ASTReturn* new_ast_return(TokenNode* node) {
