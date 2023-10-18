@@ -26,7 +26,7 @@
                 t == TOK_MUL || \
                 t == TOK_DIV || \
                 t == TOK_SUB)
-                
+
 #define is_add(t) t->type == TOK_ADD || t->type == TOK_SUB
 
 #define filled(type) (type == TOK_NUM || type == TOK_ID)
@@ -96,7 +96,7 @@ Vec* program(char* string, long file_size) {
     // Every starting token should have a function here
     // while (strlen(t->string) > 0) { 
     Error result = program_check(t, program_node, id_list);
-    printf("you\n");
+    printf("you\n"); // here is printing and faulting
     printf("\n\nAST:\n");
     print_token_node(program_node);
     free_tokenizer(t);
@@ -151,7 +151,7 @@ Error assign(args()) {
             print_token(assign_node->token);
             printf("\n");
             Error expr_result = handle_expr(t, assign_node, id_list); // This is the expr is coming from
-            if (expr_result == ERR_NOT) return ERR_EXPECTED_EXPR; // this is happen
+            if (expr_result == ERR_NOT) { printf("here\n"); return ERR_EXPECTED_EXPR; } // this is happen
             else if (expr_result == ERR_NONE)
                 push_vec(parent->children, assign_node);
             return expr_result;
@@ -211,8 +211,8 @@ ASTReturn* parse_expr(Tokenizer* t) {
         printf("IS ARITHMETIC AND PRINTING OP: \n\n");
         print_token(op);
         printf("\n");
-        curr = get_next_token(t);
-
+        // curr = get_next_token(t);
+        printf("t: ", t->string);
         ASTReturn* right_ret = parse_term(t);
         if (right_ret->tag == TAG_ERR) return right_ret;
         TokenNode* right = right_ret->value.ast;
@@ -228,7 +228,7 @@ ASTReturn* parse_expr(Tokenizer* t) {
 
 ASTReturn* parse_term(Tokenizer* t) {
     printf("PARSE TERM CALLED\n");
-    // printf("t: %s\n", t->string); // string is faulting here
+    printf("t: %s\n", t->string); // string is faulting here
     ASTReturn* factor_res = parse_factor(t);
     if (factor_res->tag == TAG_ERR) return factor_res;
     TokenNode* left = factor_res->value.ast;
@@ -262,11 +262,12 @@ ASTReturn* parse_term(Tokenizer* t) {
 ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
     printf("PARSE FACTOR CALLED\n");
     printf("FACTOR TOKEN\n\n"); // something is wrong
-    printf("t.string: %s\n", t->string); // I FUCKED UP
+    printf("t.string: %s\n", t->string); // I FUCKED UP this is an empty string?
     Token* factor_token = get_next_token(t);
     printf("are we faulting here\n");
-    print_token(factor_token);
+    print_token(factor_token); // factor token has no type
     printf("\n");
+    print_tok_type(factor_token->type);
     if (factor_token->type == TOK_NUM) {
         // Create a number node
         TokenNode* num_node = new_token_node(factor_token);
@@ -288,6 +289,7 @@ ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
         }
         return new_ast_return(expr_node);
     }
+    printf("factor failed\n");
     return new_err_return(ERR_EXPECTED_EXPR); // this could have happened
 }
 
@@ -523,16 +525,20 @@ Error program_check(args()) {
     printf("testish\n");
     if (is_keyword(tok->type)) {
         Error statement_result = statement(t, parent, id_list);
+        printf("here\n");
         if (statement_result == ERR_NOT)
             return ERR_EXPECTED_STATEMENT;
         else return statement_result;
     } else if (tok->type == TOK_DECLARE) {
         Error declare_result = declare(t, parent, id_list);
+        printf("here1\n");
+        printf("%s", error_message(declare_result));
         if (declare_result == ERR_NOT)
             return ERR_EXPECTED_DECLARATION;
         else return declare_result;
     } else if (tok->type == TOK_ID) {
         Error assign_result = assign(t, parent, id_list);
+        printf("here2\n");
         if (assign_result == ERR_NOT)
             return ERR_EXPECTED_ASSIGNMENT;
         else return assign_result;
