@@ -202,7 +202,7 @@ ASTReturn* parse_expr(Tokenizer* t) {
     print_token(left->token);
     printf("\n");
     Token* curr = get_next_token(t);
-    printf("CURR\n\n");
+    printf("CURR HLKTSHDKL JFH\n\n");
     print_token(curr); // this 1 value is being consumed instead of the plus
     printf("\n");
     while (is_add(curr)) {
