@@ -83,7 +83,7 @@ void print_tok_type(TokType type) {
             p = "!=";
             break;
         case TOK_NONE:
-            p = "";
+            p = "NONE";
             break;
         case TOK_NOT:
             p = "!";

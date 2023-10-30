@@ -204,34 +204,35 @@ ASTReturn* parse_expr(Tokenizer* t) {
     printf("LEFT TERM\n\n");
     print_token(left->token);
     printf("\n");
-    Token* curr = get_next_token(t);
+    Token* curr = get_next_token(t); // token_type should have a none value
     printf("CURR HLKTSHDKL JFH\n\n");
-    print_token(curr); // this 1 value is being consumed instead of the plus
+    printf("t string: %s\n", t->string);
     printf("\n");
-    while (is_add(curr)) {
+    print_token(curr);
+    while (is_add(curr)) { // this should trigger exactly once
         Token* op = new_token(TOK_NONE);
         *op = *curr;
         printf("IS ARITHMETIC AND PRINTING OP: \n\n");
         print_token(op);
         printf("\n");
-        // curr = get_next_token(t);
-        printf("t: ", t->string);
+        printf("t: %s\n", t->string);
         ASTReturn* right_ret = parse_term(t);
         if (right_ret->tag == TAG_ERR) return right_ret;
         TokenNode* right = right_ret->value.ast;
+        print_token_node(right);
         TokenNode* op_tok = new_token_node(op);
         
         push_vec(op_tok->children, left);
         push_vec(op_tok->children, right);
 
-        left = op_tok;
+        left = op_tok; // this is correct
     }
     return new_ast_return(left);
 }
 
 ASTReturn* parse_term(Tokenizer* t) {
     printf("PARSE TERM CALLED\n");
-    printf("t: %s\n", t->string); // string is faulting here
+    printf("t: %s\n", t->string);
     ASTReturn* factor_res = parse_factor(t);
     if (factor_res->tag == TAG_ERR) return factor_res;
     TokenNode* left = factor_res->value.ast;
@@ -243,32 +244,31 @@ ASTReturn* parse_term(Tokenizer* t) {
         Token* op;
         *op = *curr;
 
-        curr = get_next_token(t);
-        printf("CURR IN TERM\n\n");
+        printf("CURR IN TERM LOOP\n\n");
         print_token(curr);
         printf("\n");
         
         ASTReturn* right_result = parse_factor(t);
         if (right_result->tag == TAG_ERR) return right_result;
         TokenNode* right = right_result->value.ast;
-
+        // curr = get_next_token(t);
         TokenNode* op_tok = new_token_node(op);
         push_vec(op_tok->children, left);
         push_vec(op_tok->children, right);
 
-        left = op_tok; // is this correct
+        left = op_tok; // this is correct
     }
     printf("here?\n");
     return new_ast_return(left);
 }
 
-ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
+ASTReturn* parse_factor(Tokenizer* t) { 
     printf("PARSE FACTOR CALLED\n");
-    printf("FACTOR TOKEN\n\n"); // something is wrong
-    printf("t.string: %s\n", t->string); // I FUCKED UP this is an empty string?
+    printf("FACTOR TOKEN\n\n"); 
+    printf("t.string: %s\n", t->string);
     Token* factor_token = get_next_token(t);
-    printf("are we faulting here\n");
-    print_token(factor_token); // factor token has no type
+    printf("are we faulting here\n"); // this is ok up to here
+    print_token(factor_token); // type: num, value: 1 the first time round
     printf("\n");
     print_tok_type(factor_token->type);
     if (factor_token->type == TOK_NUM) {
@@ -276,7 +276,7 @@ ASTReturn* parse_factor(Tokenizer* t) { // all of these should return ASTReturn
         TokenNode* num_node = new_token_node(factor_token);
         set_vec(num_node->children, NULL, (size_t)0);
         set_vec(num_node->children, NULL, (size_t)1);
-        return new_ast_return(num_node);
+        return new_ast_return(num_node); // this is returning correctly
     } else if (factor_token->type == TOK_VAR) {
         return new_ast_return(new_token_node(factor_token));
     } else if (factor_token->type == TOK_FUNC_CALL) {
