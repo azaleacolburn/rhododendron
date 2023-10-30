@@ -1,3 +1,5 @@
+// The tokenizer needs to be refactored to make it easier to get and stay on the current token, instead of fucking up
+
 #include<string.h>
 #include<stdlib.h>
 #include<stdio.h>
@@ -194,6 +196,7 @@ Error handle_expr(args()) {
 }
 
 ASTReturn* parse_expr(Tokenizer* t) {
+    print_token(get_curr_token(t)); // token we're working with at the start
     printf("PARSE EXPR CALLED\n");
     ASTReturn* left_ret = parse_term(t); // this is 1 good
     if (left_ret->tag == TAG_ERR) return left_ret;
@@ -253,7 +256,7 @@ ASTReturn* parse_term(Tokenizer* t) {
         push_vec(op_tok->children, left);
         push_vec(op_tok->children, right);
 
-        left = op_tok;
+        left = op_tok; // is this correct
     }
     printf("here?\n");
     return new_ast_return(left);
