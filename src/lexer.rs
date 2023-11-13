@@ -70,6 +70,7 @@ pub fn string_to_tokens(buff: String) -> Result<Vec<Token>, ParseIntError> {
     Ok(token_stream)
 }
 
+// todo: write this function
 fn break_string(buff: String) -> Vec<&'static str> {
     let split = vec![];
     let chars = buff.chars();

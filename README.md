@@ -1,5 +1,6 @@
 # rhododendron
 Just a C-like compiler for fun
+(Rewritten in Rust in one night :P)
 
 test.asm represents the desired ARM64 to be generated from compiling test.txt
 
@@ -18,3 +19,5 @@ This will include non-C features such as
 As well as not every feature C has.
 
 The big question is whether or not I'll write a linker(yes).
+
+I still haven't decided on a lexical analysis strategy

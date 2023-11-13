@@ -34,7 +34,7 @@ pub enum NodeType {
 
 impl NodeType {
     fn from_token(tok: &Token) -> Result<NodeType, ()> {
-        println!("tok: {:?}",   tok);
+        println!("tok: {:?}", tok);
         match tok {
             Token::Sub => Ok(NodeType::Sub),
             Token::Div => Ok(NodeType::Div),
@@ -154,8 +154,8 @@ fn expr(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
         Err(err) => return Err(err)
     };
 
-    *token_i += 1;
-    let curr = &tokens[*token_i];
+    // *token_i += 1;
+    let mut curr = &tokens[*token_i];
     while *curr == Token::Star || *curr == Token::Div {
         let op = &mut Token::Add;
         *op = curr.clone();
@@ -169,11 +169,14 @@ fn expr(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
         let op_tok = TokenNode::new(NodeType::from_token(op).unwrap(), vec![left, right]);
 
         left = op_tok;
+        // *token_i += 1;
+        curr = &tokens[*token_i];
     }
     Ok(left)
 }
 
-fn term(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr>{
+fn term(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    println!("term");
     let mut left = match factor(tokens, token_i) {
         Ok(node) => {
             node
@@ -183,6 +186,7 @@ fn term(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr>{
     *token_i += 1;
     let mut curr = &tokens[*token_i];
     while *curr == Token::Add || *curr == Token::Sub {
+        println!("in term loop(should only happen once)");
         let op = &mut Token::Add;
         *op = curr.clone();
         let right = match factor(tokens, token_i) {
@@ -191,17 +195,22 @@ fn term(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr>{
             },
             Err(err) => return Err(err)
         };
+        println!("op: {:?}", op);
         let op_tok = TokenNode::new(NodeType::from_token(op).unwrap(), vec![left, right]);
         left = op_tok;
+        *token_i += 1;
         curr = &tokens[*token_i];
+        println!("curr: {:?}", curr);
     }
     Ok(left)
 }
 
 fn factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    println!("factor");
+    println!("{:?}", tokens[*token_i]);
     *token_i += 1;
-    let mut factor_token = &tokens[*token_i];
-    match factor_token {
+    println!("{:?}", tokens[*token_i]);
+    match &tokens[*token_i] {
         Token::NumLiteral(num) => {
             Ok(TokenNode::new(NodeType::NumLiteral(*num), vec![]))
         },
@@ -210,7 +219,6 @@ fn factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> 
         },
         Token::OParen => {
             *token_i += 1;
-            factor_token = &tokens[*token_i];
             match expr(tokens, token_i) {
                 Ok(node) => {
                     if tokens[*token_i] == Token::OParen {

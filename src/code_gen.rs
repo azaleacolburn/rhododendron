@@ -56,36 +56,44 @@ pub fn expr_code_gen(node: TokenNode, sp: &mut i32, map: &mut HashMap<String, i3
             code.push_str(expr_code_gen(node.children[0].clone(), sp, map, x).as_str());
             code.push_str(expr_code_gen(node.children[1].clone(), sp, map, x).as_str());
             code.push_str("\nadd x1, x2, x1");
+            switch!(*x);
         },  
         NodeType::Sub => {
             code.push_str(expr_code_gen(node.children[0].clone(), sp, map, x).as_str());
             code.push_str(expr_code_gen(node.children[1].clone(), sp, map, x).as_str());
             code.push_str("\nsub x1, x2, x1");
+            switch!(*x);
         },
         NodeType::Div => {
             code.push_str(expr_code_gen(node.children[0].clone(), sp, map, x).as_str());
             code.push_str(expr_code_gen(node.children[1].clone(), sp, map, x).as_str());
             code.push_str("\ndiv x1, x2, x1");
+            switch!(*x);
         },
         NodeType::Mul => {
             code.push_str(expr_code_gen(node.children[0].clone(), sp, map, x).as_str());
             code.push_str(expr_code_gen(node.children[1].clone(), sp, map, x).as_str());
             code.push_str("\nmul x1, x2, x1");
+            switch!(*x);
         },
         NodeType::BAnd => {
             code.push_str(expr_code_gen(node.children[0].clone(), sp, map, x).as_str());
             code.push_str(expr_code_gen(node.children[1].clone(), sp, map, x).as_str());
             code.push_str("\nand x1, x2, x1");
+            switch!(*x);
+            
         },
         NodeType::BOr => {
             code.push_str(expr_code_gen(node.children[0].clone(), sp, map, x).as_str());
             code.push_str(expr_code_gen(node.children[1].clone(), sp, map, x).as_str());
             code.push_str("\nor x1, x2, x1");
+            switch!(*x);
         },
         NodeType::BXor => {
             code.push_str(expr_code_gen(node.children[0].clone(), sp, map, x).as_str());
             code.push_str(expr_code_gen(node.children[1].clone(), sp, map, x).as_str());
             code.push_str("\naxor x1, x2, x1");
+            switch!(*x);
         },
         _ => { println!("Expected Expression") }
     }
