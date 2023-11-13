@@ -21,3 +21,5 @@ As well as not every feature C has.
 The big question is whether or not I'll write a linker(yes).
 
 I still haven't decided on a lexical analysis strategy
+
+Multiplication and division throw it off right now
