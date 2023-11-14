@@ -1,118 +1,59 @@
-use core::ascii;
 use std::num::ParseIntError;
 
-/// Figure out a whitespace agnostic way of splitting things
-/// This can be inefficient since it only has to run once
-pub fn string_to_tokens(buff: String) -> Result<Vec<Token>, ParseIntError> {
-    let mut token_stream: Vec<Token> = vec![];
-    let split_buff: Vec<&str> = buff.split(" ").collect::<Vec<&str>>();
-    // let split_buff: Vec<Token> = break_string(buff);
-    for tok in split_buff.iter() {
-        let mut is_dec = true;
-        let chars = &tok.chars().collect::<Vec<char>>();
-        chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
-        if chars[0] == '0' { // handles literals
-            let string = chars.into_iter().collect::<String>();
-            let mut radix = 0; // 0 is not extranious base value
-            match chars[1] {
-                'x' => { // hex
-                    radix = 12;
-                },
-                'o' => { // octal
-                    radix = 8;
-                },
-                'b' => { // binary
-                    radix = 2;
-                },
-                _ => {}
-            }
-            if radix != 0 {
-                match i32::from_str_radix(&string, radix) {
-                    Ok(value) => {
-                        token_stream.push(Token::NumLiteral(value));
-                    },
-                    Err(err) => return Err(err),
-                }
-            }
-            break;
-        }
-        if is_dec { token_stream.push(Token::NumLiteral(tok.to_string().parse::<i32>().unwrap())); }
-        token_stream.push(match *tok {
-            "int" => Token::Type(VariableTypes::Int),
-            "char" => Token::Type(VariableTypes::Char),
-            "if" => Token::If,
-            "for" => Token::For,
-            "while" => Token::While,
-            "*" => Token::Star,
-            "+" => Token::Add,
-            "-" => Token::Sub,
-            "/" => Token::Div,
-            "+=" => Token::AddEq,
-            "-=" => Token::SubEq,
-            "/=" => Token::DivEq,
-            "*=" => Token::MulEq,
-            "==" => Token::EqCmp,
-            "!=" => Token::NeqCmp,
-            "|" => Token::BOr,
-            "&" => Token::BAnd,
-            "^" => Token::BXor,
-            "|=" => Token::BOrEq,
-            "&=" => Token::BAndEq,
-            "^=" => Token::BXorEq,
-            "(" => Token::OParen,
-            ")" => Token::CParen,
-            "{" => Token::OCurl,
-            "}" => Token::CParen,
-            ";" => Token::Semi,
-            _ => Token::Id((*tok).to_string())
-        });
-    }
-    Ok(token_stream)
-}
-
 /// This is where the lexical analysis happens
-pub fn break_string(buff: String) -> Result<Vec<Token>, ParseIntError> {
+pub fn string_to_tokens(buff: &String) -> Result<Vec<Token>, ParseIntError> {
     let mut ret: Vec<Token> = vec![];
     let chars = buff.chars().collect::<Vec<char>>();
     let mut curr: String = String::from("");
     let mut i: usize = 0;
     while i < chars.len() {
-        // Handles literals
-
-        let mut is_dec = true;
-        // chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
-        for j in i..chars.len() {
-            if !chars[j].is_numeric() { is_dec = false; break; }; // figure out how to delimit num literals
-        }
-        if chars[i] == '0' { // handles literals
-            // let string = chars.into_iter().collect::<String>();
-            let string = String::from("");
-            for j in 
-            let mut radix = 0; // 0 is not extranious base value
-            match chars[i + 1] {
-                'x' => { // hex
-                    radix = 12;
-                },
-                'o' => { // octal
-                    radix = 8;
-                },
-                'b' => { // binary
-                    radix = 2;
-                },
-                _ => {}
+        // Handles num literals but we don't actually know if it is a literal yet
+        if chars[i].is_numeric() {
+            let mut is_dec = true;
+            // chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
+            let mut num = String::from("");
+            for j in i..chars.len() {
+                if !chars[j].is_alphanumeric() { break; }
+                if chars[j].is_alphabetic() && chars[j].is_uppercase() { is_dec = false; }
+                num.push(chars[j]);
             }
-            if radix != 0 {
-                match i32::from_str_radix(&string, radix) {
-                    Ok(value) => {
-                        ret.push(Token::NumLiteral(value));
+            println!("num: {}", num);
+            println!("is dec: {}", is_dec);
+            if chars[i] == '0' { // handles literals // TODO: DO LITERAL SHIT
+                // let string = chars.into_iter().collect::<String>();
+                
+                let mut radix = 0; // 0 is not extranious base value
+                match chars[i + 1] {
+                    'x' => { // hex
+                        radix = 12;
                     },
-                    Err(err) => return Err(err),
+                    'o' => { // octal
+                        radix = 8;
+                    },
+                    'b' => { // binary
+                        radix = 2;
+                    },
+                    _ => {
+                        if chars[i + 1].is_alphabetic() {
+                            panic!("Not supported base")
+                        }
+                    }
+                }
+                if radix != 0 {
+                    match i32::from_str_radix(&num, radix) {
+                        Ok(value) => {
+                            ret.push(Token::NumLiteral(value));
+                        },
+                        Err(err) => { continue; },
+                    };
+                    i += 1;
+                    continue;
                 }
             }
-            break;
-        }
-        if is_dec { ret.push(Token::NumLiteral(chars[i].to_string().parse::<i32>().unwrap())); }
+            if is_dec { ret.push(Token::NumLiteral(num.parse::<i32>().unwrap())); i += 1; continue; }
 
+        }
+        
         println!("char: {}", chars[i]);
         match chars[i] {
             ' ' => {},
@@ -304,10 +245,17 @@ pub fn break_string(buff: String) -> Result<Vec<Token>, ParseIntError> {
                 // split.push(String::from(";"));
                 ret.push(Token::Semi);
             },
+            '=' => {
+                if chars[i + 1] == '=' {
+                    ret.push(Token::EqCmp);
+                } else {
+                    ret.push(Token::Eq);
+                }
+            }
             _ => {
                 // if we'e here it's an identifier
                 for j in i..chars.len() {
-                    if chars[j] == ' ' { break; }
+                    if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
                     curr.push(chars[j]);
                 }
                 ret.push(Token::Id(curr.clone()));
