@@ -9,7 +9,7 @@ pub enum NodeType {
     Sub,
     Div,
     Eq,
-    Id(String), // why is there id and var???
+    Id(String), // figure out if we want this here
     EqCmp,
     NeqCmp,
     BOr,
@@ -100,7 +100,8 @@ impl TokenNode {
 #[derive(Debug)]
 pub enum Error {
     ExpectedCParen,
-    ExpectedExpression
+    ExpectedExpression,
+    ExpectedId
 }
 
 #[derive(Debug)]
@@ -121,7 +122,9 @@ pub fn program(tokens: &Vec<Token>) -> Result<TokenNode, RhErr> {
     match &tokens[token_i] {
         Token::Type(_) => { node.children.as_mut().expect("Node to have children").push(declare(tokens, &mut token_i).unwrap().clone()); },
         Token::Id(_) => {
-            
+            if tokens[token_i] == Token::Eq {
+
+            }
         },
         _ => {}
     };
@@ -138,17 +141,15 @@ fn declare(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr>
                 node.children.as_mut().expect("Node Should have children").push(
                     match expr(tokens, token_i) {
                         Ok(node) => node,
-                        Err(err) => { return Err(err); }
+                        Err(err) => return Err(err)
                     }
                 );
             } else if tokens[*token_i] == Token::Semi {
                 // next statement
             }
         },
-        _ => {
-
-        }
-    }
+        _ => return Err(RhErr::new(Error::ExpectedId, *token_i))
+    };
     Ok(node.clone())
 }
 
@@ -224,4 +225,8 @@ fn factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> 
         },
         _ => Err(RhErr::new(Error::ExpectedExpression, *token_i))
     }
+}
+
+fn assignment() {
+    
 }
