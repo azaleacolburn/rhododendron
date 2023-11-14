@@ -5,7 +5,7 @@ use std::num::ParseIntError;
 /// This can be inefficient since it only has to run once
 pub fn string_to_tokens(buff: String) -> Result<Vec<Token>, ParseIntError> {
     let mut token_stream: Vec<Token> = vec![];
-    // let split_buff: Vec<&str> = buff.split(" ").collect::<Vec<&str>>();
+    let split_buff: Vec<&str> = buff.split(" ").collect::<Vec<&str>>();
     // let split_buff: Vec<Token> = break_string(buff);
     for tok in split_buff.iter() {
         let mut is_dec = true;
@@ -37,7 +37,7 @@ pub fn string_to_tokens(buff: String) -> Result<Vec<Token>, ParseIntError> {
             break;
         }
         if is_dec { token_stream.push(Token::NumLiteral(tok.to_string().parse::<i32>().unwrap())); }
-        token_stream.push(match tok.as_str() {
+        token_stream.push(match *tok {
             "int" => Token::Type(VariableTypes::Int),
             "char" => Token::Type(VariableTypes::Char),
             "if" => Token::If,
@@ -71,53 +71,94 @@ pub fn string_to_tokens(buff: String) -> Result<Vec<Token>, ParseIntError> {
 }
 
 /// This is where the lexical analysis happens
-pub fn break_string(buff: String) -> Vec<Token> {
-    let mut split: Vec<String> = vec![];
-    let ret: Vec<Token> = vec![];
+pub fn break_string(buff: String) -> Result<Vec<Token>, ParseIntError> {
+    let mut ret: Vec<Token> = vec![];
     let chars = buff.chars().collect::<Vec<char>>();
     let mut curr: String = String::from("");
-    for mut i in 0..chars.len() {
+    let mut i: usize = 0;
+    while i < chars.len() {
+        // Handles literals
+
+        let mut is_dec = true;
+        // chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
+        for j in i..chars.len() {
+            if !chars[j].is_numeric() { is_dec = false; break; }; // figure out how to delimit num literals
+        }
+        if chars[i] == '0' { // handles literals
+            // let string = chars.into_iter().collect::<String>();
+            let string = String::from("");
+            for j in 
+            let mut radix = 0; // 0 is not extranious base value
+            match chars[i + 1] {
+                'x' => { // hex
+                    radix = 12;
+                },
+                'o' => { // octal
+                    radix = 8;
+                },
+                'b' => { // binary
+                    radix = 2;
+                },
+                _ => {}
+            }
+            if radix != 0 {
+                match i32::from_str_radix(&string, radix) {
+                    Ok(value) => {
+                        ret.push(Token::NumLiteral(value));
+                    },
+                    Err(err) => return Err(err),
+                }
+            }
+            break;
+        }
+        if is_dec { ret.push(Token::NumLiteral(chars[i].to_string().parse::<i32>().unwrap())); }
+
+        println!("char: {}", chars[i]);
         match chars[i] {
+            ' ' => {},
             'i' => {
                 if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
+                    println!("here in int");
                     // split.push(String::from("int"));
                     ret.push(Token::Type(VariableTypes::Int));
-                    i += 3;
+                    i += 2; // I think there's a problem with incrementing the iterator
                 } else if chars[i + 1] == 'f' && chars[i + 2] == ' ' {
                     // split.push(String::from("if"));
                     ret.push(Token::If);
-                    i += 2; // these numbers might be wrong
+                    i += 1; // these numbers might be wrong
                 }
             },
             'c' => {
                 if chars[i + 1] == 'h' && chars[i + 2] == 'a' && chars[i + 3] == 'r' && chars[i + 4] == ' ' {
                     // split.push(String::from("char"));
                     ret.push(Token::Type(VariableTypes::Char));
-                    i += 4;
+                    i += 2;
                 }
             },
             'f' => {
                 if chars[i + 1] == 'o' && chars[i + 2] == 'r' && chars[i + 3] == ' ' {
                     // split.push(String::from("for"));
                     ret.push(Token::For);
-                    i += 3;
+                    i += 2;
                 }
             },
             'l' => {
                 if chars[i + 1] == 'o' && chars[i + 2] == 'o' && chars[i + 3] == 'p' && chars[i + 4] == ' ' {
                     // split.push(String::from("loop"));
                     ret.push(Token::Loop);
-                    i += 4;
+                    i += 3;
                 }
             },
             '+' => {
                 if chars[i + 1] == '=' { 
                     //split.push(String::from("+=")); 
-                    ret.push(Token::AddEq)
+                    ret.push(Token::AddEq);
+                    i += 1;
                 }
                 else if chars[i + 1] == '+' { 
                     //split.push(String::from("++")); 
                     ret.push(Token::AddO);
+                    i += 1;
                 }
                 else { 
                     //split.push(String::from("+")); 
@@ -128,10 +169,12 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 if chars[i + 1] == '=' { 
                     //split.push(String::from("-="));
                     ret.push(Token::SubEq);
+                    i += 1;
                 }
                 else if chars[i + 1] == '-' {
                     // split.push(String::from("--"));
                     ret.push(Token::SubO);
+                    i += 1;
                 }
                 else {
                     // split.push(String::from("-"));
@@ -141,7 +184,8 @@ pub fn break_string(buff: String) -> Vec<Token> {
             '/' => {
                 if chars[i + 1] == '=' {
                     //split.push(String::from("/="));
-                    ret.push(Token::SubEq)
+                    ret.push(Token::SubEq);
+                    i += 1;
                 }
                 else {
                     // split.push(String::from("/"));
@@ -152,6 +196,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 if chars[i + 1] == '*' {
                     // split.push(String::from("*="));
                     ret.push(Token::MulEq);
+                    i += 1;
                 } // this could probably also handle deref vs. mul
                 else {
                     // split.push(String::from("*"));
@@ -179,6 +224,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 // split.push(String::from("&"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::BAndEq);
+                    i += 1;
                 } else {
                     ret.push(Token::BAnd);
                 }
@@ -186,6 +232,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
             '^' => {
                 if chars[i + 1] == '=' {
                     ret.push(Token::BXorEq);
+                    i += 1;
                 } else {
                     ret.push(Token::BXor);
                 }
@@ -195,6 +242,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 // split.push(String::from("%"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::ModEq);
+                    i += 1;
                 } else {
                     ret.push(Token::Mod);
                 }
@@ -203,6 +251,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 // split.push(String::from("!"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::NeqCmp);
+                    i += 1;
                 } else {
                     ret.push(Token::Neq);
                 }
@@ -211,6 +260,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 // split.push(String::from("|"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::BOrEq);
+                    i += 1;
                 } else {
                     ret.push(Token::BOr);
                 }
@@ -219,6 +269,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 // split.push(String::from("~"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::BNotEq);
+                    i += 1;
                 } else {
                     ret.push(Token::BNot);
                 }
@@ -227,6 +278,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 // split.push(String::from("<"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::LsEq);
+                    i += 1;
                 } else {
                     ret.push(Token::Ls);
                 }
@@ -235,6 +287,7 @@ pub fn break_string(buff: String) -> Vec<Token> {
                 // split.push(String::from(">"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::GrEq);
+                    i += 1;
                 } else {
                     ret.push(Token::Gr);
                 }
@@ -253,16 +306,19 @@ pub fn break_string(buff: String) -> Vec<Token> {
             },
             _ => {
                 // if we'e here it's an identifier
-                for i in i..chars.len() {
-                    curr.push(chars[i]);
-                    if chars[i] == ' ' { break; }
+                for j in i..chars.len() {
+                    if chars[j] == ' ' { break; }
+                    curr.push(chars[j]);
                 }
-                split.push(curr.clone());
+                ret.push(Token::Id(curr.clone()));
+                i += curr.len() - 1;
+                curr = String::from("");
             }
         }
+        i += 1;
         // curr.push(c);
     }
-    split
+    Ok(ret)
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -310,7 +366,7 @@ pub enum Token {
     OCurl,
     CCurl,
     Dot,
-    Comma
+    Comma,
     Semi,
 
     // this might be to much for the lexer to do
