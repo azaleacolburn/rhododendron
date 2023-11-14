@@ -3,20 +3,29 @@ mod lexer;
 mod parser;
 mod code_gen;
 use lexer::{Token, VariableTypes};
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about=None)]
+struct Args {
+    path: std::path::PathBuf,
+    name: String
+}
 
 pub fn main() {
+    let args = Args::parse();
     let buff = String::from("int my_int = 1 + 1;");
-    // let tokens = lexer::string_to_tokens(buff).unwrap();
+    let tokens = lexer::string_to_tokens(&buff).unwrap();
     // let lexed_tokens: Vec<Token> = lexer::string_to_tokens(&buff).unwrap();
 
     // for tok in &lexed_tokens {
         // println!("{:?}", tok);
     // }
     // int my_int = 5 * 2 + 3;
-    let tokens = vec![Token::Type(VariableTypes::Int), Token::Id(String::from("my_int")), Token::Eq, Token::NumLiteral(5), Token::Star, Token::NumLiteral(2), Token::Add, Token::NumLiteral(3), Token::Add, Token::NumLiteral(4), Token::Semi];
+    // let tokens = vec![Token::Type(VariableTypes::Int), Token::Id(String::from("my_int")), Token::Eq, Token::NumLiteral(5), Token::Star, Token::NumLiteral(2), Token::Add, Token::NumLiteral(3), Token::Add, Token::NumLiteral(4), Token::Semi];
     let node = parser::program(&tokens).unwrap();
     node.print(&mut 0);
     code_gen::code_gen(&node);
-    assert_eq!(lexer::string_to_tokens(&buff), lexer::string_to_tokens(&String::from("int my_int=1+1;")));
+    // assert_eq!(lexer::string_to_tokens(&buff), lexer::string_to_tokens(&String::from("int my_int=1+1;")));
 
 }
