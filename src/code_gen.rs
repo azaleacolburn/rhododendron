@@ -41,6 +41,7 @@ pub fn declare_code_gen(node: &TokenNode, sp: &mut i32, map: &mut HashMap<String
 }
 
 /// x is either 1 or 2, depending on what the current register to be loaded is
+/// TODO: Fix this function
 pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, map: &mut HashMap<String, i32>, x: &mut i32) -> String {
     let mut code = String::from("");
     println!("expr_code_gen");

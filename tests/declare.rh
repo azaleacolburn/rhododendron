@@ -1,1 +1,1 @@
-int num = 6 - 4;
+int num = 6 - 7 * 2;

@@ -172,7 +172,7 @@ fn expr(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
         let op_tok = TokenNode::new(NodeType::from_token(op).unwrap(), Some(vec![left, right]));
 
         left = op_tok;
-        // *token_i += 1; // this should not be commented
+        // *token_i += 1;
         curr = &tokens[*token_i];
         println!("{:?}", curr);
     }

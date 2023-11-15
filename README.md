@@ -20,4 +20,4 @@ As well as not every feature C has.
 
 The big question is whether or not I'll write a linker(yes).
 
-Multiplication and division throw it off right now
+More than one operation per expression throws it off right now
