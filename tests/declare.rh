@@ -1,3 +1,1 @@
-int num = 1 + 1;
-
-int v = 5;
+int num = 6 - 4;

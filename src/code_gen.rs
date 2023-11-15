@@ -9,16 +9,18 @@ macro_rules! switch {
 }
 
 // Idea: Hashmap to connect stack positions with ids
-pub fn code_gen(node: &TokenNode) {
+pub fn code_gen(node: &TokenNode) -> String {
     // var_name : pos_on_stack
-    let code: String;
+    let mut code: Option<String> = None;
     let mut map: HashMap<String, i32> = HashMap::new();
     let mut sp = 5060;
     if node.token == NodeType::Program {
         if node.children.as_ref().expect("Program node to have children")[0].token == NodeType::Declaration {
-            code = declare_code_gen(&node.children.as_ref().expect("Declaration node to have children")[0], &mut sp, &mut map);
+            code = Some(declare_code_gen(&node.children.as_ref().expect("Declaration node to have children")[0], &mut sp, &mut map));
         }
     }
+    if code.is_none() { panic!("Expected valid program") }
+    code.expect("A valid program").trim().to_string()
 }
 
 /// Returns the generated code

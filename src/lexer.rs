@@ -259,6 +259,7 @@ pub fn string_to_tokens(buff: &String) -> Result<Vec<Token>, ParseIntError> {
                     curr.push(chars[j]);
                 }
                 ret.push(Token::Id(curr.clone()));
+                println!("curr before overflow: {}", curr);
                 i += curr.len() - 1;
                 curr = String::from("");
             }
