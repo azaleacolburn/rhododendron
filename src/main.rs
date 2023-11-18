@@ -29,7 +29,7 @@ pub fn main() {
     // }
     // int my_int = 5 * 2 + 3;
     // let tokens = vec![Token::Type(VariableTypes::Int), Token::Id(String::from("my_int")), Token::Eq, Token::NumLiteral(5), Token::Star, Token::NumLiteral(2), Token::Add, Token::NumLiteral(3), Token::Add, Token::NumLiteral(4), Token::Semi];
-    let node = parser::statement(&tokens).unwrap();
+    let node = parser::program(&tokens).unwrap();
     node.print(&mut 0);
     let code = code_gen::code_gen(&node);
     let _ = std::fs::write(exe_name, code);

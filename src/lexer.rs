@@ -220,6 +220,12 @@ pub fn string_to_tokens(buff: &String) -> Result<Vec<Token>, ParseIntError> {
                 if chars[i + 1] == '=' {
                     ret.push(Token::LsEq);
                     i += 1;
+                } else if chars[i + 1] == '<' {
+                    if chars[i + 2] == '=' {
+                        ret.push(Token::BLSEq);
+                    } else {
+                        ret.push(Token::BLS);
+                    }
                 } else {
                     ret.push(Token::Ls);
                 }
@@ -229,6 +235,12 @@ pub fn string_to_tokens(buff: &String) -> Result<Vec<Token>, ParseIntError> {
                 if chars[i + 1] == '=' {
                     ret.push(Token::GrEq);
                     i += 1;
+                } else if chars[i + 1] == '>' {
+                    if chars[i + 2] == '=' {
+                        ret.push(Token::BRSEq);
+                    } else {
+                        ret.push(Token::BRS);
+                    }
                 } else {
                     ret.push(Token::Gr);
                 }
@@ -310,6 +322,12 @@ pub enum Token {
     Ls,
     Gr,
     GrEq,
+    BLS,
+    BLSU,
+    BLSEq,
+    BRS,
+    BRSU,
+    BRSEq,
     OParen,
     CParen,
     OCurl,

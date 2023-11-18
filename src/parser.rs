@@ -1,6 +1,4 @@
-use crate::lexer::{
-    Token,
-};
+use crate::lexer::Token;
 
 // Valid Node Types
 #[derive(Debug, Clone, PartialEq)]
@@ -29,8 +27,8 @@ pub enum NodeType {
     For,
     While,
     Loop,
-    Assignment,
-    Declaration
+    Assignment(Option<String>),
+    Declaration(Option<String>)
 }
 
 impl NodeType {
@@ -103,7 +101,8 @@ pub enum Error {
     ExpectedCParen,
     ExpectedExpression,
     ExpectedId,
-    UndeclaredId
+    UndeclaredId,
+    ExpectedAssignment
 }
 
 #[derive(Debug)]
@@ -118,14 +117,30 @@ impl RhErr {
     }
 }
 
-pub fn statement(tokens: &Vec<Token>) -> Result<TokenNode, RhErr> {
+pub fn program(tokens: &Vec<Token>) -> Result<TokenNode, RhErr> {
+    let mut token_i: &mut usize = &mut 0;
+    let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
+    while tokens.len() > *token_i {
+        match statement(tokens, token_i) {
+            Ok(node) => {
+                program_node.children.as_mut().expect("a valid ast to be returned").push(node);
+            },
+            Err(err) => return Err(err),
+        };
+    }
+    Ok(program_node)
+}
+
+pub fn statement(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
     let mut node: TokenNode = TokenNode::new(NodeType::Program, Some(vec![])); // todo: add default type
-    let mut token_i: usize = 0;
-    match &tokens[token_i] {
-        Token::Type(_) => { node.children.as_mut().expect("Node to have children").push(declaration(tokens, &mut token_i).unwrap().clone()); },
-        Token::Id(_) => {
-            if tokens[token_i] == Token::Eq {
-                
+    
+    match &tokens[*token_i] {
+        Token::Type(_) => { // declaration
+            node.children.as_mut().expect("node to have children").push(declaration(tokens, token_i).unwrap().clone());
+        },
+        Token::Id(name) => { // assignment
+            if tokens[*token_i] == Token::Eq {
+                node.children.as_mut().expect("node to have children").push(assignment(tokens, token_i, name.to_string()).unwrap().clone());
             }
         },
         _ => {}
@@ -134,20 +149,21 @@ pub fn statement(tokens: &Vec<Token>) -> Result<TokenNode, RhErr> {
 }
 
 fn declaration(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
-    let mut node = TokenNode::new(NodeType::Declaration, Some(vec![]));
+    let mut node = TokenNode::new(NodeType::Declaration(None), Some(vec![]));
     *token_i += 1;
     match &tokens[*token_i] {
         Token::Id(id) => {
+            node.token = NodeType::Declaration(Some(id.to_string()));
             *token_i += 1;
             if tokens[*token_i] == Token::Eq {
-                node.children.as_mut().expect("Node Should have children").push(
+                node.children.as_mut().expect("node to have children").push(
                     match expression(tokens, token_i) {
                         Ok(node) => node,
                         Err(err) => return Err(err)
                     }
                 );
             } else if tokens[*token_i] == Token::Semi {
-                // next statement
+                return Ok(node.clone());
             }
         },
         _ => return Err(RhErr::new(Error::ExpectedId, Some(*token_i)))
@@ -229,6 +245,12 @@ fn factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> 
     }
 }
 
-fn assignment() {
-
+fn assignment(tokens: &Vec<Token>, token_i: &mut usize, name: String) -> Result<TokenNode, RhErr> {
+    Ok(
+        TokenNode::new(NodeType::Assignment(Some(name)), Some(vec![
+            TokenNode::new(NodeType::from_token(&tokens[*token_i]).expect("valid op token"), Some(vec![
+                expression(tokens, token_i).expect("valid expression")
+            ]))
+        ]))
+    )
 }
