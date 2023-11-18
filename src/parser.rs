@@ -102,7 +102,8 @@ pub enum Error {
     ExpectedExpression,
     ExpectedId,
     UndeclaredId,
-    ExpectedAssignment
+    ExpectedAssignment,
+    ExpectedStatement
 }
 
 #[derive(Debug)]
@@ -120,32 +121,27 @@ impl RhErr {
 pub fn program(tokens: &Vec<Token>) -> Result<TokenNode, RhErr> {
     let mut token_i: &mut usize = &mut 0;
     let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
-    while tokens.len() > *token_i {
+    while tokens.len() > *token_i + 1 {
         match statement(tokens, token_i) {
             Ok(node) => {
                 program_node.children.as_mut().expect("a valid ast to be returned").push(node);
             },
             Err(err) => return Err(err),
         };
+        *token_i += 1;
     }
+    println!("past parsing");
     Ok(program_node)
 }
 
 pub fn statement(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
-    let mut node: TokenNode = TokenNode::new(NodeType::Program, Some(vec![])); // todo: add default type
-    
+    // let mut node: TokenNode = TokenNode::new(NodeType::Program, Some(vec![])); // todo: add default type
+    println!("statment token: {:?}", &tokens[*token_i]);
     match &tokens[*token_i] {
-        Token::Type(_) => { // declaration
-            node.children.as_mut().expect("node to have children").push(declaration(tokens, token_i).unwrap().clone());
-        },
-        Token::Id(name) => { // assignment
-            if tokens[*token_i] == Token::Eq {
-                node.children.as_mut().expect("node to have children").push(assignment(tokens, token_i, name.to_string()).unwrap().clone());
-            }
-        },
-        _ => {}
-    };
-    Ok(node)
+        Token::Type(_) => declaration(tokens, token_i),
+        Token::Id(name) => assignment(tokens, token_i, name.to_string()),
+        _ => Err(RhErr::new(Error::ExpectedStatement, None))
+    }
 }
 
 fn declaration(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {

@@ -10,6 +10,7 @@ macro_rules! switch {
 
 // Idea: Hashmap to connect stack positions with ids
 pub fn code_gen(node: &TokenNode) -> String {
+    println!("In code gen");
     // use this later
     //                                x0     x1     x2
     // let mut reg_tracker: &mut [bool; 12] = &mut [false, false, false, false, false, false, false, false, false, false, false, false]; // false mean avaliable
@@ -18,6 +19,8 @@ pub fn code_gen(node: &TokenNode) -> String {
     // Stores the variable name and their position on the stack
     let mut vars: HashMap<String, i32> = HashMap::new();
     let mut sp = 5060;
+    println!("{:?}", node.token);
+    println!("{:?}", node.children.as_ref().unwrap()[0].token);
     if node.token == NodeType::Program {
         for child_node in node.children.as_ref().expect("program node to have children") {
             match &child_node.token {
@@ -42,7 +45,7 @@ pub fn code_gen(node: &TokenNode) -> String {
             }
         }
     }
-    if code != "" { panic!("Expected valid program"); }
+    if code == "" { panic!("Expected valid program"); }
     code.trim().to_string()
 }
 

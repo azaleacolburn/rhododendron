@@ -1,9 +1,9 @@
 use std::num::ParseIntError;
 
 /// This is where the lexical analysis happens
-pub fn string_to_tokens(buff: &String) -> Result<Vec<Token>, ParseIntError> {
+pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError> {
     let mut ret: Vec<Token> = vec![];
-    let chars = buff.chars().collect::<Vec<char>>();
+    let chars = buff.to_string().chars().collect::<Vec<char>>();
     let mut curr: String = String::from("");
     let mut i: usize = 0;
     while i < chars.len() {
@@ -263,7 +263,8 @@ pub fn string_to_tokens(buff: &String) -> Result<Vec<Token>, ParseIntError> {
                 } else {
                     ret.push(Token::Eq);
                 }
-            }
+            },
+            '\n' => {}
             _ => {
                 // if we'e here it's an identifier
                 for j in i..chars.len() {
