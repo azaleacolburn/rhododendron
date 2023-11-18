@@ -53,7 +53,7 @@ pub fn code_gen(node: &TokenNode) -> String {
 /// Modifies the sp
 pub fn declare_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> String {
     println!("{:?}", node);
-    println!("{:?}", node.token);
+    println!("{:?}", node.token); 
     // let var_name = match node.token {
     //     NodeType::Id(id) => id,
     //     _ => { panic!("must have valid variable name") }
@@ -68,6 +68,7 @@ pub fn declare_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<Strin
 
 pub fn assignment_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> Result<String, RhErr> {
     let mut code = String::from("");
+    
 
     let expr_code: String = expr_code_gen(node, sp, vars, x);
     let stack_position = match vars.get_mut(&name) {
@@ -115,10 +116,12 @@ pub fn assignment_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<St
 /// TODO: Refacor this function to use the reg_tracker
 pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32) -> String {
     let mut code = String::from("\nmov x1, #0\nmov x2, #0");
-    println!("expr_code_gen");
+    // println!("expr_code_gen");
+    println!("node: {:?}", node.token);
     // optimizes num literals
     let child0 = &node.children.as_ref().expect("Op node to have children")[0];
     let child1 = &node.children.as_ref().expect("Op node to have children")[1];
+    println!("child0: {:?}", child0.token);
     match &child0.token {
         NodeType::NumLiteral(num0) => {
             match &child1.token {
@@ -152,7 +155,19 @@ pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, 
         }
         _ => {
             code.push_str(expr_code_gen(child0, sp, vars, x).as_str());
-            code.push_str(expr_code_gen(child1, sp, vars, x).as_str());
+            match &child1.token {
+                NodeType::NumLiteral(num) => {
+                    code.push_str(format!("\nmov x{}, {}", x, num).as_str());
+                    switch!(*x);
+                },
+                NodeType::Id(id) => {
+                    let stack_position = vars.get(id).expect("id should be valid");
+                    code.push_str(format!("\nldr x{},={:#x}", x, stack_position).as_str());
+                    switch!(*x);
+                },
+                _ => code.push_str(expr_code_gen(child1, sp, vars, x).as_str())
+            };
+            
 
             match node.token {
                 NodeType::Add => { code.push_str(format!("\nadd x1, x1, x2").as_str()); },

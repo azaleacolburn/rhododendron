@@ -242,10 +242,13 @@ fn factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> 
 }
 
 fn assignment(tokens: &Vec<Token>, token_i: &mut usize, name: String) -> Result<TokenNode, RhErr> {
+    *token_i += 2;
+    println!("ASSIGNMENT TOKEN: {:?}", tokens[*token_i]);
+    println!("STARTED ASSIGNMENT TOKEN TOKEN TOKEN TOKEN");
     Ok(
         TokenNode::new(NodeType::Assignment(Some(name)), Some(vec![
-            TokenNode::new(NodeType::from_token(&tokens[*token_i]).expect("valid op token"), Some(vec![
-                expression(tokens, token_i).expect("valid expression")
+            TokenNode::new(NodeType::from_token(&tokens[*token_i - 1]).expect("valid op token"), Some(vec![
+                expression(tokens, token_i).expect("expression to be valid")
             ]))
         ]))
     )
