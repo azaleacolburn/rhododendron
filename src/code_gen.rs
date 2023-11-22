@@ -46,6 +46,9 @@ pub fn code_gen(node: &TokenNode) -> String {
         }
     }
     if code == "" { panic!("Expected valid program"); }
+    println!();
+    println!("{}", code);
+    println!();
     code.trim().to_string()
 }
 
@@ -54,16 +57,17 @@ pub fn code_gen(node: &TokenNode) -> String {
 pub fn declare_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> String {
     println!("{:?}", node);
     println!("{:?}", node.token); 
+    let mut code = String::from("\nmov x1, #0\nmov x2, #0");
     // let var_name = match node.token {
     //     NodeType::Id(id) => id,
     //     _ => { panic!("must have valid variable name") }
     // };
-    let mut expr_code = expr_code_gen(&node.children.as_ref().expect("Node to have children")[0], sp, vars, x);
+    code.push_str(&expr_code_gen(&node.children.as_ref().expect("Node to have children")[0], sp, vars, x));
     vars.insert(name, *sp-16);
-    expr_code.push_str(format!("\nstr x1, [sp, #-16]").as_str());
+    code.push_str(format!("\nstr x1, [sp, #-16]").as_str());
     // store_var(node, num, bar_name, map, 1);
-    println!("expr_code_gen code: {}", expr_code);
-    expr_code
+    println!("declare code: {}", code);
+    code
 }
 
 pub fn assignment_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> Result<String, RhErr> {
@@ -112,76 +116,94 @@ pub fn assignment_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<St
     Ok(code)
 }
 
-/// result of expression is always in x1
-/// TODO: Refacor this function to use the reg_tracker
+/// result of expression is always in x1(ideally), if not this than x{x}
+/// think of a clever way to parse all literal statements
+/// there's defintely a cleverer recursive way of handling this
+/// refactor later
+/// Needs better handling when invalid identifier is found
 pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32) -> String {
-    let mut code = String::from("\nmov x1, #0\nmov x2, #0");
+    let mut code = String::from("");
     // println!("expr_code_gen");
-    println!("node: {:?}", node.token);
+    println!("expr node: {:?}", node.token);
     // optimizes num literals
-    let child0 = &node.children.as_ref().expect("Op node to have children")[0];
-    let child1 = &node.children.as_ref().expect("Op node to have children")[1];
-    println!("child0: {:?}", child0.token);
-    match &child0.token {
-        NodeType::NumLiteral(num0) => {
-            match &child1.token {
-                NodeType::NumLiteral(num1) => {
-                    let n = num0 + num1;
-                    match node.token {
-                        NodeType::Add => { code.push_str(format!("\nadd x1, x1, #{}", n).as_str()); },
-                        NodeType::Sub => { code.push_str(format!("\nsub x1, x1, #{}", n).as_str()); },
-                        NodeType::Div => { code.push_str(format!("\nmul x1, x1, #{}", n).as_str()); },
-                        NodeType::Mul => { code.push_str(format!("\ndiv x1, x1, #{}", n).as_str()); },
-                        NodeType::BAnd => { code.push_str(format!("\nand x1, x1, #{}", n).as_str()); },
-                        NodeType::BOr => { code.push_str(format!("\nor x1, x1, #{}", n).as_str()); },
-                        NodeType::BXor => { code.push_str(format!("\nxor x1, x1, #{}", n).as_str()); },
-                        _ => println!("Expected Expression")
+    match &node.token {
+        NodeType::NumLiteral(val) => {
+            code.push_str(format!("\nmov x{}, {}", x, val).as_str());
+            switch!(*x);
+        },
+        NodeType::Id(name) => {
+            code.push_str(format!("\nldr x{},={:#x}", x, vars.get(name).expect("variable to exist")).as_str());
+            switch!(*x);
+        },
+        _ => {
+            let child0 = &node.children.as_ref().expect("Op node to have children")[0];
+            let child1 = &node.children.as_ref().expect("Op node to have children")[1];
+            println!("child0: {:?}", child0.token);
+            match &child0.token {
+                NodeType::NumLiteral(num0) => {
+                    match &child1.token {
+                        NodeType::NumLiteral(num1) => {
+                            let n: i32;
+                            match node.token {
+                                NodeType::Add => { n = num0 + num1 },
+                                NodeType::Sub => { n =  num0 - num1 },
+                                NodeType::Div => { n = num0 / num1 },
+                                NodeType::Mul => { n = num0 * num1 },
+                                NodeType::BAnd => { n = num0 & num1 },
+                                NodeType::BOr => { n = num0 | num1 },
+                                NodeType::BXor => { n = num0 ^ num1 },
+                                _ => panic!("Expected Expression")
+                            };
+                            code.push_str(format!("\nmov x{}, {}", x, n).as_str());
+                            switch!(*x);
+                            return code;
+                        },
+                        NodeType::Id(id) => {
+                            code.push_str(format!("\nldr x{},={:#x}", x, vars.get(id).expect("id should be valid")).as_str());
+                            switch!(*x);
+                            return code;
+                        }
+                        _ => {
+                            code.push_str(expr_code_gen(node, sp, vars, x).as_str());
+                        }
                     };
-                    return code;
                 },
                 NodeType::Id(id) => {
                     code.push_str(format!("\nldr x{},={:#x}", x, vars.get(id).expect("id should be valid")).as_str());
                     switch!(*x);
-                    return code;
                 }
                 _ => {
-                    code.push_str(expr_code_gen(node, sp, vars, x).as_str());
+                    code.push_str(expr_code_gen(child0, sp, vars, x).as_str());
+                    match &child1.token {
+                        NodeType::NumLiteral(num) => {
+                            code.push_str(format!("\nmov x{}, {}", x, num).as_str());
+                            switch!(*x);
+                        },
+                        NodeType::Id(id) => {
+                            let stack_position = vars.get(id).expect("id should be valid");
+                            code.push_str(format!("\nldr x{},={:#x}", x, stack_position).as_str());
+                            switch!(*x);
+                        },
+                        _ => code.push_str(expr_code_gen(child1, sp, vars, x).as_str())
+                    };
+                    
+
+                    match node.token {
+                        NodeType::Add => { code.push_str(format!("\nadd x1, x1, x2").as_str()); },
+                        NodeType::Sub => { code.push_str("\nsub x1, x1, x2"); },
+                        NodeType::Div => { code.push_str("\ndiv x1, x1, x2"); },
+                        NodeType::Mul => { code.push_str("\nmul x1, x1, x2"); },
+                        NodeType::BAnd => { code.push_str("\nand x1, x1, x2"); },
+                        NodeType::BOr => { code.push_str("\nor x1, x1, x2"); },
+                        NodeType::BXor => { code.push_str("\nxor x1, x1, x2"); },
+                        _ => println!("Expected Expression")
+                    };
+                    return code;
                 }
             };
-        },
-        NodeType::Id(id) => {
-            code.push_str(format!("\nldr x{},={:#x}", x, vars.get(id).expect("id should be valid")).as_str());
-            switch!(*x);
-        }
-        _ => {
-            code.push_str(expr_code_gen(child0, sp, vars, x).as_str());
-            match &child1.token {
-                NodeType::NumLiteral(num) => {
-                    code.push_str(format!("\nmov x{}, {}", x, num).as_str());
-                    switch!(*x);
-                },
-                NodeType::Id(id) => {
-                    let stack_position = vars.get(id).expect("id should be valid");
-                    code.push_str(format!("\nldr x{},={:#x}", x, stack_position).as_str());
-                    switch!(*x);
-                },
-                _ => code.push_str(expr_code_gen(child1, sp, vars, x).as_str())
-            };
-            
-
-            match node.token {
-                NodeType::Add => { code.push_str(format!("\nadd x1, x1, x2").as_str()); },
-                NodeType::Sub => { code.push_str("\nsub x1, x1, x2"); },
-                NodeType::Div => { code.push_str("\ndiv x1, x1, x2"); },
-                NodeType::Mul => { code.push_str("\nmul x1, x1, x2"); },
-                NodeType::BAnd => { code.push_str("\nand x1, x1, x2"); },
-                NodeType::BOr => { code.push_str("\nor x1, x1, x2"); },
-                NodeType::BXor => { code.push_str("\nxor x1, x1, x2"); },
-                _ => println!("Expected Expression")
-            };
-            return code;
         }
     };
+    
     code
 }
 
