@@ -19,7 +19,7 @@ fn test_all() {
             Ok(tokens) => tokens,
             Err(_) => panic!("Unable to parse integer literal")
         };
-        let node = match program(&tokens) {
+        let node = match program(&tokens, &mut 0) {
             Ok(node) => node,
             Err(err) => panic!("Failed Parsing: {:?}", err)
         };

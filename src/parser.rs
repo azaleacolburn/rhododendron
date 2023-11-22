@@ -27,6 +27,7 @@ pub enum NodeType {
     For,
     While,
     Loop,
+    Condition(bool), // true is eq false is neq; This might not be completely clear when optimizing conditionals and loops start
     Assignment(Option<String>),
     Declaration(Option<String>)
 }
@@ -103,7 +104,9 @@ pub enum Error {
     ExpectedId,
     UndeclaredId,
     ExpectedAssignment,
-    ExpectedStatement
+    ExpectedStatement,
+    ExpectedCondition,
+    ExpectedOParen
 }
 
 #[derive(Debug)]
@@ -118,8 +121,8 @@ impl RhErr {
     }
 }
 
-pub fn program(tokens: &Vec<Token>) -> Result<TokenNode, RhErr> {
-    let mut token_i: &mut usize = &mut 0;
+pub fn program(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    
     let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
     while tokens.len() > *token_i + 1 {
         match statement(tokens, token_i) {
@@ -129,6 +132,9 @@ pub fn program(tokens: &Vec<Token>) -> Result<TokenNode, RhErr> {
             Err(err) => return Err(err),
         };
         *token_i += 1;
+        if tokens.len() != *token_i {
+            if tokens[*token_i] == Token::CCurl { break; }
+        }
     }
     println!("past parsing");
     Ok(program_node)
@@ -140,6 +146,7 @@ pub fn statement(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, 
     match &tokens[*token_i] {
         Token::Type(_) => declaration(tokens, token_i),
         Token::Id(name) => assignment(tokens, token_i, name.to_string()),
+        Token::If => if_statement(tokens, token_i),
         _ => Err(RhErr::new(Error::ExpectedStatement, None))
     }
 }
@@ -221,9 +228,9 @@ fn term(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
 
 fn factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
     println!("factor");
-    println!("{:?}", tokens[*token_i]);
+    println!("before {:?}", tokens[*token_i]);
     *token_i += 1;
-    println!("{:?}", tokens[*token_i]);
+    println!("actual factor token {:?}", tokens[*token_i]);
     match &tokens[*token_i] {
         Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(*num), None)),
         Token::Id(id) => Ok(TokenNode::new(NodeType::Id(id.to_string()), None)),
@@ -242,7 +249,7 @@ fn factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> 
 }
 
 fn assignment(tokens: &Vec<Token>, token_i: &mut usize, name: String) -> Result<TokenNode, RhErr> {
-    *token_i += 2;
+    *token_i += 1;
     println!("ASSIGNMENT TOKEN: {:?}", tokens[*token_i]);
     println!("STARTED ASSIGNMENT TOKEN TOKEN TOKEN TOKEN");
     Ok(
@@ -252,4 +259,133 @@ fn assignment(tokens: &Vec<Token>, token_i: &mut usize, name: String) -> Result<
             ]))
         ]))
     )
+}
+
+fn if_statement(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    let mut if_node = TokenNode::new(NodeType::If, Some(vec![]));
+    *token_i += 1; // might make semi handled by the called functions instead
+    let condition_node = match condition(tokens, token_i) {
+        Ok(node) => node,
+        Err(err) => return Err(err),
+    };
+    if_node.children.as_mut().expect("children to be some").push(condition_node);
+    *token_i += 2;
+    // *token_i += 
+    let program_node = match program(tokens, token_i) {
+        Ok(node) => node,
+        Err(err) => return Err(err)
+    };
+    if_node.children.as_mut().expect("children to be some").push(program_node);
+    Ok(if_node)
+}
+
+fn condition(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    // let condition_node = TokenNode::new(NodeType::Condition());
+    // *token_i += 1;
+    println!("opening condition token: {:?}", tokens[*token_i]);
+    match tokens[*token_i] {
+        Token::OParen => {
+            // evaluate condition
+            let condition = condition_expr(tokens, token_i);
+            match tokens[*token_i] {
+                Token::CParen => condition,
+                _ => { println!("post condition {:?}", tokens[*token_i]); Err(RhErr::new(Error::ExpectedCParen, Some(*token_i))) }
+            }
+        },
+        _ => Err(RhErr::new(Error::ExpectedOParen, Some(*token_i)))
+    }
+}
+/// This is called if expr needs parenthesis
+fn condition_expr(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    let mut left = match condition_term(tokens, token_i) {
+        Ok(node) => node,
+        Err(err) => return Err(err)
+    };
+    
+    let mut curr = &tokens[*token_i];
+    while *curr == Token::AndCmp || *curr == Token::OrCmp {
+        let cmp: &mut Option<Token> = &mut None;
+        *cmp = Some(curr.clone());
+
+        let right = match condition_term(tokens, token_i) {
+            Ok(node) => node,
+            Err(err) => return Err(err)
+        };
+        let cmp_tok = TokenNode::new(NodeType::from_token(cmp.as_ref().expect("Op to have a value")).unwrap(), Some(vec![left, right]));
+
+        left = cmp_tok;
+        // *token_i += 1;
+        curr = &tokens[*token_i];
+        println!("{:?}", curr);
+    }
+    Ok(left)
+}
+
+fn condition_term(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    let mut left = match condition_factor(tokens, token_i) {
+        Ok(node) => node,
+        Err(err) => return Err(err)
+    };
+    *token_i += 1;
+    let mut curr = &tokens[*token_i];
+    while *curr == Token::NeqCmp || *curr == Token::EqCmp {
+        let cmp: &mut Option<Token> = &mut None;
+        *cmp = Some(curr.clone());
+        println!("condition cmp: {:?}", cmp);
+        let right = match condition_factor(tokens, token_i) {
+            Ok(node) => node,
+            Err(err) => return Err(err)
+        };
+        let cmp_tok = TokenNode::new(NodeType::from_token(cmp.as_ref().expect("Op to have a value")).unwrap(), Some(vec![left, right]));
+
+        left = cmp_tok;
+        *token_i += 1;
+        curr = &tokens[*token_i];
+        println!("{:?}", curr);
+    }
+    Ok(left)
+}
+
+fn condition_factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    *token_i += 1;
+    println!("factor: {:?}", tokens[*token_i]);
+    match &tokens[*token_i] {
+        Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(*num), None)),
+        Token::Id(name) => Ok(TokenNode::new(NodeType::Id(name.clone()), None)),
+        Token::OParen => {
+            *token_i += 1;
+            match expression(tokens, token_i) {
+                Ok(node) => {
+                    if tokens[*token_i] == Token::CParen { Ok(node) } 
+                    else { Err(RhErr::new(Error::ExpectedCParen, Some(*token_i))) }
+                },
+                Err(err) => Err(err)
+            }
+        },
+        _ => return Err(RhErr::new(Error::ExpectedCondition, Some(*token_i)))
+    }
+}
+
+fn for_statement(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode, RhErr> {
+    let mut for_node = TokenNode::new(NodeType::If, Some(vec![]));
+    let declare_node = match declaration(tokens, token_i) {
+        Ok(node) => node,
+        Err(err) => return Err(err)
+    };
+    for_node.children.as_mut().expect("vec to be some").push(declare_node);
+    println!("token: {:?}, should be ;", tokens[*token_i]);
+    *token_i += 1; // might make semi handled by the called functions instead
+    let condition_node = match condition(tokens, token_i) {
+        Ok(node) => node,
+        Err(err) => return Err(err),
+    };
+    for_node.children.as_mut().expect("vec to be some").push(condition_node);
+    *token_i += 1;
+    let statement_node = match statement(tokens, token_i) {
+        Ok(node) => node,
+        Err(err) => return Err(err)
+    };
+    for_node.children.as_mut().expect("vec to be some").push(statement_node); 
+    *token_i += 1;
+    Ok(for_node)
 }

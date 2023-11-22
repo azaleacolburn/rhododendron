@@ -63,7 +63,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     // split.push(String::from("int"));
                     ret.push(Token::Type(VariableTypes::Int));
                     i += 2; // I think there's a problem with incrementing the iterator
-                } else if chars[i + 1] == 'f' && chars[i + 2] == ' ' {
+                } else if chars[i + 1] == 'f' && (chars[i + 2] == ' ' || chars[i + 2] == '(') {
                     // split.push(String::from("if"));
                     ret.push(Token::If);
                     i += 1; // these numbers might be wrong
@@ -73,7 +73,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 if chars[i + 1] == 'h' && chars[i + 2] == 'a' && chars[i + 3] == 'r' && chars[i + 4] == ' ' {
                     // split.push(String::from("char"));
                     ret.push(Token::Type(VariableTypes::Char));
-                    i += 2;
+                    i += 3;
                 }
             },
             'f' => {
@@ -125,7 +125,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             '/' => {
                 if chars[i + 1] == '=' {
                     //split.push(String::from("/="));
-                    ret.push(Token::SubEq);
+                    ret.push(Token::DivEq);
                     i += 1;
                 }
                 else {
@@ -166,6 +166,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 if chars[i + 1] == '=' {
                     ret.push(Token::BAndEq);
                     i += 1;
+                } else if chars[i + 1] == '&' {
+                    ret.push(Token::AndCmp);
+                    i += 1;  
                 } else {
                     ret.push(Token::BAnd);
                 }
@@ -201,6 +204,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 // split.push(String::from("|"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::BOrEq);
+                    i += 1;
+                } else if chars[i + 1] == '|' {
+                    ret.push(Token::OrCmp);
                     i += 1;
                 } else {
                     ret.push(Token::BOr);
@@ -260,10 +266,35 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             '=' => {
                 if chars[i + 1] == '=' {
                     ret.push(Token::EqCmp);
+                    i += 1;
                 } else {
                     ret.push(Token::Eq);
                 }
             },
+            'L' => {
+                if chars[i + 1] == 'A' && chars[i + 2] == 'B' && chars[i + 3] == 'E' && chars[i + 4] == 'L' && chars[i + 5] == ':' {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Label(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
+                }
+            },
+            'g' => {
+                if chars[i + 1] == 'o' && chars[i + 2] == 't' && chars[i + 3] == 'o' {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Goto(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
+                }
+            }
             '\n' => {}
             _ => {
                 // if we'e here it's an identifier
@@ -280,6 +311,12 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
         i += 1;
         // curr.push(c);
     }
+    println!();
+    for i in &ret {
+        println!("{:?}", i);
+    }
+    println!();
+    println!();
     Ok(ret)
 }
 
@@ -306,6 +343,8 @@ pub enum Token {
     Id(String), // why is there id and var???
     EqCmp,
     NeqCmp,
+    AndCmp,
+    OrCmp,
     Neq,
     BOr,
     BAnd,
@@ -333,6 +372,8 @@ pub enum Token {
     CParen,
     OCurl,
     CCurl,
+    Goto(String),
+    Label(String),
     Dot,
     Comma,
     Semi,

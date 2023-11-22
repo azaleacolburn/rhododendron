@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::format};
+use std::{collections::HashMap};
 
 use crate::parser::{TokenNode, NodeType, RhErr, Error};
 
@@ -40,7 +40,7 @@ pub fn code_gen(node: &TokenNode) -> String {
     
                 },
                 _ => {
-    
+                    
                 }
             }
         }
