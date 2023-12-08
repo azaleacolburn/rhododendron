@@ -27,6 +27,8 @@ pub enum NodeType {
     For,
     While,
     Loop,
+    Function_Call(String),
+    Scope(bool), // <-- anything that has {} is a scope, scope is how we're handling multiple statements, scopes return the last statement's result or void
     Condition(bool), // true is eq false is neq; This might not be completely clear when optimizing conditionals and loops start
     Assignment(Option<String>),
     Declaration(Option<String>)

@@ -8,7 +8,7 @@ macro_rules! switch {
     };
 }
 
-// Idea: Hashmap to connect stack positions with ids
+    // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn code_gen(node: &TokenNode) -> String {
     println!("In code gen");
     // use this later
@@ -16,29 +16,34 @@ pub fn code_gen(node: &TokenNode) -> String {
     // let mut reg_tracker: &mut [bool; 12] = &mut [false, false, false, false, false, false, false, false, false, false, false, false]; // false mean avaliable
     // var_name : pos_on_stack
     let mut code: String = String::from("");
-    // Stores the variable name and their position on the stack
-    let mut vars: HashMap<String, i32> = HashMap::new();
-    let mut sp = 5060;
+    // Stores the variable name and their absolute position on the stack
+    let mut global_vars: HashMap<String, i32> = HashMap::new();
+    // Stores the variable name and their relative position on the stack(from the top of the stack
+    // at the begining of runtime). This should be on a per_scope level
+    let mut vars: HashMap<String, i32> = HashMap::new(); // This declaration should be moved
     println!("{:?}", node.token);
     println!("{:?}", node.children.as_ref().unwrap()[0].token);
     if node.token == NodeType::Program {
         for child_node in node.children.as_ref().expect("program node to have children") {
             match &child_node.token {
                 NodeType::Declaration(name) => {
-                    code.push_str(&declare_code_gen(&child_node, &mut sp, &mut vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()));
+                    code.push_str(&declare_code_gen(&child_node, &mut global_global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()));
                 },
                 NodeType::Assignment(name) => {
-                    code.push_str(&assignment_code_gen(&child_node, &mut sp, &mut vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()).unwrap());
+                    code.push_str(&assignment_code_gen(&child_node, &mut global_global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()).unwrap());
                 },
                 NodeType::If => {
-                    
+                    code.push_str(&if_code_gen(&child_node, &mut global_vars));
                 },
                 NodeType::While => {
-    
+                    
                 },
                 NodeType::Loop => {
     
                 },
+                NodeType::Function_Call => {
+
+                }
                 _ => {
                     
                 }
@@ -54,7 +59,7 @@ pub fn code_gen(node: &TokenNode) -> String {
 
 /// Returns the generated code
 /// Modifies the sp
-pub fn declare_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> String {
+pub fn declare_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> String {
     println!("{:?}", node);
     println!("{:?}", node.token); 
     let mut code = String::from("\nmov x1, #0\nmov x2, #0");
@@ -62,19 +67,19 @@ pub fn declare_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<Strin
     //     NodeType::Id(id) => id,
     //     _ => { panic!("must have valid variable name") }
     // };
-    code.push_str(&expr_code_gen(&node.children.as_ref().expect("Node to have children")[0], sp, vars, x));
-    vars.insert(name, *sp-16);
+    code.push_str(&expr_code_gen(&node.children.as_ref().expect("Node to have children")[0], sp, global_vars, x));
+    vars.insert(name, -16);
     code.push_str(format!("\nstr x1, [sp, #-16]").as_str());
     // store_var(node, num, bar_name, map, 1);
     println!("declare code: {}", code);
     code
 }
 
-pub fn assignment_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> Result<String, RhErr> {
+pub fn assignment_code_gen(node: &TokenNode, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> Result<String, RhErr> {
     let mut code = String::from("");
     
 
-    let expr_code: String = expr_code_gen(node, sp, vars, x);
+    let expr_code: String = expr_code_gen(node, global_vars, x);
     let stack_position = match vars.get_mut(&name) {
         Some(pos) => pos,
         None => return Err(RhErr::new(Error::UndeclaredId, None))
@@ -110,7 +115,7 @@ pub fn assignment_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<St
         }
     };
 
-    // let expr_code: String = expr_code_gen(node, sp, vars, reg_tracker);
+    // let expr_code: String = expr_code_gen(node, sp, global_vars, reg_tracker);
     // code = format!("{}\nstr x1, [sp, #-16]", expr_code, ); // actually write saving and loading
 
     Ok(code)
@@ -121,7 +126,7 @@ pub fn assignment_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<St
 /// there's defintely a cleverer recursive way of handling this
 /// refactor later
 /// Needs better handling when invalid identifier is found
-pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>, x: &mut i32) -> String {
+pub fn expr_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>, x: &mut i32) -> Result<String, RhErr> {
     let mut code = String::from("");
     // println!("expr_code_gen");
     println!("expr node: {:?}", node.token);
@@ -132,7 +137,7 @@ pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, 
             switch!(*x);
         },
         NodeType::Id(name) => {
-            code.push_str(format!("\nldr x{},={:#x}", x, vars.get(name).expect("variable to exist")).as_str());
+            code.push_str(format!("\nldr x{},={:#x}", x, global_vars.get(name).expect("variable to exist")).as_str());
             switch!(*x);
         },
         _ => {
@@ -156,35 +161,44 @@ pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, 
                             };
                             code.push_str(format!("\nmov x{}, {}", x, n).as_str());
                             switch!(*x);
-                            return code;
+                            return Ok(code);
                         },
                         NodeType::Id(id) => {
-                            code.push_str(format!("\nldr x{},={:#x}", x, vars.get(id).expect("id should be valid")).as_str());
+                            code.push_str(format!("\nldr x{},={:#x}", x, global_vars.get(id).expect("id should be valid")).as_str());
                             switch!(*x);
-                            return code;
+                            return Ok(code);
                         }
                         _ => {
-                            code.push_str(expr_code_gen(node, sp, vars, x).as_str());
+                            code.push_str(expr_code_gen(node, global_vars, x)?.as_str());
                         }
                     };
                 },
                 NodeType::Id(id) => {
-                    code.push_str(format!("\nldr x{},={:#x}", x, vars.get(id).expect("id should be valid")).as_str());
+                    let relative_stack_pos = match global_vars.get(id) {
+                        Some(pos) => pos,
+                        None => { return Err(RhErr::new(Error::UndeclaredId, None)); }
+                    };
+                    code.push_str(format!("\nadd sp, {}, x3", relative_stack_pos).as_str());
+                    code.push_str(format!("\nldr x{}, [sp, {}]\nmov x3, 0", x, relative_stack_pos).as_str());
                     switch!(*x);
                 }
                 _ => {
-                    code.push_str(expr_code_gen(child0, sp, vars, x).as_str());
+                    code.push_str(expr_code_gen(child0, global_vars, x)?.as_str());
                     match &child1.token {
                         NodeType::NumLiteral(num) => {
                             code.push_str(format!("\nmov x{}, {}", x, num).as_str());
                             switch!(*x);
                         },
                         NodeType::Id(id) => {
-                            let stack_position = vars.get(id).expect("id should be valid");
-                            code.push_str(format!("\nldr x{},={:#x}", x, stack_position).as_str());
+                            let relative_stack_pos = match global_vars.get(id) {
+                                Some(pos) => pos,
+                                None => { return Err(RhErr::new(Error::UndeclaredId, None)); }
+                            };
+                            code.push_str(format!("\nadd sp, {}, x3", relative_stack_pos).as_str());
+                            code.push_str(format!("\nldr x{}, [sp, {}]\nmov x3, 0", x, relative_stack_pos).as_str());
                             switch!(*x);
                         },
-                        _ => code.push_str(expr_code_gen(child1, sp, vars, x).as_str())
+                        _ => code.push_str(expr_code_gen(child1, global_vars, x)?.as_str())
                     };
                     
 
@@ -198,13 +212,36 @@ pub fn expr_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, 
                         NodeType::BXor => { code.push_str("\nxor x1, x1, x2"); },
                         _ => println!("Expected Expression")
                     };
-                    return code;
+                    return Ok(code);
                 }
             };
         }
     };
     
-    code
+    Ok(code)
+}
+
+pub fn if_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>) -> Result<String, RhErr> {
+    let mut code = String::from("");
+    match node.children {
+        Some(children) => {
+            // cmp x1, #n
+            // beq label
+            code.push_str(condition_expr_code_gen(node, &mut 0)?.as_str());
+            code.push_str("\nbeq if");
+            Ok(code)
+        },
+        None => Err(RhErr::new(Error::ExpectedCondition, None))
+    }
+
+}
+
+pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32) -> Result<String, RhErr> {
+    let code = String::from("");
+    match node {
+        
+    }
+    Ok(code)
 }
 
 // pub fn store_var(sp: &mut i32, node: &TokenNode, num: i32, var: String, vars: &mut HashMap<String, i32>, reg_tracker: &mut [bool; 12]) -> String {
