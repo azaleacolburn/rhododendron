@@ -21,6 +21,8 @@ pub enum NodeType {
     DivEq,
     MulEq,
     Mul,
+    AndCmp,
+    OrCmp,
     NumLiteral(i32),
     Add,
     If,
@@ -305,7 +307,7 @@ fn condition_expr(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode,
     };
     
     let mut curr = &tokens[*token_i];
-    while *curr == Token::AndCmp || *curr == Token::OrCmp {
+    while *curr == Token::AndCmp || *curr == Token::OrCmp { // && ||
         let cmp: &mut Option<Token> = &mut None;
         *cmp = Some(curr.clone());
 
@@ -330,7 +332,7 @@ fn condition_term(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNode,
     };
     *token_i += 1;
     let mut curr = &tokens[*token_i];
-    while *curr == Token::NeqCmp || *curr == Token::EqCmp {
+    while *curr == Token::NeqCmp || *curr == Token::EqCmp { // != ==
         let cmp: &mut Option<Token> = &mut None;
         *cmp = Some(curr.clone());
         println!("condition cmp: {:?}", cmp);
@@ -358,7 +360,7 @@ fn condition_factor(tokens: &Vec<Token>, token_i: &mut usize) -> Result<TokenNod
             *token_i += 1;
             match expression(tokens, token_i) {
                 Ok(node) => {
-                    if tokens[*token_i] == Token::CParen { Ok(node) } 
+                    if tokens[*token_i] == Token::CParen { Ok(node) }
                     else { Err(RhErr::new(Error::ExpectedCParen, Some(*token_i))) }
                 },
                 Err(err) => Err(err)

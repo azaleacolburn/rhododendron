@@ -33,7 +33,7 @@ pub fn code_gen(node: &TokenNode) -> String {
                     code.push_str(&assignment_code_gen(&child_node, &mut global_global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()).unwrap());
                 },
                 NodeType::If => {
-                    code.push_str(&if_code_gen(&child_node, &mut global_vars));
+                    code.push_str(&if_code_gen(&child_node, &mut global_vars).expect("Valid if statement code"));
                 },
                 NodeType::While => {
                     
@@ -221,13 +221,14 @@ pub fn expr_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>, x
     Ok(code)
 }
 
-pub fn if_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i32>) -> Result<String, RhErr> {
+pub fn if_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>) -> Result<String, RhErr> {
     let mut code = String::from("");
     match node.children {
         Some(children) => {
             // cmp x1, #n
             // beq label
-            code.push_str(condition_expr_code_gen(node, &mut 0)?.as_str());
+            // node.children.unwrap()[0] is condition node, other child is scope
+            code.push_str(condition_expr_code_gen(&node.children.unwrap()[0], &mut 0, global_vars)?.as_str());
             code.push_str("\nbeq if");
             Ok(code)
         },
@@ -236,10 +237,37 @@ pub fn if_code_gen(node: &TokenNode, sp: &mut i32, vars: &mut HashMap<String, i3
 
 }
 
-pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32) -> Result<String, RhErr> {
-    let code = String::from("");
-    match node {
-        
+pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32, global_vars: &HashMap<String, i32>) -> Result<String, RhErr> {
+    let mut code = String::from("");
+    match node.token {
+        NodeType::AndCmp => {
+            
+        },
+        NodeType::OrCmp => {
+
+        },
+        NodeType::NeqCmp => {
+
+        },
+        NodeType::EqCmp => {
+            let condition_code0 = condition_expr_code_gen(&node.children.expect("more children in condition expr")[0], x, global_vars);
+            let condition_code1 = condition_expr_code_gen(&node.children.expect("more children in condition expr")[0], x, global_vars)
+            code.push_str(condition_code0.unwrap().as_str());
+            code.push_str(condition_code1.unwrap().as_str());
+            code.push_str(format!("").as_str()); // write branching
+        },
+        NodeType::Id(id) => {
+            let relative_path = global_vars.get(&id).unwrap(); // relative path moves stack down without -
+
+            code.push_str(format!("ldr x{}, [sp, -{}]", x, relative_path).as_str());
+            code.push_str(format!("add sp, {}, sp", relative_path).as_str());
+        },
+        NodeType::NumLiteral(num) => {
+            code.push_str(format!("mov x{}, {}", x, num).as_str());
+        },
+        _ => {
+            return Err(RhErr::new(Error::ExpectedCondition, None));
+        }
     }
     Ok(code)
 }
