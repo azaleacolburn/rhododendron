@@ -8,8 +8,9 @@ macro_rules! switch {
     };
 }
 
-    // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
+// Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn code_gen(node: &TokenNode) -> String {
+    let scopes: Vec<String> = vec![];
     println!("In code gen");
     // use this later
     //                                x0     x1     x2
@@ -27,10 +28,10 @@ pub fn code_gen(node: &TokenNode) -> String {
         for child_node in node.children.as_ref().expect("program node to have children") {
             match &child_node.token {
                 NodeType::Declaration(name) => {
-                    code.push_str(&declare_code_gen(&child_node, &mut global_global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()));
+                    code.push_str(&declare_code_gen(&child_node, &mut global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()));
                 },
                 NodeType::Assignment(name) => {
-                    code.push_str(&assignment_code_gen(&child_node, &mut global_global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()).unwrap());
+                    code.push_str(&assignment_code_gen(&child_node, &mut global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()).unwrap());
                 },
                 NodeType::If => {
                     code.push_str(&if_code_gen(&child_node, &mut global_vars).expect("Valid if statement code"));
@@ -41,7 +42,7 @@ pub fn code_gen(node: &TokenNode) -> String {
                 NodeType::Loop => {
     
                 },
-                NodeType::Function_Call => {
+                NodeType::Function_Call(id) => {
 
                 }
                 _ => {
@@ -67,20 +68,20 @@ pub fn declare_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>
     //     NodeType::Id(id) => id,
     //     _ => { panic!("must have valid variable name") }
     // };
-    code.push_str(&expr_code_gen(&node.children.as_ref().expect("Node to have children")[0], sp, global_vars, x));
-    vars.insert(name, -16);
+    code.push_str(&expr_code_gen(&node.children.as_ref().expect("Node to have children")[0], global_vars, x).unwrap());
+    global_vars.insert(name, -16);
     code.push_str(format!("\nstr x1, [sp, #-16]").as_str());
     // store_var(node, num, bar_name, map, 1);
     println!("declare code: {}", code);
     code
 }
 
-pub fn assignment_code_gen(node: &TokenNode, vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> Result<String, RhErr> {
+pub fn assignment_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>, x: &mut i32, name: String) -> Result<String, RhErr> {
     let mut code = String::from("");
     
 
-    let expr_code: String = expr_code_gen(node, global_vars, x);
-    let stack_position = match vars.get_mut(&name) {
+    let expr_code: String = expr_code_gen(node, global_vars, x).unwrap();
+    let stack_position = match global_vars.get_mut(&name) {
         Some(pos) => pos,
         None => return Err(RhErr::new(Error::UndeclaredId, None))
     };
@@ -223,12 +224,12 @@ pub fn expr_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>, x
 
 pub fn if_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>) -> Result<String, RhErr> {
     let mut code = String::from("");
-    match node.children {
+    match &node.children {
         Some(children) => {
             // cmp x1, #n
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
-            code.push_str(condition_expr_code_gen(&node.children.unwrap()[0], &mut 0, global_vars)?.as_str());
+            code.push_str(condition_expr_code_gen(&node.children.as_ref().unwrap()[0], &mut 0, global_vars)?.as_str());
             code.push_str("\nbeq if");
             Ok(code)
         },
@@ -239,7 +240,7 @@ pub fn if_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>) -> 
 
 pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32, global_vars: &HashMap<String, i32>) -> Result<String, RhErr> {
     let mut code = String::from("");
-    match node.token {
+    match &node.token {
         NodeType::AndCmp => {
             
         },
@@ -250,20 +251,20 @@ pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32, global_vars: &Hash
 
         },
         NodeType::EqCmp => {
-            let condition_code0 = condition_expr_code_gen(&node.children.expect("more children in condition expr")[0], x, global_vars);
-            let condition_code1 = condition_expr_code_gen(&node.children.expect("more children in condition expr")[0], x, global_vars)
-            code.push_str(condition_code0.unwrap().as_str());
-            code.push_str(condition_code1.unwrap().as_str());
-            code.push_str(format!("").as_str()); // write branching
+            let condition_code0 = condition_expr_code_gen(&node.children.as_ref().expect("more children in condition expr")[0], x, global_vars).unwrap();
+            let condition_code1 = condition_expr_code_gen(&node.children.as_ref().expect("more children in condition expr")[0], x, global_vars).unwrap();
+            code.push_str(condition_code0.as_str());
+            code.push_str(condition_code1.as_str());
+            code.push_str(format!("\ncmp x1, x0\nbeq ").as_str()); // write branching
         },
         NodeType::Id(id) => {
-            let relative_path = global_vars.get(&id).unwrap(); // relative path moves stack down without -
+            let relative_path = global_vars.get(id).unwrap(); // relative path moves stack down without -
 
-            code.push_str(format!("ldr x{}, [sp, -{}]", x, relative_path).as_str());
-            code.push_str(format!("add sp, {}, sp", relative_path).as_str());
+            code.push_str(format!("\nldr x{}, [sp, -{}]", x, relative_path).as_str());
+            code.push_str(format!("\nadd sp, {}, sp", relative_path).as_str());
         },
         NodeType::NumLiteral(num) => {
-            code.push_str(format!("mov x{}, {}", x, num).as_str());
+            code.push_str(format!("\nmov x{}, {}", x, num).as_str());
         },
         _ => {
             return Err(RhErr::new(Error::ExpectedCondition, None));

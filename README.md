@@ -12,7 +12,7 @@ This will include non-C features such as
 - Built-in Tuple Packing and Unpacking
 - Scopes!
     - sort of like the comma operator in C
-c```
+```
 if ({
         // scope
         statement, 
