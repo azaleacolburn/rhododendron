@@ -1,6 +1,23 @@
-use std::{collections::HashMap};
+use std::{collections::HashMap, thread::Scope};
 
 use crate::parser::{TokenNode, NodeType, RhErr, Error};
+
+pub struct ScopeHandler {
+    scopes: Vec<String>,
+    curr_scope: usize
+}
+
+impl ScopeHandler {
+    fn push_to_scope(&mut self, string: &str) {
+        self.scopes[self.curr_scope].push_str(string)
+    }
+
+    fn print_scopes(&self) {
+        self.scopes.iter().for_each(|scope| {
+            print!("{}", scope);
+        })
+    }
+}
 
 macro_rules! switch {
     ($x:expr) => {
@@ -10,7 +27,10 @@ macro_rules! switch {
 
 // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn code_gen(node: &TokenNode) -> String {
-    let scopes: Vec<String> = vec![];
+    let mut scopes = ScopeHandler {
+        scopes: vec![String::new()],
+        curr_scope: 0
+    };
     println!("In code gen");
     // use this later
     //                                x0     x1     x2
@@ -28,13 +48,13 @@ pub fn code_gen(node: &TokenNode) -> String {
         for child_node in node.children.as_ref().expect("program node to have children") {
             match &child_node.token {
                 NodeType::Declaration(name) => {
-                    code.push_str(&declare_code_gen(&child_node, &mut global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()));
+                    scopes.push_to_scope(&declare_code_gen(&child_node, &mut global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()));
                 },
                 NodeType::Assignment(name) => {
-                    code.push_str(&assignment_code_gen(&child_node, &mut global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()).unwrap());
+                    scopes.push_to_scope(&assignment_code_gen(&child_node, &mut global_vars, &mut 1, name.as_ref().expect("valid name to have been given").clone()).unwrap());
                 },
                 NodeType::If => {
-                    code.push_str(&if_code_gen(&child_node, &mut global_vars).expect("Valid if statement code"));
+                    let result = if_code_gen(&child_node, &mut global_vars, &mut scopes);
                 },
                 NodeType::While => {
                     
@@ -51,10 +71,11 @@ pub fn code_gen(node: &TokenNode) -> String {
             }
         }
     }
-    if code == "" { panic!("Expected valid program"); }
-    println!();
-    println!("{}", code);
-    println!();
+    // if code == "" { panic!("Expected valid program"); }
+    // println!();
+    // println!("{}", code);
+    // println!();
+    scopes.print_scopes();
     code.trim().to_string()
 }
 
@@ -222,23 +243,22 @@ pub fn expr_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>, x
     Ok(code)
 }
 
-pub fn if_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>) -> Result<String, RhErr> {
+pub fn if_code_gen(node: &TokenNode, global_vars: &mut HashMap<String, i32>, scopes: &mut ScopeHandler) -> Result<(), RhErr> {
     let mut code = String::from("");
     match &node.children {
         Some(children) => {
             // cmp x1, #n
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
-            code.push_str(condition_expr_code_gen(&node.children.as_ref().unwrap()[0], &mut 0, global_vars)?.as_str());
-            code.push_str("\nbeq if");
-            Ok(code)
+            condition_expr_code_gen(&node.children.as_ref().unwrap()[0], &mut 0, global_vars, scopes);
+            Ok(())
         },
         None => Err(RhErr::new(Error::ExpectedCondition, None))
     }
 
 }
 
-pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32, global_vars: &HashMap<String, i32>) -> Result<String, RhErr> {
+pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32, global_vars: &HashMap<String, i32>, scopes: &mut ScopeHandler) -> Result<(), RhErr> {
     let mut code = String::from("");
     match &node.token {
         NodeType::AndCmp => {
@@ -251,17 +271,17 @@ pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32, global_vars: &Hash
 
         },
         NodeType::EqCmp => {
-            let condition_code0 = condition_expr_code_gen(&node.children.as_ref().expect("more children in condition expr")[0], x, global_vars).unwrap();
-            let condition_code1 = condition_expr_code_gen(&node.children.as_ref().expect("more children in condition expr")[0], x, global_vars).unwrap();
-            code.push_str(condition_code0.as_str());
-            code.push_str(condition_code1.as_str());
-            code.push_str(format!("\ncmp x1, x0\nbeq ").as_str()); // write branching
+            condition_expr_code_gen(&node.children.as_ref().expect("more children in condition expr")[0], x, global_vars, scopes).unwrap();
+            condition_expr_code_gen(&node.children.as_ref().expect("more children in condition expr")[0], x, global_vars, scopes).unwrap();
+            scopes.curr_scope += 1;
+            scopes.push_to_scope(format!("\ncmp x1, x0\nbeq L{}", scopes.curr_scope + 1).as_str());
+
         },
         NodeType::Id(id) => {
             let relative_path = global_vars.get(id).unwrap(); // relative path moves stack down without -
 
-            code.push_str(format!("\nldr x{}, [sp, -{}]", x, relative_path).as_str());
-            code.push_str(format!("\nadd sp, {}, sp", relative_path).as_str());
+            scopes.push_to_scope(format!("\nldr x{}, [sp, {}]", x, relative_path).as_str());
+            scopes.push_to_scope(format!("\nadd sp, {}, sp", relative_path).as_str());
         },
         NodeType::NumLiteral(num) => {
             code.push_str(format!("\nmov x{}, {}", x, num).as_str());
@@ -270,7 +290,8 @@ pub fn condition_expr_code_gen(node: &TokenNode, x: &mut i32, global_vars: &Hash
             return Err(RhErr::new(Error::ExpectedCondition, None));
         }
     }
-    Ok(code)
+    // code.push_str("\nbeq");
+    Ok(())
 }
 
 // pub fn store_var(sp: &mut i32, node: &TokenNode, num: i32, var: String, vars: &mut HashMap<String, i32>, reg_tracker: &mut [bool; 12]) -> String {
