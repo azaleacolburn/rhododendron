@@ -27,7 +27,6 @@ impl ScopeHandler {
 pub struct StackHandler {
     stack_handler: HashMap<String, i32>, // contain the relative stack positions
     furthest_offset: i32
-
 }
 
 impl StackHandler {
@@ -132,10 +131,9 @@ pub fn declare_code_gen(node: &TokenNode, stack_handler: &mut StackHandler, x: &
     //     _ => { panic!("must have valid variable name") }
     // };
     code.push_str(&expr_code_gen(&node.children.as_ref().expect("Node to have children")[0], stack_handler, x).unwrap());
-    stack_handler.insert(name, stack_handler.furthest_offset + 16);
+    stack_handler.insert_new_16(name);
     code.push_str(format!("\nstr x1, [sp, #-16]").as_str());
     // store_var(node, num, bar_name, map, 1);
-    println!("declare code: {}", code);
     code
 }
 
@@ -156,28 +154,28 @@ pub fn assignment_code_gen(node: &TokenNode, stack_handler: &mut StackHandler, x
 
     match node.children.as_ref().unwrap()[0].token {
         NodeType::Eq => {
-            code = format!("{}\nstr x1, [sp, {}]\n", expr_code, relative_stack_position);
+            code = format!("{}\nstr x1, [sp, {}]\n", expr_code, -relative_stack_position);
         },
         NodeType::AddEq => {
-            code = format!("{}\nldr x2, [sp, {}]\nadd x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, relative_stack_position);
+            code = format!("{}\nldr x2, [sp, {}]\nadd x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, -relative_stack_position);
         },
         NodeType::SubEq => {
-            code = format!("{}\nldr x2, [sp, {}]\nsub x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, relative_stack_position);
+            code = format!("{}\nldr x2, [sp, {}]\nsub x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, -relative_stack_position);
         },
         NodeType::MulEq => {
-            code = format!("{}\nldr x2,[sp, {}]\nmul x1, x1, x2\nstr x1,[sp, {}]", expr_code, relative_stack_position, relative_stack_position);
+            code = format!("{}\nldr x2, [sp, {}]\nmul x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, -relative_stack_position);
         },
         NodeType::DivEq => {
-            code = format!("{}\nldr x2,[sp, {}]\ndiv x1, x1, x2\nstr x1,[sp, {}]", expr_code, relative_stack_position, relative_stack_position);
+            code = format!("{}\nldr x2, [sp, {}]\ndiv x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, -relative_stack_position);
         },
         NodeType::BOrEq => {
-            code = format!("{}\nldr x2,[sp, {}]\nor x1, x1, x2\nstr x1,[sp, {}]", expr_code, relative_stack_position, relative_stack_position);
+            code = format!("{}\nldr x2, [sp, {}]\nor x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, -relative_stack_position);
         },
         NodeType::BAndEq => {
-            code = format!("{}\nldr x2,[sp, {}]\nand x1, x1, x2\nstr x1,[sp, {}]", expr_code, relative_stack_position, relative_stack_position);
+            code = format!("{}\nldr x2, [sp, {}]\nand x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, -relative_stack_position);
         },
         NodeType::BXorEq => {
-            code = format!("{}\nldr x2,[sp, {}]\nxor x1, x1, x2\nstr x1,[sp, {}]", expr_code, relative_stack_position, relative_stack_position);
+            code = format!("{}\nldr x2, [sp, {}]\nxor x1, x1, x2\nstr x1, [sp, {}]", expr_code, relative_stack_position, -relative_stack_position);
         },
         _ => {
             return Err(RhErr::new(Error::ExpectedAssignment, None));
@@ -297,8 +295,10 @@ pub fn if_code_gen(node: &TokenNode, stack_handler: &mut StackHandler, x: &mut i
             // cmp x1, #n
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
+            let orig_scope = scopes.curr_scope;
             let condition_result = condition_expr_code_gen(&node.children.as_ref().unwrap()[0], x, stack_handler, scopes);
             let scope_result = scope_code_gen(&node.children.as_ref().unwrap()[1], stack_handler, x, scopes);
+            scopes.curr_scope = orig_scope;
             Ok(())
         },
         None => Err(RhErr::new(Error::ExpectedCondition, None))

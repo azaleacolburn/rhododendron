@@ -1,5 +1,11 @@
 use std::num::ParseIntError;
 
+macro_rules! lex_id {
+    () => {
+        
+    };
+}
+
 /// This is where the lexical analysis happens
 pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError> {
     let mut ret: Vec<Token> = vec![];
@@ -67,6 +73,15 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     // split.push(String::from("if"));
                     ret.push(Token::If);
                     i += 1; // these numbers might be wrong
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             },
             'c' => {
@@ -74,6 +89,15 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     // split.push(String::from("char"));
                     ret.push(Token::Type(RhTypes::Char));
                     i += 3;
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             },
             'f' => {
@@ -81,6 +105,15 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     // split.push(String::from("for"));
                     ret.push(Token::For);
                     i += 2;
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             },
             'l' => {
@@ -88,6 +121,15 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     // split.push(String::from("loop"));
                     ret.push(Token::Loop);
                     i += 3;
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             },
             '+' => {
@@ -281,6 +323,15 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             },
             'g' => {
@@ -290,6 +341,15 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Goto(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
                     println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
