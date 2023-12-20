@@ -61,7 +61,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
                     println!("here in int");
                     // split.push(String::from("int"));
-                    ret.push(Token::Type(VariableTypes::Int));
+                    ret.push(Token::Type(RhTypes::Int));
                     i += 2; // I think there's a problem with incrementing the iterator
                 } else if chars[i + 1] == 'f' && (chars[i + 2] == ' ' || chars[i + 2] == '(') {
                     // split.push(String::from("if"));
@@ -72,7 +72,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             'c' => {
                 if chars[i + 1] == 'h' && chars[i + 2] == 'a' && chars[i + 3] == 'r' && chars[i + 4] == ' ' {
                     // split.push(String::from("char"));
-                    ret.push(Token::Type(VariableTypes::Char));
+                    ret.push(Token::Type(RhTypes::Char));
                     i += 3;
                 }
             },
@@ -326,7 +326,7 @@ pub enum Token {
     For,
     While,
     Loop,
-    Type(VariableTypes),
+    Type(RhTypes),
     // Assign(String),
     Star,
     // Var(String),
@@ -379,12 +379,12 @@ pub enum Token {
     Semi,
 
     // this might be to much for the lexer to do
-    // FuncDeclare((String, Vec<String>, VariableTypes)), // function name, args, return type
+    // FuncDeclare((String, Vec<String>, RhTypes)), // function name, args, return type
     // FuncCall(String, Vec<String>), // function name, args
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum VariableTypes {
+pub enum RhTypes {
     Char,
     Int
 }

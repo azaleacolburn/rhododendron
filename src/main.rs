@@ -4,7 +4,7 @@ mod parser;
 mod code_gen;
 #[cfg(test)]
 mod tests;
-use lexer::{Token,   VariableTypes};
+use lexer::{Token, RhTypes};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -32,7 +32,7 @@ pub fn main() {
     // }
     // int my_int = 5 * 2 + 3;
     // let tokens = vec![Token::Type(VariableTypes::Int), Token::Id(String::from("my_int")), Token::Eq, Token::NumLiteral(5), Token::Star, Token::NumLiteral(2), Token::Add, Token::NumLiteral(3), Token::Add, Token::NumLiteral(4), Token::Semi];
-    let node = parser::program(&tokens, &mut 0).unwrap();
+    let node = parser::program(tokens).unwrap();
     node.print(&mut 0);
     println!("past ast");
     let code = code_gen::code_gen(&node);
