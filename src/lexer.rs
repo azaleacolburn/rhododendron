@@ -1,11 +1,5 @@
 use std::num::ParseIntError;
 
-macro_rules! lex_id {
-    () => {
-        
-    };
-}
-
 /// This is where the lexical analysis happens
 pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError> {
     let mut ret: Vec<Token> = vec![];

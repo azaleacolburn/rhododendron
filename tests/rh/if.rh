@@ -1,7 +1,11 @@
 int num = 1;
 
-if (num == 1) {
+if (num == 2) {
     num = 3;
 }
 
-int c = 5;
+int c = 4;
+
+if (c == num) {
+    num = 5;
+}
