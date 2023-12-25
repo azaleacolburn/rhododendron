@@ -10,11 +10,30 @@ pub struct ScopeHandler {
 impl ScopeHandler {
     fn new_scope(&mut self) {
         self.curr_scope = self.scopes.len();
-        self.scopes.push(format!("\nL{}:", self.curr_scope));
+        self.scopes.push(format!("\n.L{}:", self.curr_scope));
     }
 
     fn push_to_scope(&mut self, string: &str) {
         self.scopes[self.curr_scope].push_str(string)
+    }
+
+    pub fn format_scopes(&self) -> String {
+        let mut ret = String::from("");
+
+        for i in 0..self.scopes.len() {
+            // prine;tln!("new scope\n");
+            let lines = self.scopes[i].split("\n").collect::<Vec<&str>>();
+            ret.push_str(format!("{}", lines[0]).as_str());
+            for line in lines.into_iter() {
+                if !line.split(" ").collect::<Vec<&str>>()[0].contains(".") {
+                    ret.push_str(format!("    {}", line.trim()).as_str());
+                } else {
+                    ret.push_str(format!("{}", line.trim()).as_str());
+                }
+            }
+        }
+
+        ret
     }
 
     pub fn print_scopes(&self) {
@@ -22,9 +41,12 @@ impl ScopeHandler {
         for i in 0..self.scopes.len() {
             // prine;tln!("new scope\n");
             let lines = self.scopes[i].split("\n").collect::<Vec<&str>>();
-            println!("{}", lines[0]);
-            for j in 1..lines.len() {
-                println!("    {}", lines[j]);
+            for line in lines.into_iter() {
+                if !line.split(" ").collect::<Vec<&str>>()[0].contains(".") {
+                    println!("    {}", line.trim());
+                } else {
+                    println!("{}", line.trim());
+                }
             }
         }
     }
@@ -69,7 +91,7 @@ macro_rules! switch {
 // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn code_gen(node: &TokenNode) -> String {
     let mut scopes = ScopeHandler {
-        scopes: vec![String::from(".main:")],
+        scopes: vec![String::from(".start:")],
         curr_scope: 0
     };
     println!("In code gen");
@@ -91,7 +113,8 @@ pub fn code_gen(node: &TokenNode) -> String {
     }
 
     scopes.print_scopes();
-    code.trim().to_string()
+    scopes.format_scopes()
+    // code.trim().to_string()
 }
 
 pub fn scope_code_gen(node: &TokenNode, stack_handler: &mut StackHandler, x: &mut i32, scopes: &mut ScopeHandler) {
@@ -159,7 +182,7 @@ pub fn assignment_code_gen(node: &TokenNode, stack_handler: &mut StackHandler, x
 
     match node.children.as_ref().unwrap()[0].token {
         NodeType::Eq => {
-            code = format!("{}\nstr x1, [sp, #{}]\n", expr_code, -relative_stack_position);
+            code = format!("{}\nstr x1, [sp, #{}]", expr_code, -relative_stack_position);
         },
         NodeType::AddEq => {
             code = format!("{}\nldr x2, [sp, #{}]\nadd x1, x1, x2\nstr x1, [sp, #{}]", expr_code, relative_stack_position, -relative_stack_position);

@@ -1,0 +1,1 @@
+.start:.start:    mov x1, #1    str x1, [sp, #-16]    ldr x1, [sp, 16]    mov x2, 2    cmp x1, x2    beq .L1    mov x1, #4    str x1, [sp, #-16]    ldr x1, [sp, 32]    ldr x2, [sp, 16]    cmp x1, x2    beq .L1    ret    .L1:    mov x1, #3    str x1, [sp, #-16]    ret    .L2:    mov x1, #5    str x1, [sp, #-16]    ret

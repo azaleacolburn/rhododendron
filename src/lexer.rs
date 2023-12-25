@@ -348,6 +348,20 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
+            },
+            'w' => {
+                if chars[i + 1] == 'h' && chars[i + 2] == 'i' && chars[i + 3] == 'l' && chars[i + 4] == 'e' {
+                    ret.push(Token::While);
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
+                }
             }
             '\n' => {}
             _ => {
