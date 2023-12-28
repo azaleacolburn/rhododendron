@@ -12,6 +12,8 @@ This will include non-C features such as
 - Built-in Tuple Packing and Unpacking
 - Scopes!
     - sort of like the comma operator in C
+- Borrow Checker!
+- Rust enums(union-enums)
 ```
 if ({
         // scope
@@ -24,6 +26,6 @@ if ({
 }
 ```
 
-As well as not every feature C has.
+As well as not every feature C has(unions are useless).
 
 The big question is whether or not I'll write a linker(yes).
