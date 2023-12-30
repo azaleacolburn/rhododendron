@@ -1,7 +1,9 @@
-use std::{collections::HashMap, thread::Scope};
+use std::collections::HashMap;
 
 use crate::parser::{Error, NodeType, RhErr, TokenNode};
 
+// This is technically somehow working right now and I have no idea why, I think it does things
+// backwards but it's ok
 pub struct ScopeHandler {
     scopes: Vec<String>,
     curr_scope: usize,
@@ -18,18 +20,16 @@ impl ScopeHandler {
     }
 
     pub fn format_scopes(&self) -> String {
-        let mut ret = String::from("");
+        let mut ret = String::from(".global _start\n");
 
-        for i in 0..self.scopes.len() {
-            // prine;tln!("new scope\n");
-            let lines = self.scopes[i].split("\n").collect::<Vec<&str>>();
-            ret.push_str(format!("{}", lines[0]).as_str());
-            for line in lines.into_iter() {
-                if !line.split(" ").collect::<Vec<&str>>()[0].contains(".") {
-                    ret.push_str(format!("    {}", line.trim()).as_str());
-                } else {
-                    ret.push_str(format!("{}", line.trim()).as_str());
-                }
+        for scope in self.scopes.iter() {
+            let mut chars = scope.chars();
+            chars.next();
+            let mod_scope = chars.as_str().to_string();
+            let mut lines = mod_scope.split("\n").collect::<Vec<&str>>().into_iter();
+            ret.push_str(format!("{}\n", lines.next().expect("No lines in iterator")).as_str());
+            for line in lines {
+                ret.push_str(format!("    {}\n", line).as_str());
             }
         }
 
@@ -37,16 +37,14 @@ impl ScopeHandler {
     }
 
     pub fn print_scopes(&self) {
-        println!();
-        for i in 0..self.scopes.len() {
-            // prine;tln!("new scope\n");
-            let lines = self.scopes[i].split("\n").collect::<Vec<&str>>();
-            for line in lines.into_iter() {
-                if !line.split(" ").collect::<Vec<&str>>()[0].contains(".") {
-                    println!("    {}", line.trim());
-                } else {
-                    println!("{}", line.trim());
-                }
+        for scope in self.scopes.iter() {
+            let mut chars = scope.chars();
+            chars.next();
+            let mod_scope = chars.as_str().to_string();
+            let mut lines = mod_scope.split("\n").collect::<Vec<&str>>().into_iter();
+            println!("{}", lines.next().expect("No lines in iterator"));
+            for line in lines {
+                println!("    {}", line);
             }
         }
     }
@@ -60,7 +58,6 @@ impl ScopeHandler {
 pub struct StackHandler {
     stack_handler: HashMap<String, i32>, // contain the relative stack positions
     furthest_offset: i32,
-    sp_offset: i32,
 }
 
 impl StackHandler {
@@ -68,7 +65,6 @@ impl StackHandler {
         StackHandler {
             stack_handler: HashMap::new(),
             furthest_offset: 0,
-            sp_offset: 0,
         }
     }
 
@@ -84,51 +80,42 @@ impl StackHandler {
     }
 
     fn insert_new_16(&mut self, id: impl ToString) {
-        self.furthest_offset += 16;
+        self.furthest_offset -= 16;
         self.insert(id, self.furthest_offset);
     }
 }
 
 macro_rules! switch {
     ($x:expr) => {
-        if $x == 1 {
-            $x = 2
-        } else {
-            $x = 1
-        }
+        $x = 1 - $x
     };
 }
 
 // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
-pub fn code_gen(node: &TokenNode) -> String {
+pub fn main(node: &TokenNode) -> String {
     let mut scopes = ScopeHandler {
-        scopes: vec![String::from(".start:")],
+        scopes: vec![String::from("_start:")],
         curr_scope: 0,
     };
     println!("In code gen");
     // use this later
-    //                                x0     x1     x2
-    // let mut reg_tracker: &mut [bool; 12] = &mut [false, false, false, false, false, false, false, false, false, false, false, false]; // false mean avaliable
     // var_name : pos_on_stack
-    let mut code: String = String::from("");
     // Stores the variable name and their absolute position on the stack
 
     // Stores the variable name and their relative position on the stack(from the top of the stack
     // at the begining of runtime). This should be on a per_scope level
     let mut stack_handler = StackHandler::new();
-    let mut vars: HashMap<String, i32> = HashMap::new(); // This declaration should be moved
     println!("{:?}", node.token);
     println!("{:?}", node.children.as_ref().unwrap()[0].token);
     if node.token == NodeType::Program {
         scope_code_gen(
             &node.children.as_ref().unwrap()[0],
             &mut stack_handler,
-            &mut 1,
+            &mut 0,
             &mut scopes,
         );
     }
 
-    scopes.print_scopes();
     scopes.format_scopes()
     // code.trim().to_string()
 }
@@ -136,7 +123,7 @@ pub fn code_gen(node: &TokenNode) -> String {
 pub fn scope_code_gen(
     node: &TokenNode,
     stack_handler: &mut StackHandler,
-    x: &mut i32,
+    w: &mut i32,
     scopes: &mut ScopeHandler,
 ) {
     println!("Scope Node: {:?}", node);
@@ -146,24 +133,24 @@ pub fn scope_code_gen(
                 scopes.push_to_scope(&declare_code_gen(
                     &child_node,
                     stack_handler,
-                    x,
+                    w,
                     name.as_ref()
                         .expect("valid name to have been given")
                         .clone(),
                 ));
             }
             NodeType::Assignment(_) => {
-                scopes.push_to_scope(&assignment_code_gen(&child_node, stack_handler, x).unwrap());
+                scopes.push_to_scope(&assignment_code_gen(&child_node, stack_handler, w).unwrap());
             }
             NodeType::If => {
-                match if_code_gen(&child_node, stack_handler, x, scopes) {
+                match if_code_gen(&child_node, stack_handler, w, scopes) {
                     Ok(()) => {}
                     Err(err) => panic!("Error in if code gen: {:?}", err),
                 };
             }
             NodeType::While => {}
             NodeType::Loop => {}
-            NodeType::FunctionCall(id) => {}
+            NodeType::FunctionCall(_id) => {}
             _ => {}
         }
     }
@@ -175,7 +162,7 @@ pub fn scope_code_gen(
 pub fn declare_code_gen(
     node: &TokenNode,
     stack_handler: &mut StackHandler,
-    x: &mut i32,
+    w: &mut i32,
     name: String,
 ) -> String {
     // println!("{:?}", node);
@@ -190,12 +177,12 @@ pub fn declare_code_gen(
         &expr_code_gen(
             &node.children.as_ref().expect("Node to have children")[0],
             stack_handler,
-            x,
+            w,
         )
         .unwrap(),
     );
     stack_handler.insert_new_16(name);
-    code.push_str(format!("\nstr x1, [sp, #-16]").as_str());
+    code.push_str(format!("\nstr w0, [sp, #-16]").as_str());
     // store_var(node, num, bar_name, map, 1);
     code
 }
@@ -203,9 +190,9 @@ pub fn declare_code_gen(
 pub fn assignment_code_gen(
     node: &TokenNode,
     stack_handler: &mut StackHandler,
-    x: &mut i32,
+    w: &mut i32,
 ) -> Result<String, RhErr> {
-    let mut code = String::from("");
+    let code;
     println!("assignment node: {:?}", node.token);
 
     let name = match &node.token {
@@ -214,7 +201,7 @@ pub fn assignment_code_gen(
     };
 
     let expr_code: String =
-        expr_code_gen(&node.children.as_ref().unwrap()[1], stack_handler, x).unwrap();
+        expr_code_gen(&node.children.as_ref().unwrap()[1], stack_handler, w).unwrap();
     let relative_stack_position = match stack_handler.get_id(name) {
         Some(pos) => pos,
         None => return Err(RhErr::new(Error::UndeclaredId, None)),
@@ -222,48 +209,48 @@ pub fn assignment_code_gen(
 
     match node.children.as_ref().unwrap()[0].token {
         NodeType::Eq => {
-            code = format!("{}\nstr x1, [sp, #{}]", expr_code, -relative_stack_position);
+            code = format!("{}\nstr w0, [sp, #{}]", expr_code, relative_stack_position);
         }
         NodeType::AddEq => {
             code = format!(
-                "{}\nldr x2, [sp, #{}]\nadd x1, x1, x2\nstr x1, [sp, #{}]",
-                expr_code, relative_stack_position, -relative_stack_position
+                "{}\nldr w1, [sp, #{}]\nadd w0, w0, w1\nstr w0, [sp, #{}]",
+                expr_code, relative_stack_position, relative_stack_position
             );
         }
         NodeType::SubEq => {
             code = format!(
-                "{}\nldr x2, [sp, #{}]\nsub x1, x1, x2\nstr x1, [sp, #{}]",
-                expr_code, relative_stack_position, -relative_stack_position
+                "{}\nldr w1, [sp, #{}]\nsub w0, w0, w1\nstr w0, [sp, #{}]",
+                expr_code, relative_stack_position, relative_stack_position
             );
         }
         NodeType::MulEq => {
             code = format!(
-                "{}\nldr x2, [sp, #{}]\nmul x1, x1, x2\nstr x1, [sp, #{}]",
-                expr_code, relative_stack_position, -relative_stack_position
+                "{}\nldr w1, [sp, #{}]\nmul w0, w0, w1\nstr w0, [sp, #{}]",
+                expr_code, relative_stack_position, relative_stack_position
             );
         }
         NodeType::DivEq => {
             code = format!(
-                "{}\nldr x2, [sp, #{}]\ndiv x1, x1, x2\nstr x1, [sp, #{}]",
-                expr_code, relative_stack_position, -relative_stack_position
+                "{}\nldr w1, [sp, #{}]\ndiv w0, w0, w1\nstr w0, [sp, #{}]",
+                expr_code, relative_stack_position, relative_stack_position
             );
         }
         NodeType::BOrEq => {
             code = format!(
-                "{}\nldr x2, [sp, #{}]\nor x1, x1, x2\nstr x1, [sp, #{}]",
-                expr_code, relative_stack_position, -relative_stack_position
+                "{}\nldr w1, [sp, #{}]\nor w0, w0, w1\nstr w0, [sp, #{}]",
+                expr_code, relative_stack_position, relative_stack_position
             );
         }
         NodeType::BAndEq => {
             code = format!(
-                "{}\nldr x2, [sp, #{}]\nand x1, x1, x2\nstr x1, [sp, #{}]",
-                expr_code, relative_stack_position, -relative_stack_position
+                "{}\nldr w1, [sp, #{}]\nand w0, w0, w1\nstr w0, [sp, #{}]",
+                expr_code, relative_stack_position, relative_stack_position
             );
         }
         NodeType::BXorEq => {
             code = format!(
-                "{}\nldr x2, [sp, #{}]\nxor x1, x1, x2\nstr x1, [sp, #{}]",
-                expr_code, relative_stack_position, -relative_stack_position
+                "{}\nldr w1, [sp, #{}]\nxor w0, w0, w1\nstr w0, [sp, #{}]",
+                expr_code, relative_stack_position, relative_stack_position
             );
         }
         _ => {
@@ -285,7 +272,7 @@ pub fn assignment_code_gen(
 pub fn expr_code_gen(
     node: &TokenNode,
     stack_handler: &mut StackHandler,
-    x: &mut i32,
+    w: &mut i32,
 ) -> Result<String, RhErr> {
     let mut code = String::from("");
     // println!("expr_code_gen");
@@ -293,13 +280,13 @@ pub fn expr_code_gen(
     // optimizes num literals
     match &node.token {
         NodeType::NumLiteral(val) => {
-            code.push_str(format!("\nmov x1, #{}", val).as_str());
+            code.push_str(format!("\nmov w0, #{}", val).as_str());
             // switch!(*x);
         }
         NodeType::Id(name) => {
             code.push_str(
                 format!(
-                    "\nldr x1, [sp, {}]",
+                    "\nldr w0, [sp, #{}]",
                     stack_handler.get_id(name).expect("variable to exist")
                 )
                 .as_str(),
@@ -325,24 +312,24 @@ pub fn expr_code_gen(
                                 NodeType::BXor => n = num0 ^ num1,
                                 _ => panic!("Expected Expression"),
                             };
-                            code.push_str(format!("\nmov x{}, #{}", x, n).as_str());
-                            switch!(*x);
+                            code.push_str(format!("\nmov x{}, #{}", w, n).as_str());
+                            switch!(*w);
                             return Ok(code);
                         }
                         NodeType::Id(id) => {
                             code.push_str(
                                 format!(
-                                    "\nldr x{}, [sp, #{}]",
-                                    x,
+                                    "\nldr w{}, [sp, #{}]",
+                                    w,
                                     stack_handler.get_id(id).expect("id should be valid")
                                 )
                                 .as_str(),
                             );
-                            switch!(*x);
+                            switch!(*w);
                             return Ok(code);
                         }
                         _ => {
-                            code.push_str(expr_code_gen(node, stack_handler, x)?.as_str());
+                            code.push_str(expr_code_gen(node, stack_handler, w)?.as_str());
                         }
                     };
                 }
@@ -353,19 +340,15 @@ pub fn expr_code_gen(
                             return Err(RhErr::new(Error::UndeclaredId, None));
                         }
                     };
-                    // FIXME: Fix relative positions and such, you'll need to refactor the stackhandler
-                    code.push_str(format!("\nadd sp, {}, x3", relative_stack_pos).as_str());
-                    code.push_str(
-                        format!("\nldr x{}, [sp, {}]\nmov x3, 0", x, relative_stack_pos).as_str(),
-                    );
-                    switch!(*x);
+                    code.push_str(format!("\nldr w{}, [sp, {}]", w, relative_stack_pos).as_str());
+                    switch!(*w);
                 }
                 _ => {
-                    code.push_str(expr_code_gen(child0, stack_handler, x)?.as_str());
+                    code.push_str(expr_code_gen(child0, stack_handler, w)?.as_str());
                     match &child1.token {
                         NodeType::NumLiteral(num) => {
-                            code.push_str(format!("\nmov x{}, {}", x, num).as_str());
-                            switch!(*x);
+                            code.push_str(format!("\nmov x{}, {}", w, num).as_str());
+                            switch!(*w);
                         }
                         NodeType::Id(id) => {
                             let relative_stack_pos = match stack_handler.get_id(id) {
@@ -374,37 +357,35 @@ pub fn expr_code_gen(
                                     return Err(RhErr::new(Error::UndeclaredId, None));
                                 }
                             };
-                            code.push_str(format!("\nadd sp, {}, x3", relative_stack_pos).as_str());
                             code.push_str(
-                                format!("\nldr x{}, [sp, {}]\nmov x3, 0", x, relative_stack_pos)
-                                    .as_str(),
+                                format!("\nldr w{}, [sp, {}]", w, relative_stack_pos).as_str(),
                             );
-                            switch!(*x);
+                            switch!(*w);
                         }
-                        _ => code.push_str(expr_code_gen(child1, stack_handler, x)?.as_str()),
+                        _ => code.push_str(expr_code_gen(child1, stack_handler, w)?.as_str()),
                     };
 
                     match node.token {
                         NodeType::Add => {
-                            code.push_str(format!("\nadd x1, x1, x2").as_str());
+                            code.push_str(format!("\nadd w0, w0, w1").as_str());
                         }
                         NodeType::Sub => {
-                            code.push_str("\nsub x1, x1, x2");
+                            code.push_str("\nsub w0, w0, w1");
                         }
                         NodeType::Div => {
-                            code.push_str("\ndiv x1, x1, x2");
+                            code.push_str("\ndiv w0, w0, w1");
                         }
                         NodeType::Mul => {
-                            code.push_str("\nmul x1, x1, x2");
+                            code.push_str("\nmul w0, w0, w1");
                         }
                         NodeType::BAnd => {
-                            code.push_str("\nand x1, x1, x2");
+                            code.push_str("\nand w0, w0, w1");
                         }
                         NodeType::BOr => {
-                            code.push_str("\nor x1, x1, x2");
+                            code.push_str("\nor w0, w0, w1");
                         }
                         NodeType::BXor => {
-                            code.push_str("\nxor x1, x1, x2");
+                            code.push_str("\nxor w0, w0, w1");
                         }
                         _ => println!("Expected Expression"),
                     };
@@ -420,28 +401,19 @@ pub fn expr_code_gen(
 pub fn if_code_gen(
     node: &TokenNode,
     stack_handler: &mut StackHandler,
-    x: &mut i32,
+    w: &mut i32,
     scopes: &mut ScopeHandler,
 ) -> Result<(), RhErr> {
-    let mut code = String::from("");
     match &node.children {
         Some(children) => {
             // cmp x1, #n
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
             let orig_scope = scopes.curr_scope;
-            let condition_result = condition_expr_code_gen(
-                &node.children.as_ref().unwrap()[0],
-                x,
-                stack_handler,
-                scopes,
-            );
-            let scope_result = scope_code_gen(
-                &node.children.as_ref().unwrap()[1],
-                stack_handler,
-                x,
-                scopes,
-            );
+
+            condition_expr_code_gen(&children[0], w, stack_handler, scopes)?;
+            scope_code_gen(&children[1], stack_handler, w, scopes);
+
             scopes.curr_scope = orig_scope;
             Ok(())
         }
@@ -451,11 +423,10 @@ pub fn if_code_gen(
 
 pub fn condition_expr_code_gen(
     node: &TokenNode,
-    x: &mut i32,
+    w: &mut i32,
     stack_handler: &mut StackHandler,
     scopes: &mut ScopeHandler,
 ) -> Result<(), RhErr> {
-    let mut code = String::from("");
     println!("condition expr code: {:?}", node.token);
     match &node.token {
         NodeType::AndCmp => {}
@@ -467,7 +438,7 @@ pub fn condition_expr_code_gen(
                     .children
                     .as_ref()
                     .expect("more children in condition expr")[0],
-                x,
+                w,
                 stack_handler,
                 scopes,
             )
@@ -477,24 +448,24 @@ pub fn condition_expr_code_gen(
                     .children
                     .as_ref()
                     .expect("more children in condition expr")[1],
-                x,
+                w,
                 stack_handler,
                 scopes,
             )
             .unwrap();
-            scopes.push_to_scope(format!("\ncmp x1, x2\nbeq .L{}", scopes.curr_scope + 1).as_str());
+            scopes.push_to_scope(format!("\ncmp w0, w1\nbeq .L{}", scopes.curr_scope + 1).as_str());
             scopes.new_scope();
         }
         NodeType::Id(id) => {
             let relative_path = stack_handler.get_id(id).unwrap(); // relative path moves stack down without -
 
-            scopes.push_to_scope(format!("\nldr x{}, [sp, {}]", x, relative_path).as_str());
-            switch!(*x)
+            scopes.push_to_scope(format!("\nldr w{}, [sp, #{}]", w, relative_path).as_str());
+            switch!(*w)
             // scopes.push_to_scope(format!("\nadd sp, {}, sp", relative_path).as_str());
         }
         NodeType::NumLiteral(num) => {
-            scopes.push_to_scope(format!("\nmov x{}, {}", x, num).as_str());
-            switch!(*x)
+            scopes.push_to_scope(format!("\nmov w{}, {}", w, num).as_str());
+            switch!(*w)
         }
         _ => {
             return Err(RhErr::new(Error::ExpectedCondition, None));
