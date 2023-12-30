@@ -7,7 +7,7 @@ start:
     cmp w0, w1
     beq .L1
     mov w0, #4
-    str w0, [sp, #-16]
+    str w0, [sp, #-32]
     ldr w0, [sp, #-32]
     ldr w1, [sp, #-16]
     cmp w0, w1

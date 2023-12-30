@@ -181,8 +181,16 @@ pub fn declare_code_gen(
         )
         .unwrap(),
     );
-    stack_handler.insert_new_16(name);
-    code.push_str(format!("\nstr w0, [sp, #-16]").as_str());
+    stack_handler.insert_new_16(&name);
+    code.push_str(
+        format!(
+            "\nstr w0, [sp, #{}]",
+            stack_handler
+                .get_id(&name)
+                .expect("variable wasn't pushed to stack")
+        )
+        .as_str(),
+    );
     // store_var(node, num, bar_name, map, 1);
     code
 }
