@@ -12,15 +12,16 @@ pub struct ScopeHandler {
 impl ScopeHandler {
     fn new_scope(&mut self) {
         self.curr_scope = self.scopes.len();
-        self.scopes.push(format!("\n.L{}:", self.curr_scope));
+        self.scopes
+            .push(format!("\n.balign 4\n.L{}:", self.curr_scope));
     }
 
-    fn push_to_scope(&mut self, string: &str) {
-        self.scopes[self.curr_scope].push_str(string)
+    fn push_to_scope(&mut self, string: impl ToString) {
+        self.scopes[self.curr_scope].push_str(string.to_string().as_str())
     }
 
     pub fn format_scopes(&self) -> String {
-        let mut ret = String::from(".global _start\n");
+        let mut ret = String::from(".global _main\n");
 
         for scope in self.scopes.iter() {
             let mut chars = scope.chars();
@@ -35,7 +36,7 @@ impl ScopeHandler {
 
         ret
     }
-
+    #[allow(dead_code)]
     pub fn print_scopes(&self) {
         for scope in self.scopes.iter() {
             let mut chars = scope.chars();
@@ -94,7 +95,7 @@ macro_rules! switch {
 // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn main(node: &TokenNode) -> String {
     let mut scopes = ScopeHandler {
-        scopes: vec![String::from("_start:")],
+        scopes: vec![String::from("_main:")],
         curr_scope: 0,
     };
     println!("In code gen");
@@ -270,6 +271,33 @@ pub fn assignment_code_gen(
     // code = format!("{}\nstr x1, [sp, #-16]", expr_code, ); // actually write saving and loading
 
     Ok(code)
+}
+
+pub fn neo_expr_code_gen(
+    Node: &TokenNode,
+    stack_handler: &mut StackHandler,
+    w: &mut i32,
+    scopes: &mut ScopeHandler,
+) -> Result<String, RhErr> {
+    match &node.token {
+        NodeType::NumLiteral(val) => {
+            scopes.push_to_scope(format!("\nmov w{w}, #{val}"));
+            switch!(*w) // FIXME: Switch to scope handler
+        }
+        NodeType::Id(name) => {
+            let address = String::from(stack_handler.get_id(name).expect("Variable to exist"));
+            scopes.push_to_scope(format!("\nldr w{w}, [sp, #{address}]"));
+            switch!(*w)
+        }
+        NodeType::Add => {
+            let left_expression = neo_expr_code_gen(&node.children[0], stack_handler, w, scopes);
+            let right_expression = neo_expr_code_gen(&node.children[1], stack_handler, w, scopes);
+            scopes.push(format!("\nadd w{}, w{}, w{}", w, w - 1, w - 2)); // figure out how to get the other two
+        }
+        _ => {
+            panic!("Expected an expresssion");
+        }
+    }
 }
 
 /// result of expression is always in x1(ideally), if not this than x{x}

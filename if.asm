@@ -1,5 +1,5 @@
-.global _start
-start:
+.global _main
+main:
     mov w0, #1
     str w0, [sp, #-16]
     ldr w0, [sp, #-16]
@@ -13,11 +13,13 @@ start:
     cmp w0, w1
     beq .L1
     ret
-.L1:
+.balign 4
+    .L1:
     mov w0, #3
     str w0, [sp, #-16]
     ret
-.L2:
+.balign 4
+    .L2:
     mov w0, #5
     str w0, [sp, #-16]
     ret
