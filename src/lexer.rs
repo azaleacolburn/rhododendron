@@ -13,26 +13,34 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             // chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
             let mut num = String::from("");
             for j in i..chars.len() {
-                if !chars[j].is_alphanumeric() { break; }
-                if chars[j].is_alphabetic() && chars[j].is_uppercase() { is_dec = false; }
+                if !chars[j].is_alphanumeric() {
+                    break;
+                }
+                if chars[j].is_alphabetic() && chars[j].is_uppercase() {
+                    is_dec = false;
+                }
                 num.push(chars[j]);
             }
             println!("num: {}", num);
             println!("is dec: {}", is_dec);
-            if chars[i] == '0' { // handles literals // TODO: DO LITERAL SHIT
+            if chars[i] == '0' {
+                // handles literals // TODO: DO LITERAL SHIT
                 // let string = chars.into_iter().collect::<String>();
-                
+
                 let mut radix = 0; // 0 is not extranious base value
                 match chars[i + 1] {
-                    'x' => { // hex
+                    'x' => {
+                        // hex
                         radix = 12;
-                    },
-                    'o' => { // octal
+                    }
+                    'o' => {
+                        // octal
                         radix = 8;
-                    },
-                    'b' => { // binary
+                    }
+                    'b' => {
+                        // binary
                         radix = 2;
-                    },
+                    }
                     _ => {
                         if chars[i + 1].is_alphabetic() {
                             panic!("Not supported base")
@@ -43,20 +51,25 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     match i32::from_str_radix(&num, radix) {
                         Ok(value) => {
                             ret.push(Token::NumLiteral(value));
-                        },
-                        Err(err) => { continue; },
+                        }
+                        Err(err) => {
+                            continue;
+                        }
                     };
                     i += 1;
                     continue;
                 }
             }
-            if is_dec { ret.push(Token::NumLiteral(num.parse::<i32>().unwrap())); i += 1; continue; }
-
+            if is_dec {
+                ret.push(Token::NumLiteral(num.parse::<i32>().unwrap()));
+                i += 1;
+                continue;
+            }
         }
-        
+
         println!("char: {}", chars[i]);
         match chars[i] {
-            ' ' => {},
+            ' ' => {}
             'i' => {
                 if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
                     println!("here in int");
@@ -69,7 +82,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += 1; // these numbers might be wrong
                 } else {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
@@ -77,15 +92,21 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
-            },
+            }
             'c' => {
-                if chars[i + 1] == 'h' && chars[i + 2] == 'a' && chars[i + 3] == 'r' && chars[i + 4] == ' ' {
+                if chars[i + 1] == 'h'
+                    && chars[i + 2] == 'a'
+                    && chars[i + 3] == 'r'
+                    && chars[i + 4] == ' '
+                {
                     // split.push(String::from("char"));
                     ret.push(Token::Type(RhTypes::Char));
                     i += 3;
                 } else {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
@@ -93,7 +114,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
-            },
+            }
             'f' => {
                 if chars[i + 1] == 'o' && chars[i + 2] == 'r' && chars[i + 3] == ' ' {
                     // split.push(String::from("for"));
@@ -101,7 +122,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += 2;
                 } else {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
@@ -109,15 +132,21 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
-            },
+            }
             'l' => {
-                if chars[i + 1] == 'o' && chars[i + 2] == 'o' && chars[i + 3] == 'p' && chars[i + 4] == ' ' {
+                if chars[i + 1] == 'o'
+                    && chars[i + 2] == 'o'
+                    && chars[i + 3] == 'p'
+                    && chars[i + 4] == ' '
+                {
                     // split.push(String::from("loop"));
                     ret.push(Token::Loop);
                     i += 3;
                 } else {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
@@ -125,78 +154,74 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
-            },
+            }
             '+' => {
-                if chars[i + 1] == '=' { 
-                    //split.push(String::from("+=")); 
+                if chars[i + 1] == '=' {
+                    //split.push(String::from("+="));
                     ret.push(Token::AddEq);
                     i += 1;
-                }
-                else if chars[i + 1] == '+' { 
-                    //split.push(String::from("++")); 
+                } else if chars[i + 1] == '+' {
+                    //split.push(String::from("++"));
                     ret.push(Token::AddO);
                     i += 1;
-                }
-                else { 
-                    //split.push(String::from("+")); 
+                } else {
+                    //split.push(String::from("+"));
                     ret.push(Token::Add);
                 }
-            },
+            }
             '-' => {
-                if chars[i + 1] == '=' { 
+                if chars[i + 1] == '=' {
                     //split.push(String::from("-="));
                     ret.push(Token::SubEq);
                     i += 1;
-                }
-                else if chars[i + 1] == '-' {
+                } else if chars[i + 1] == '-' {
                     // split.push(String::from("--"));
                     ret.push(Token::SubO);
                     i += 1;
-                }
-                else {
+                } else {
                     // split.push(String::from("-"));
                     ret.push(Token::Sub);
                 }
-            },
+            }
             '/' => {
                 if chars[i + 1] == '=' {
                     //split.push(String::from("/="));
                     ret.push(Token::DivEq);
                     i += 1;
-                }
-                else {
+                } else {
                     // split.push(String::from("/"));
                     ret.push(Token::Div);
                 }
-            },
+            }
             '*' => {
                 if chars[i + 1] == '*' {
                     // split.push(String::from("*="));
                     ret.push(Token::MulEq);
                     i += 1;
-                } // this could probably also handle deref vs. mul
+                }
+                // this could probably also handle deref vs. mul
                 else {
                     // split.push(String::from("*"));
                     ret.push(Token::Star); // The lexer can probably determine whether this is a mul or deref
                 }
-            },
+            }
             // obviously none of this can be included in ids
             '(' => {
                 // split.push(String::from("("));
                 ret.push(Token::OParen);
-            },
+            }
             ')' => {
                 // split.push(String::from(")"));
                 ret.push(Token::CParen);
-            },
+            }
             '{' => {
                 // split.push(String::from("{"));
                 ret.push(Token::OCurl);
-            },
+            }
             '}' => {
                 //split.push(String::from("}"));
                 ret.push(Token::CCurl);
-            },
+            }
             '&' => {
                 // split.push(String::from("&"));
                 if chars[i + 1] == '=' {
@@ -204,11 +229,11 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += 1;
                 } else if chars[i + 1] == '&' {
                     ret.push(Token::AndCmp);
-                    i += 1;  
+                    i += 1;
                 } else {
                     ret.push(Token::BAnd);
                 }
-            },
+            }
             '^' => {
                 if chars[i + 1] == '=' {
                     ret.push(Token::BXorEq);
@@ -217,7 +242,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     ret.push(Token::BXor);
                 }
                 // split.push(String::from("^"));
-            },
+            }
             '%' => {
                 // split.push(String::from("%"));
                 if chars[i + 1] == '=' {
@@ -226,7 +251,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 } else {
                     ret.push(Token::Mod);
                 }
-            },
+            }
             '!' => {
                 // split.push(String::from("!"));
                 if chars[i + 1] == '=' {
@@ -235,7 +260,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 } else {
                     ret.push(Token::Neq);
                 }
-            },
+            }
             '|' => {
                 // split.push(String::from("|"));
                 if chars[i + 1] == '=' {
@@ -247,7 +272,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 } else {
                     ret.push(Token::BOr);
                 }
-            },
+            }
             '~' => {
                 // split.push(String::from("~"));
                 if chars[i + 1] == '=' {
@@ -256,7 +281,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 } else {
                     ret.push(Token::BNot);
                 }
-            },
+            }
             '<' => {
                 // split.push(String::from("<"));
                 if chars[i + 1] == '=' {
@@ -271,7 +296,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 } else {
                     ret.push(Token::Ls);
                 }
-            },
+            }
             '>' => {
                 // split.push(String::from(">"));
                 if chars[i + 1] == '=' {
@@ -286,19 +311,19 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 } else {
                     ret.push(Token::Gr);
                 }
-            },
+            }
             '.' => {
                 // split.push(String::from("."));
                 ret.push(Token::Dot);
-            },
+            }
             ',' => {
                 // split.push(String::from(","));
                 ret.push(Token::Comma);
-            },
+            }
             ';' => {
                 // split.push(String::from(";"));
                 ret.push(Token::Semi);
-            },
+            }
             '=' => {
                 if chars[i + 1] == '=' {
                     ret.push(Token::EqCmp);
@@ -306,11 +331,18 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 } else {
                     ret.push(Token::Eq);
                 }
-            },
+            }
             'L' => {
-                if chars[i + 1] == 'A' && chars[i + 2] == 'B' && chars[i + 3] == 'E' && chars[i + 4] == 'L' && chars[i + 5] == ':' {
+                if chars[i + 1] == 'A'
+                    && chars[i + 2] == 'B'
+                    && chars[i + 3] == 'E'
+                    && chars[i + 4] == 'L'
+                    && chars[i + 5] == ':'
+                {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Label(curr.clone()));
@@ -319,7 +351,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     curr = String::from("");
                 } else {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
@@ -327,11 +361,13 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
-            },
+            }
             'g' => {
                 if chars[i + 1] == 'o' && chars[i + 2] == 't' && chars[i + 3] == 'o' {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Goto(curr.clone()));
@@ -340,7 +376,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     curr = String::from("");
                 } else {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
@@ -348,13 +386,20 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
-            },
+            }
             'w' => {
-                if chars[i + 1] == 'h' && chars[i + 2] == 'i' && chars[i + 3] == 'l' && chars[i + 4] == 'e' {
+                if chars[i + 1] == 'h'
+                    && chars[i + 2] == 'i'
+                    && chars[i + 3] == 'l'
+                    && chars[i + 4] == 'e'
+                {
                     ret.push(Token::While);
+                    i += 4;
                 } else {
                     for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
@@ -367,7 +412,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             _ => {
                 // if we'e here it's an identifier
                 for j in i..chars.len() {
-                    if !chars[j].is_alphabetic() && chars[j] != '_' { break; }
+                    if !chars[j].is_alphabetic() && chars[j] != '_' {
+                        break;
+                    }
                     curr.push(chars[j]);
                 }
                 ret.push(Token::Id(curr.clone()));
@@ -445,7 +492,6 @@ pub enum Token {
     Dot,
     Comma,
     Semi,
-
     // this might be to much for the lexer to do
     // FuncDeclare((String, Vec<String>, RhTypes)), // function name, args, return type
     // FuncCall(String, Vec<String>), // function name, args
@@ -454,5 +500,5 @@ pub enum Token {
 #[derive(Debug, PartialEq, Clone)]
 pub enum RhTypes {
     Char,
-    Int
+    Int,
 }

@@ -1,7 +1,4 @@
-use crate::lexer::{
-    Token,
-    RhTypes
-};
+use crate::lexer::{RhTypes, Token};
 
 // Valid Node Types
 #[derive(Debug, Clone, PartialEq)]
@@ -36,7 +33,7 @@ pub enum NodeType {
     Scope(Option<RhTypes>), // <-- anything that has {} is a scope, scope is how we're handling multiple statements, scopes return the last statement's result or void
     Condition(bool), // true is eq false is neq; This might not be completely clear when optimizing conditionals and loops start
     Assignment(Option<String>),
-    Declaration(Option<String>)
+    Declaration(Option<String>),
 }
 
 impl NodeType {
@@ -65,19 +62,25 @@ impl NodeType {
             Token::For => Ok(NodeType::For),
             Token::While => Ok(NodeType::While),
             Token::If => Ok(NodeType::If),
-            _ => { println!("Oh God No, Not A Valid Token"); return Err(())}
+            _ => {
+                println!("Oh God No, Not A Valid Token");
+                return Err(());
+            }
         }
     }
 }
 
 pub struct TokenHandler {
     tokens: Vec<Token>,
-    curr_token: usize
+    curr_token: usize,
 }
 
 impl TokenHandler {
     pub fn new(tokens: Vec<Token>) -> Self {
-        TokenHandler { tokens: tokens, curr_token: 0 }
+        TokenHandler {
+            tokens: tokens,
+            curr_token: 0,
+        }
     }
 
     pub fn next_token(&mut self) {
@@ -104,7 +107,7 @@ impl TokenHandler {
 #[derive(Debug, Clone)]
 pub struct TokenNode {
     pub token: NodeType,
-    pub children: Option<Vec<TokenNode>>
+    pub children: Option<Vec<TokenNode>>,
 }
 
 impl std::fmt::Display for TokenNode {
@@ -117,8 +120,8 @@ impl TokenNode {
     pub fn new(token: NodeType, children: Option<Vec<TokenNode>>) -> TokenNode {
         TokenNode { token, children }
     }
-    
-    pub fn print(&self, n: &mut i32) {  
+
+    pub fn print(&self, n: &mut i32) {
         (0..*n).into_iter().for_each(|_| {
             print!("    ");
         });
@@ -144,13 +147,13 @@ pub enum Error {
     ExpectedStatement,
     ExpectedCondition,
     ExpectedOParen,
-    ExpectedCCurl
+    ExpectedCCurl,
 }
 
 #[derive(Debug)]
 pub struct RhErr {
     err: Error,
-    token_i: Option<usize>
+    token_i: Option<usize>,
 }
 
 impl RhErr {
@@ -161,16 +164,14 @@ impl RhErr {
 
 pub fn program(tokens: Vec<Token>) -> Result<TokenNode, RhErr> {
     let mut token_handler = TokenHandler::new(tokens);
-    
+
     let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
     let top_scope = match scope(&mut token_handler) {
         Ok(node) => node,
-        Err(err) => {
-            return Err(err)
-        }
+        Err(err) => return Err(err),
     };
     program_node.children.as_mut().unwrap().push(top_scope);
-    
+
     println!("past parsing");
     Ok(program_node)
 }
@@ -178,30 +179,36 @@ pub fn program(tokens: Vec<Token>) -> Result<TokenNode, RhErr> {
 pub fn scope(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let mut scope_node = TokenNode::new(NodeType::Scope(None), Some(vec![]));
     while *token_handler.get_token() != Token::CCurl {
-
         if token_handler.curr_token > token_handler.len() {
-            return Err(RhErr::new(Error::ExpectedCCurl, Some(token_handler.curr_token)));
+            return Err(RhErr::new(
+                Error::ExpectedCCurl,
+                Some(token_handler.curr_token),
+            ));
         }
 
         match statement(token_handler) {
             Ok(node) => {
-                scope_node.children.as_mut().expect("a valid ast to be returned").push(node);
-            },
+                scope_node
+                    .children
+                    .as_mut()
+                    .expect("a valid ast to be returned")
+                    .push(node);
+            }
             Err(err) => return Err(err),
         };
 
         println!("past if maybe\n");
         println!("past if token: {:?}", token_handler.get_token());
         if token_handler.curr_token == token_handler.len() - 1 {
-            return Ok(scope_node)
+            return Ok(scope_node);
         }
         token_handler.next_token();
         // println!("here\n");
         // if token_handler.len() == token_handler.curr_token + 1 {
-            // if *token_handler.get_token() != Token::Semi {
-                // scope_node.token = NodeType::Scope(Some(RhTypes::Int)) // TODO: Chane this to evaluate the type of the last statement
-            // }
-            // if *token_handler.get_token() == Token::CCurl { break; }
+        // if *token_handler.get_token() != Token::Semi {
+        // scope_node.token = NodeType::Scope(Some(RhTypes::Int)) // TODO: Chane this to evaluate the type of the last statement
+        // }
+        // if *token_handler.get_token() == Token::CCurl { break; }
         // }
     }
     if *token_handler.get_prev_token() == Token::Semi {
@@ -219,7 +226,8 @@ pub fn statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         Token::Type(_) => declaration(token_handler),
         Token::Id(name) => assignment(token_handler, name.to_string()),
         Token::If => if_statement(token_handler),
-        _ => Err(RhErr::new(Error::ExpectedStatement, None))
+        Token::While => while_statement(token_handler),
+        _ => Err(RhErr::new(Error::ExpectedStatement, None)),
     }
 }
 
@@ -234,14 +242,19 @@ fn declaration(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
                 node.children.as_mut().expect("node to have children").push(
                     match expression(token_handler) {
                         Ok(node) => node,
-                        Err(err) => return Err(err)
-                    }
+                        Err(err) => return Err(err),
+                    },
                 );
             } else if *token_handler.get_token() == Token::Semi {
                 return Ok(node.clone());
             }
-        },
-        _ => return Err(RhErr::new(Error::ExpectedId, Some(token_handler.curr_token)))
+        }
+        _ => {
+            return Err(RhErr::new(
+                Error::ExpectedId,
+                Some(token_handler.curr_token),
+            ))
+        }
     };
     Ok(node.clone())
 }
@@ -249,7 +262,7 @@ fn declaration(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
 fn expression(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let mut left = match term(token_handler) {
         Ok(node) => node,
-        Err(err) => return Err(err)
+        Err(err) => return Err(err),
     };
 
     // token_handler.next_token();
@@ -260,9 +273,12 @@ fn expression(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
 
         let right = match term(token_handler) {
             Ok(node) => node,
-            Err(err) => return Err(err)
+            Err(err) => return Err(err),
         };
-        let op_tok = TokenNode::new(NodeType::from_token(op.as_ref().expect("Op to have a value")).unwrap(), Some(vec![left, right]));
+        let op_tok = TokenNode::new(
+            NodeType::from_token(op.as_ref().expect("Op to have a value")).unwrap(),
+            Some(vec![left, right]),
+        );
 
         left = op_tok;
         // token_handler.next_token();
@@ -276,7 +292,7 @@ fn term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     println!("term");
     let mut left: TokenNode = match factor(token_handler) {
         Ok(node) => node,
-        Err(err) => return Err(err)
+        Err(err) => return Err(err),
     };
     token_handler.next_token();
     let mut curr = token_handler.get_token();
@@ -286,7 +302,7 @@ fn term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         *op = curr.clone();
         let right = match factor(token_handler) {
             Ok(node) => node,
-            Err(err) => return Err(err)
+            Err(err) => return Err(err),
         };
         println!("op: {:?}", op);
         let op_tok = TokenNode::new(NodeType::from_token(op).unwrap(), Some(vec![left, right]));
@@ -310,13 +326,22 @@ fn factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
             token_handler.next_token();
             match expression(token_handler) {
                 Ok(node) => {
-                    if *token_handler.get_token() == Token::CParen { Ok(node) } 
-                    else { Err(RhErr::new(Error::ExpectedCParen, Some(token_handler.curr_token))) }
-                },
-                Err(err) => Err(err)
+                    if *token_handler.get_token() == Token::CParen {
+                        Ok(node)
+                    } else {
+                        Err(RhErr::new(
+                            Error::ExpectedCParen,
+                            Some(token_handler.curr_token),
+                        ))
+                    }
+                }
+                Err(err) => Err(err),
             }
-        },
-        _ => Err(RhErr::new(Error::ExpectedExpression, Some(token_handler.curr_token)))
+        }
+        _ => Err(RhErr::new(
+            Error::ExpectedExpression,
+            Some(token_handler.curr_token),
+        )),
     }
 }
 
@@ -324,31 +349,59 @@ fn assignment(token_handler: &mut TokenHandler, name: String) -> Result<TokenNod
     token_handler.next_token();
     // println!("ASSIGNMENT TOKEN: {:?}", token_handler.get_token());
     // println!("STARTED ASSIGNMENT TOKEN TOKEN TOKEN TOKEN");
-    Ok(
-        TokenNode::new(NodeType::Assignment(Some(name)), Some(vec![
-            TokenNode::new(NodeType::from_token(token_handler.get_token()).expect("valid id"), None),
-            expression(token_handler).expect("expression to be valid")
-        ])
+    Ok(TokenNode::new(
+        NodeType::Assignment(Some(name)),
+        Some(vec![
+            TokenNode::new(
+                NodeType::from_token(token_handler.get_token()).expect("valid id"),
+                None,
+            ),
+            expression(token_handler).expect("expression to be valid"),
+        ]),
     ))
+}
+
+fn while_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    let mut while_node = TokenNode::new(NodeType::While, Some(vec![]));
+    token_handler.next_token();
+    let condition_node = condition(token_handler)?;
+    while_node
+        .children
+        .as_mut()
+        .expect("While children to be some")
+        .push(condition_node);
+
+    token_handler.next_token();
+    token_handler.next_token();
+
+    let scope_node = scope(token_handler)?;
+    while_node
+        .children
+        .as_mut()
+        .expect("While children to be ssome")
+        .push(scope_node);
+    Ok(while_node)
 }
 
 fn if_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let mut if_node = TokenNode::new(NodeType::If, Some(vec![]));
     token_handler.next_token(); // might make semi handled by the called functions instead
-    let condition_node = match condition(token_handler) {
-        Ok(node) => node,
-        Err(err) => return Err(err),
-    };
-    if_node.children.as_mut().expect("children to be some").push(condition_node);
+    let condition_node = condition(token_handler)?;
+    if_node
+        .children
+        .as_mut()
+        .expect("If children to be some")
+        .push(condition_node);
 
     token_handler.next_token();
     token_handler.next_token();
 
-    let scope_node = match scope(token_handler) {
-        Ok(node) => node,
-        Err(err) => return Err(err)
-    };
-    if_node.children.as_mut().expect("children to be some").push(scope_node);
+    let scope_node = scope(token_handler)?;
+    if_node
+        .children
+        .as_mut()
+        .expect("children to be some")
+        .push(scope_node);
     Ok(if_node)
 }
 
@@ -362,29 +415,42 @@ fn condition(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
             let condition = condition_expr(token_handler);
             match token_handler.get_token() {
                 Token::CParen => condition,
-                _ => { println!("post condition {:?}", token_handler.get_token()); Err(RhErr::new(Error::ExpectedCParen, Some(token_handler.curr_token))) }
+                _ => {
+                    println!("post condition {:?}", token_handler.get_token());
+                    Err(RhErr::new(
+                        Error::ExpectedCParen,
+                        Some(token_handler.curr_token),
+                    ))
+                }
             }
-        },
-        _ => Err(RhErr::new(Error::ExpectedOParen, Some(token_handler.curr_token)))
+        }
+        _ => Err(RhErr::new(
+            Error::ExpectedOParen,
+            Some(token_handler.curr_token),
+        )),
     }
 }
 /// This is called if expr needs parenthesis
 fn condition_expr(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let mut left = match condition_term(token_handler) {
         Ok(node) => node,
-        Err(err) => return Err(err)
+        Err(err) => return Err(err),
     };
-    
+
     let mut curr = token_handler.get_token();
-    while *curr == Token::AndCmp || *curr == Token::OrCmp { // && ||
+    while *curr == Token::AndCmp || *curr == Token::OrCmp {
+        // && ||
         let cmp: &mut Option<Token> = &mut None;
         *cmp = Some(curr.clone());
 
         let right = match condition_term(token_handler) {
             Ok(node) => node,
-            Err(err) => return Err(err)
+            Err(err) => return Err(err),
         };
-        let cmp_tok = TokenNode::new(NodeType::from_token(cmp.as_ref().expect("Op to have a value")).unwrap(), Some(vec![left, right]));
+        let cmp_tok = TokenNode::new(
+            NodeType::from_token(cmp.as_ref().expect("Op to have a value")).unwrap(),
+            Some(vec![left, right]),
+        );
 
         left = cmp_tok;
         // token_handler.next_token();
@@ -397,19 +463,23 @@ fn condition_expr(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> 
 fn condition_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let mut left = match condition_factor(token_handler) {
         Ok(node) => node,
-        Err(err) => return Err(err)
+        Err(err) => return Err(err),
     };
     token_handler.next_token();
     let mut curr = token_handler.get_token();
-    while *curr == Token::NeqCmp || *curr == Token::EqCmp { // != ==
+    while *curr == Token::NeqCmp || *curr == Token::EqCmp {
+        // != ==
         let cmp: &mut Option<Token> = &mut None;
         *cmp = Some(curr.clone());
         println!("condition cmp: {:?}", cmp);
         let right = match condition_factor(token_handler) {
             Ok(node) => node,
-            Err(err) => return Err(err)
+            Err(err) => return Err(err),
         };
-        let cmp_tok = TokenNode::new(NodeType::from_token(cmp.as_ref().expect("Op to have a value")).unwrap(), Some(vec![left, right]));
+        let cmp_tok = TokenNode::new(
+            NodeType::from_token(cmp.as_ref().expect("Op to have a value")).unwrap(),
+            Some(vec![left, right]),
+        );
 
         left = cmp_tok;
         token_handler.next_token();
@@ -429,13 +499,24 @@ fn condition_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr
             token_handler.next_token();
             match expression(token_handler) {
                 Ok(node) => {
-                    if *token_handler.get_token() == Token::CParen { Ok(node) }
-                    else { Err(RhErr::new(Error::ExpectedCParen, Some(token_handler.curr_token))) }
-                },
-                Err(err) => Err(err)
+                    if *token_handler.get_token() == Token::CParen {
+                        Ok(node)
+                    } else {
+                        Err(RhErr::new(
+                            Error::ExpectedCParen,
+                            Some(token_handler.curr_token),
+                        ))
+                    }
+                }
+                Err(err) => Err(err),
             }
-        },
-        _ => return Err(RhErr::new(Error::ExpectedCondition, Some(token_handler.curr_token)))
+        }
+        _ => {
+            return Err(RhErr::new(
+                Error::ExpectedCondition,
+                Some(token_handler.curr_token),
+            ))
+        }
     }
 }
 
@@ -443,22 +524,35 @@ fn for_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let mut for_node = TokenNode::new(NodeType::If, Some(vec![]));
     let declare_node = match declaration(token_handler) {
         Ok(node) => node,
-        Err(err) => return Err(err)
+        Err(err) => return Err(err),
     };
-    for_node.children.as_mut().expect("vec to be some").push(declare_node);
+    for_node
+        .children
+        .as_mut()
+        .expect("vec to be some")
+        .push(declare_node);
     println!("token: {:?}, should be ;", token_handler.get_token());
     token_handler.next_token(); // might make semi handled by the called functions instead
     let condition_node = match condition(token_handler) {
         Ok(node) => node,
         Err(err) => return Err(err),
     };
-    for_node.children.as_mut().expect("vec to be some").push(condition_node);
+    for_node
+        .children
+        .as_mut()
+        .expect("vec to be some")
+        .push(condition_node);
     token_handler.next_token();
     let statement_node = match statement(token_handler) {
         Ok(node) => node,
-        Err(err) => return Err(err)
+        Err(err) => return Err(err),
     };
-    for_node.children.as_mut().expect("vec to be some").push(statement_node); 
+    for_node
+        .children
+        .as_mut()
+        .expect("vec to be some")
+        .push(statement_node);
     token_handler.next_token();
     Ok(for_node)
 }
+

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::code_gen;
 use crate::parser::{Error, NodeType, RhErr, TokenNode};
 
 // This is technically somehow working right now and I have no idea why, I think it does things
@@ -150,16 +149,15 @@ pub fn scope_code_gen(
                 assignment_code_gen(&child_node, stack_handler, w, scopes);
             }
             NodeType::If => {
-                match if_code_gen(&child_node, stack_handler, w, scopes) {
-                    Ok(()) => {}
-                    Err(err) => panic!("Error in if code gen: {:?}", err),
-                };
+                if_code_gen(&child_node, stack_handler, w, scopes);
             }
-            NodeType::While => {}
+            NodeType::While => {
+                while_code_gen(&child_node, stack_handler, w, scopes);
+            }
             NodeType::Loop => {}
             NodeType::FunctionCall(_id) => {}
             _ => {}
-        }
+        };
     }
     scopes.push_to_scope("\nret");
 }
@@ -277,6 +275,7 @@ fn expr_code_gen(
             scopes.push_to_scope(format!("\nstr #{val}, [sp, #16]"));
         }
         NodeType::Id(name) => {
+            stack_handler.insert_expr_literal();
             let address = stack_handler.get_id(name).expect("Undefined identifier");
             scopes.push_to_scope(format!(
                 "\nldr w{w}, [sp, #{address}]\nstr, w{w}, [sp, #{}]",
@@ -343,7 +342,7 @@ pub fn if_code_gen(
     stack_handler: &mut StackHandler,
     w: &mut i32,
     scopes: &mut ScopeHandler,
-) -> Result<(), RhErr> {
+) {
     match &node.children {
         Some(children) => {
             // cmp x1, #n
@@ -351,14 +350,15 @@ pub fn if_code_gen(
             // node.children.unwrap()[0] is condition node, other child is scope
             let orig_scope = scopes.curr_scope;
 
-            condition_expr_code_gen(&children[0], w, stack_handler, scopes)?;
+            condition_expr_code_gen(&children[0], w, stack_handler, scopes);
             scope_code_gen(&children[1], stack_handler, w, scopes);
 
             scopes.curr_scope = orig_scope;
-            Ok(())
         }
-        None => Err(RhErr::new(Error::ExpectedCondition, None)),
-    }
+        None => {
+            panic!("Expected Condition");
+        }
+    };
 }
 
 pub fn condition_expr_code_gen(
@@ -366,8 +366,8 @@ pub fn condition_expr_code_gen(
     w: &mut i32,
     stack_handler: &mut StackHandler,
     scopes: &mut ScopeHandler,
-) -> Result<(), RhErr> {
-    println!("condition expr code: {:?}", node.token);
+) {
+    println!("condition expr node: {:?}", node.token);
     match &node.token {
         NodeType::AndCmp => {}
         NodeType::OrCmp => {}
@@ -381,8 +381,7 @@ pub fn condition_expr_code_gen(
                 w,
                 stack_handler,
                 scopes,
-            )
-            .unwrap();
+            );
             condition_expr_code_gen(
                 &node
                     .children
@@ -391,8 +390,7 @@ pub fn condition_expr_code_gen(
                 w,
                 stack_handler,
                 scopes,
-            )
-            .unwrap();
+            );
             scopes.push_to_scope(format!("\ncmp w0, w1\nbeq .L{}", scopes.curr_scope + 1).as_str());
             scopes.new_scope();
         }
@@ -400,19 +398,56 @@ pub fn condition_expr_code_gen(
             let relative_path = stack_handler.get_id(id).unwrap(); // relative path moves stack down without -
 
             scopes.push_to_scope(format!("\nldr w{}, [sp, #{}]", w, relative_path).as_str());
-            switch!(*w)
+            switch!(*w);
             // scopes.push_to_scope(format!("\nadd sp, {}, sp", relative_path).as_str());
         }
         NodeType::NumLiteral(num) => {
             scopes.push_to_scope(format!("\nmov w{}, {}", w, num).as_str());
-            switch!(*w)
+            switch!(*w);
         }
         _ => {
-            return Err(RhErr::new(Error::ExpectedCondition, None));
+            panic!("Expected Condition");
+        }
+    };
+    // code.push_str("\nbeq");
+}
+
+fn while_code_gen(
+    node: &TokenNode,
+    stack_handler: &mut StackHandler,
+    w: &mut i32,
+    scopes: &mut ScopeHandler,
+) {
+    match &node.children {
+        Some(children) => {
+            scopes.push_to_scope(format!("\nb .L{}", scopes.curr_scope + 1));
+            scopes.new_scope();
+            let anchor_scope = scopes.curr_scope;
+            condition_expr_code_gen(&children[0], w, stack_handler, scopes);
+            scope_code_gen(&children[1], stack_handler, w, scopes);
+            remove_scope_ret(scopes);
+            scopes.push_to_scope(format!("\nb .L{}", anchor_scope));
+            scopes.curr_scope -= 1;
+        }
+        None => {
+            panic!("Expected Condition")
         }
     }
-    // code.push_str("\nbeq");
-    Ok(())
+}
+
+fn remove_scope_ret(scopes: &mut ScopeHandler) {
+    // Removes the last line which is ret
+    let mut check = false;
+    for i in (0..scopes.scopes[scopes.curr_scope].len() - 1).rev() {
+        if scopes.scopes[scopes.curr_scope].chars().nth(i).unwrap() == '\n' {
+            let len = scopes.scopes.clone()[scopes.curr_scope].len() - 2;
+            scopes.scopes[scopes.curr_scope].truncate(len);
+            if check {
+                break;
+            }
+            check = true
+        }
+    }
 }
 
 // pub fn store_var(sp: &mut i32, node: &TokenNode, num: i32, var: String, vars: &mut HashMap<String, i32>, reg_tracker: &mut [bool; 12]) -> String {

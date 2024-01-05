@@ -1,5 +1,5 @@
 .global _main
-main:
+ain:
     str #1, [sp, #16]
     ldr w0, [sp, #-16]
     str w0, [sp, #-16]
