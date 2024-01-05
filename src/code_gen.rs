@@ -21,20 +21,19 @@ impl ScopeHandler {
     }
 
     pub fn format_scopes(&self) -> String {
-        let mut ret = String::from(".global _main\n");
-
+        let mut ret = String::new();
         for scope in self.scopes.iter() {
-            let mut chars = scope.chars();
-            chars.next();
-            let mod_scope = chars.as_str().to_string();
-            let mut lines = mod_scope.split("\n").collect::<Vec<&str>>().into_iter();
-            ret.push_str(format!("{}\n", lines.next().expect("No lines in iterator")).as_str());
+            let mut lines = scope.lines();
+            ret.push_str(format!("{}\n", lines.next().unwrap()).as_str());
+            ret.push_str(format!("{}\n", lines.next().unwrap()).as_str());
+            ret.push_str(format!("{}\n", lines.next().unwrap()).as_str());
+
             for line in lines {
                 ret.push_str(format!("    {}\n", line).as_str());
             }
         }
 
-        ret
+        ret.trim().to_string()
     }
     #[allow(dead_code)]
     pub fn print_scopes(&self) {
@@ -99,7 +98,7 @@ macro_rules! switch {
 // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn main(node: &TokenNode) -> String {
     let mut scopes = ScopeHandler {
-        scopes: vec![String::from("_main:")],
+        scopes: vec![String::from("\n.global _main\nmain:")],
         curr_scope: 0,
     };
     println!("In code gen");
@@ -435,6 +434,7 @@ fn while_code_gen(
     }
 }
 
+// TODO: Fix the program so this isn't needed(maybe pass a ret flag into scope_code_gen)
 fn remove_scope_ret(scopes: &mut ScopeHandler) {
     // Removes the last line which is ret
     let mut check = false;
