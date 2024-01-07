@@ -438,6 +438,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     If,
+    Break,
     For,
     While,
     Loop,

@@ -7,6 +7,7 @@ use crate::parser::{Error, NodeType, RhErr, TokenNode};
 pub struct ScopeHandler {
     scopes: Vec<String>,
     curr_scope: usize,
+    break_anchors: Vec<usize>, // each number represents the insertuction pointer that can be broken to from the current scope
 }
 
 impl ScopeHandler {
@@ -47,6 +48,19 @@ impl ScopeHandler {
                 println!("    {}", line);
             }
         }
+    }
+
+    fn insert_break(&mut self) {
+        self.push_to_scope(format!(
+            "b .L{}",
+            self.break_anchors
+                .pop()
+                .expect("Break not in a breakable scope")
+        ));
+    }
+
+    fn new_break_anchor(&mut self) {
+        self.break_anchors.push(self.curr_scope);
     }
 }
 
@@ -100,6 +114,7 @@ pub fn main(node: &TokenNode) -> String {
     let mut scopes = ScopeHandler {
         scopes: vec![String::from("\n.global _main\nmain:")],
         curr_scope: 0,
+        break_anchors: vec![],
     };
     println!("In code gen");
     // use this later
@@ -155,6 +170,7 @@ pub fn scope_code_gen(
             }
             NodeType::Loop => {}
             NodeType::FunctionCall(_id) => {}
+            NodeType::Break => scopes.insert_break(),
             _ => {}
         };
     }
@@ -420,6 +436,7 @@ fn while_code_gen(
     match &node.children {
         Some(children) => {
             scopes.push_to_scope(format!("\nb .L{}", scopes.curr_scope + 1));
+            scopes.new_break_anchor();
             scopes.new_scope();
             let anchor_scope = scopes.curr_scope;
             condition_expr_code_gen(&children[0], w, stack_handler, scopes);

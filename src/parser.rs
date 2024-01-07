@@ -1,5 +1,15 @@
 use crate::lexer::{RhTypes, Token};
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum ScopeType {
+    Function,
+    While,
+    Program,
+    If,
+    Loop,
+    For,
+}
+
 // Valid Node Types
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeType {
@@ -29,6 +39,7 @@ pub enum NodeType {
     For,
     While,
     Loop,
+    Break,
     FunctionCall(String),
     Scope(Option<RhTypes>), // <-- anything that has {} is a scope, scope is how we're handling multiple statements, scopes return the last statement's result or void
     Condition(bool), // true is eq false is neq; This might not be completely clear when optimizing conditionals and loops start
@@ -62,6 +73,7 @@ impl NodeType {
             Token::For => Ok(NodeType::For),
             Token::While => Ok(NodeType::While),
             Token::If => Ok(NodeType::If),
+            Token::Break => Ok(NodeType::Break),
             _ => {
                 println!("Oh God No, Not A Valid Token");
                 return Err(());
@@ -166,7 +178,7 @@ pub fn program(tokens: Vec<Token>) -> Result<TokenNode, RhErr> {
     let mut token_handler = TokenHandler::new(tokens);
 
     let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
-    let top_scope = match scope(&mut token_handler) {
+    let top_scope = match scope(&mut token_handler, ScopeType::Program) {
         Ok(node) => node,
         Err(err) => return Err(err),
     };
@@ -176,7 +188,7 @@ pub fn program(tokens: Vec<Token>) -> Result<TokenNode, RhErr> {
     Ok(program_node)
 }
 
-pub fn scope(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<TokenNode, RhErr> {
     let mut scope_node = TokenNode::new(NodeType::Scope(None), Some(vec![]));
     while *token_handler.get_token() != Token::CCurl {
         if token_handler.curr_token > token_handler.len() {
@@ -186,7 +198,7 @@ pub fn scope(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
             ));
         }
 
-        match statement(token_handler) {
+        match statement(token_handler, scope_type.clone()) {
             Ok(node) => {
                 scope_node
                     .children
@@ -218,7 +230,10 @@ pub fn scope(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     Ok(scope_node)
 }
 
-pub fn statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+pub fn statement(
+    token_handler: &mut TokenHandler,
+    scope_type: ScopeType,
+) -> Result<TokenNode, RhErr> {
     // let mut node: TokenNode = TokenNode::new(NodeType::Program, Some(vec![])); // todo: add default type
     let statement_token = token_handler.get_token();
     println!("statment token: {:?}", statement_token);
@@ -227,6 +242,17 @@ pub fn statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         Token::Id(name) => assignment(token_handler, name.to_string()),
         Token::If => if_statement(token_handler),
         Token::While => while_statement(token_handler),
+        Token::For => for_statement(token_handler),
+        Token::Break => {
+            if scope_type == ScopeType::While || scope_type == ScopeType::Loop {
+                Ok(TokenNode::new(NodeType::Break, None))
+            } else {
+                Err(RhErr::new(
+                    Error::ExpectedStatement,
+                    Some(token_handler.curr_token),
+                ))
+            }
+        }
         _ => Err(RhErr::new(Error::ExpectedStatement, None)),
     }
 }
@@ -374,7 +400,7 @@ fn while_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr>
     token_handler.next_token();
     token_handler.next_token();
 
-    let scope_node = scope(token_handler)?;
+    let scope_node = scope(token_handler, ScopeType::While)?;
     while_node
         .children
         .as_mut()
@@ -396,7 +422,7 @@ fn if_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     token_handler.next_token();
     token_handler.next_token();
 
-    let scope_node = scope(token_handler)?;
+    let scope_node = scope(token_handler, ScopeType::If)?;
     if_node
         .children
         .as_mut()
@@ -543,7 +569,7 @@ fn for_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         .expect("vec to be some")
         .push(condition_node);
     token_handler.next_token();
-    let statement_node = match statement(token_handler) {
+    let statement_node = match statement(token_handler, ScopeType::For) {
         Ok(node) => node,
         Err(err) => return Err(err),
     };
@@ -555,4 +581,3 @@ fn for_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     token_handler.next_token();
     Ok(for_node)
 }
-

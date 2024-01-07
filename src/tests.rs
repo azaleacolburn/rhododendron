@@ -47,4 +47,3 @@ fn get_all_files(path: &Path) -> io::Result<Vec<PathBuf>> {
         .collect();
     Ok(all)
 }
-
