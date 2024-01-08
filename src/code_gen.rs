@@ -51,12 +51,8 @@ impl ScopeHandler {
     }
 
     fn insert_break(&mut self) {
-        self.push_to_scope(format!(
-            "b .L{}",
-            self.break_anchors
-                .pop()
-                .expect("Break not in a breakable scope")
-        ));
+        self.push_to_scope(format!("b .L{}", self.curr_scope + 1));
+        self.new_scope();
     }
 
     fn new_break_anchor(&mut self) {
@@ -363,12 +359,11 @@ pub fn if_code_gen(
             // cmp x1, #n
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
-            let orig_scope = scopes.curr_scope;
 
             condition_expr_code_gen(&children[0], w, stack_handler, scopes);
             scope_code_gen(&children[1], stack_handler, w, scopes);
 
-            scopes.curr_scope = orig_scope;
+            scopes.new_scope();
         }
         None => {
             panic!("Expected Condition");
@@ -438,12 +433,12 @@ fn while_code_gen(
             scopes.push_to_scope(format!("\nb .L{}", scopes.curr_scope + 1));
             scopes.new_break_anchor();
             scopes.new_scope();
-            let anchor_scope = scopes.curr_scope;
+
             condition_expr_code_gen(&children[0], w, stack_handler, scopes);
             scope_code_gen(&children[1], stack_handler, w, scopes);
             remove_scope_ret(scopes);
-            scopes.push_to_scope(format!("\nb .L{}", anchor_scope));
-            scopes.curr_scope -= 1;
+            scopes.push_to_scope(format!("b .L{}", scopes.curr_scope + 1));
+            scopes.new_scope();
         }
         None => {
             panic!("Expected Condition")

@@ -11,7 +11,6 @@ main:
     mov w1, 6
     cmp w0, w1
     beq .L2
-    ret
 
 .balign 4
 .L2:
@@ -19,5 +18,8 @@ main:
     ldr w0, [sp, #-32]
     ldr w1, [sp, #-16]
     add w0, w0, w1
-    str w0, [sp, #-16]
-    b .L1
+    str w0, [sp, #-16]b .L3
+
+.balign 4
+.L3:
+    ret
