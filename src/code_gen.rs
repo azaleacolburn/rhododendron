@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::{Error, NodeType, RhErr, TokenNode};
+use crate::parser::{Error, NodeType, RhErr, ScopeType, TokenNode};
 
 // This is technically somehow working right now and I have no idea why, I think it does things
 // backwards but it's ok
@@ -51,7 +51,7 @@ impl ScopeHandler {
     }
 
     fn insert_break(&mut self) {
-        self.push_to_scope(format!("b .L{}", self.curr_scope + 1));
+        self.push_to_scope(format!("\nb .L{}", self.curr_scope + 1));
         self.new_scope();
     }
 
@@ -82,16 +82,14 @@ impl StackHandler {
         self.stack_handler.get(id)
     }
 
-    fn insert(&mut self, id: impl ToString, position: i32) {
-        if position > self.furthest_offset {
-            self.furthest_offset = position
-        }
-        self.stack_handler.insert(id.to_string(), position);
+    fn insert(&mut self, id: impl ToString, size: i32) {
+        self.furthest_offset -= size;
+        self.stack_handler
+            .insert(id.to_string(), self.furthest_offset);
     }
 
     fn insert_new_16(&mut self, id: impl ToString) {
-        self.furthest_offset -= 16;
-        self.insert(id, self.furthest_offset);
+        self.insert(id, 16);
     }
 
     fn insert_expr_literal(&mut self) {
@@ -128,8 +126,11 @@ pub fn main(node: &TokenNode) -> String {
             &mut stack_handler,
             &mut 0,
             &mut scopes,
+            ScopeType::Program,
         );
     }
+    scopes.curr_scope = 0;
+    scopes.push_to_scope("\nmov x7, #1\nmov x0, #0\nsvc 0");
 
     scopes.format_scopes()
     // code.trim().to_string()
@@ -140,6 +141,7 @@ pub fn scope_code_gen(
     stack_handler: &mut StackHandler,
     w: &mut i32,
     scopes: &mut ScopeHandler,
+    scope_type: ScopeType,
 ) {
     println!("Scope Node: {:?}", node);
     for child_node in node.children.as_ref().expect("Scope to have children") {
@@ -169,6 +171,9 @@ pub fn scope_code_gen(
             NodeType::Break => scopes.insert_break(),
             _ => {}
         };
+    }
+    if scope_type == ScopeType::While {
+        scopes.push_to_scope(format!("\nb .L{}", scopes.curr_scope + 1));
     }
     scopes.push_to_scope("\nret");
 }
@@ -283,7 +288,7 @@ fn expr_code_gen(
     match &node.token {
         NodeType::NumLiteral(val) => {
             stack_handler.insert_expr_literal();
-            scopes.push_to_scope(format!("\nstr #{val}, [sp, #16]"));
+            scopes.push_to_scope(format!("\nstr #{val}, [sp, #-16]"));
         }
         NodeType::Id(name) => {
             stack_handler.insert_expr_literal();
@@ -308,7 +313,11 @@ fn expr_code_gen(
                 scopes,
             );
             stack_handler.furthest_offset += 32;
-            scopes.push_to_scope(format!("\nldr w0, [sp, #16]\nldr w1, [sp, #32]"));
+            scopes.push_to_scope(format!(
+                "\nldr w0, [sp, #{}]\nldr w1, [sp, #{}]",
+                stack_handler.furthest_offset - 16,
+                stack_handler.furthest_offset
+            ));
             match &node.token {
                 NodeType::Add => {
                     scopes.push_to_scope(format!("\nadd w{w}, w0, w1").as_str());
@@ -361,9 +370,7 @@ pub fn if_code_gen(
             // node.children.unwrap()[0] is condition node, other child is scope
 
             condition_expr_code_gen(&children[0], w, stack_handler, scopes);
-            scope_code_gen(&children[1], stack_handler, w, scopes);
-
-            scopes.new_scope();
+            scope_code_gen(&children[1], stack_handler, w, scopes, ScopeType::If);
         }
         None => {
             panic!("Expected Condition");
@@ -401,7 +408,9 @@ pub fn condition_expr_code_gen(
                 stack_handler,
                 scopes,
             );
-            scopes.push_to_scope(format!("\ncmp w0, w1\nbeq .L{}", scopes.curr_scope + 1).as_str());
+            scopes.push_to_scope(
+                format!("\ncmp w0, w1\nbeq .L{}\nret", scopes.curr_scope + 1).as_str(),
+            );
             scopes.new_scope();
         }
         NodeType::Id(id) => {
@@ -435,9 +444,7 @@ fn while_code_gen(
             scopes.new_scope();
 
             condition_expr_code_gen(&children[0], w, stack_handler, scopes);
-            scope_code_gen(&children[1], stack_handler, w, scopes);
-            remove_scope_ret(scopes);
-            scopes.push_to_scope(format!("b .L{}", scopes.curr_scope + 1));
+            scope_code_gen(&children[1], stack_handler, w, scopes, ScopeType::While);
             scopes.new_scope();
         }
         None => {

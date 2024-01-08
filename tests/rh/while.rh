@@ -2,3 +2,5 @@ int n = 6;
 while (n == 6) {
     n += 1;
 }
+ 
+int re = 42;

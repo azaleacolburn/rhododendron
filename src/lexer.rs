@@ -62,7 +62,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             }
             if is_dec {
                 ret.push(Token::NumLiteral(num.parse::<i32>().unwrap()));
-                i += 1;
+                i += num.len();
                 continue;
             }
         }
