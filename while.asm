@@ -31,4 +31,22 @@ main:
     str #42, [sp, #-16]
     ldr w0, [sp, #-32]
     str w0, [sp, #-32]
+    str #833, [sp, #-16]
+    ldr w0, [sp, #-48]
+    str w0, [sp, #-48]
+    ldr w0, [sp, #-32]
+    ldr w1, [sp, #-48]
+    cmp w0, w1
+    beq .L4
+    ret
+
+.balign 4
+.L4:
+    ldr w0, [sp, #-48]
+    str, w0, [sp, #-64]
+    ldr w1, [sp, #-64]
+    ldr w1, [sp, #-32]
+    sub w0, w0, w1
+    str w0, [sp, #-32]
+    ret
     ret

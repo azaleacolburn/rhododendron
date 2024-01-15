@@ -70,6 +70,15 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
         println!("char: {}", chars[i]);
         match chars[i] {
             ' ' => {}
+            '\"' => {
+                let mut str = String::new();
+                i += 1;
+                while chars[i] != '\"' {
+                    str.push(chars[i]);
+                    i += 1;
+                }
+                ret.push(Token::StrLiteral(str));
+            }
             'i' => {
                 if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
                     println!("here in int");
@@ -207,23 +216,18 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             }
             // obviously none of this can be included in ids
             '(' => {
-                // split.push(String::from("("));
                 ret.push(Token::OParen);
             }
             ')' => {
-                // split.push(String::from(")"));
                 ret.push(Token::CParen);
             }
             '{' => {
-                // split.push(String::from("{"));
                 ret.push(Token::OCurl);
             }
             '}' => {
-                //split.push(String::from("}"));
                 ret.push(Token::CCurl);
             }
             '&' => {
-                // split.push(String::from("&"));
                 if chars[i + 1] == '=' {
                     ret.push(Token::BAndEq);
                     i += 1;
@@ -408,6 +412,12 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                     curr = String::from("");
                 }
             }
+            'a' => {
+                if chars[i + 1] == 's' && chars[i + 2] == 'm' {
+                    ret.push(Token::Asm);
+                }
+                i += 2;
+            }
             '\n' => {}
             _ => {
                 // if we'e here it's an identifier
@@ -447,6 +457,7 @@ pub enum Token {
     Star,
     // Var(String),
     NumLiteral(i32),
+    StrLiteral(String),
     Add,
     AddO,
     // Mul,
@@ -490,6 +501,7 @@ pub enum Token {
     CCurl,
     Goto(String),
     Label(String),
+    Asm,
     Dot,
     Comma,
     Semi,

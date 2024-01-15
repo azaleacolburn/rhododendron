@@ -1,4 +1,4 @@
-use crate::{code_gen::code_gen, lexer::string_to_tokens, parser::program};
+use crate::{code_gen::main, lexer::string_to_tokens, parser::program};
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -16,6 +16,7 @@ fn test_all() {
         Err(_) => panic!("No validation files"),
     };
     assert_eq!(tests.len(), validation.len());
+
     for test_i in 0..tests.len() {
         let raw_src = fs::read(tests[test_i].clone()).unwrap();
         let src = str::from_utf8(&raw_src).unwrap();
@@ -28,7 +29,7 @@ fn test_all() {
             Ok(node) => node,
             Err(err) => panic!("Failed Parsing: {:?}", err),
         };
-        let generated_asm = code_gen(&node);
+        let generated_asm = main(&node);
 
         let valid_raw =
             fs::read(validation[test_i].clone()).expect("a corresponding validation test");

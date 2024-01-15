@@ -1,3 +1,4 @@
+use crate::code_gen::ScopeHandler;
 use crate::lexer::{RhTypes, Token};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -45,6 +46,7 @@ pub enum NodeType {
     Condition(bool), // true is eq false is neq; This might not be completely clear when optimizing conditionals and loops start
     Assignment(Option<String>),
     Declaration(Option<String>),
+    Asm(String),
 }
 
 impl NodeType {
@@ -160,6 +162,7 @@ pub enum Error {
     ExpectedCondition,
     ExpectedOParen,
     ExpectedCCurl,
+    ExpectedStrLiteral,
 }
 
 #[derive(Debug)]
@@ -237,7 +240,7 @@ pub fn statement(
     // let mut node: TokenNode = TokenNode::new(NodeType::Program, Some(vec![])); // todo: add default type
     let statement_token = token_handler.get_token();
     println!("statment token: {:?}", statement_token);
-    match statement_token {
+    let token = match statement_token {
         Token::Type(_) => declaration(token_handler),
         Token::Id(name) => assignment(token_handler, name.to_string()),
         Token::If => if_statement(token_handler),
@@ -253,8 +256,10 @@ pub fn statement(
                 ))
             }
         }
+        Token::Asm => asm_statement(token_handler),
         _ => Err(RhErr::new(Error::ExpectedStatement, None)),
-    }
+    };
+    token_handler.next_token();
 }
 
 fn declaration(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
@@ -543,6 +548,41 @@ fn condition_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr
                 Some(token_handler.curr_token),
             ))
         }
+    }
+}
+
+fn asm_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    token_handler.next_token();
+    if *token_handler.get_token() != Token::OParen {
+        return Err(RhErr::new(
+            Error::ExpectedOParen,
+            Some(token_handler.curr_token),
+        ));
+    }
+    token_handler.next_token();
+    match token_handler.get_token().clone() {
+        Token::StrLiteral(str) => {
+            token_handler.next_token();
+            println!("{:?}", token_handler.get_token());
+            if *token_handler.get_token() != Token::CParen {
+                token_handler.next_token();
+                if *token_handler.get_token() != Token::Semi {
+                    return Err(RhErr::new(
+                        Error::ExpectedSemi,
+                        Some(token_handler.curr_token),
+                    ));
+                }
+                return Err(RhErr::new(
+                    Error::ExpectedCParen,
+                    Some(token_handler.curr_token),
+                ));
+            }
+            Ok(TokenNode::new(NodeType::Asm(str.to_string()), None))
+        }
+        _ => Err(RhErr::new(
+            Error::ExpectedStrLiteral,
+            Some(token_handler.curr_token),
+        )),
     }
 }
 

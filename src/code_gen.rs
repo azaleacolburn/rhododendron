@@ -453,6 +453,13 @@ fn while_code_gen(
     }
 }
 
+fn asm_code_gen(node: &TokenNode, scopes: &mut ScopeHandler) {
+    match &node.token {
+        NodeType::Asm(str) => scopes.push_to_scope(str),
+        _ => panic!("Expected Asm"),
+    }
+}
+
 // TODO: Fix the program so this isn't needed(maybe pass a ret flag into scope_code_gen)
 fn remove_scope_ret(scopes: &mut ScopeHandler) {
     // Removes the last line which is ret
