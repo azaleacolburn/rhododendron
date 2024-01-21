@@ -1,6 +1,8 @@
 mod code_gen;
+mod error;
 #[allow(unused_assignments)]
 mod lexer;
+mod linker;
 mod parser;
 #[cfg(test)]
 mod tests;
@@ -23,7 +25,7 @@ pub fn main() {
         Err(err) => panic!("File does not exist"),
     };
     // let buff = String::from("int my_int = 1 + 1;");
-    let tokens = lexer::string_to_tokens(&buff).unwrap();
+    let (tokens, line_tracker) = lexer::string_to_tokens(&buff).unwrap();
     println!("Past lexing");
     // let lexed_tokens: Vec<Token> = lexer::string_to_tokens(&buff).unwrap();
 
@@ -32,7 +34,7 @@ pub fn main() {
     // }
     // int my_int = 5 * 2 + 3;
     // let tokens = vec![Token::Type(VariableTypes::Int), Token::Id(String::from("my_int")), Token::Eq, Token::NumLiteral(5), Token::Star, Token::NumLiteral(2), Token::Add, Token::NumLiteral(3), Token::Add, Token::NumLiteral(4), Token::Semi];
-    let node = parser::program(tokens).unwrap();
+    let node = parser::program(tokens, line_tracker).unwrap();
     node.print(&mut 0);
     println!("past ast");
     let code = code_gen::main(&node);
@@ -40,4 +42,3 @@ pub fn main() {
     let _ = std::fs::write(exe_name, code);
     // assert_eq!(lexer::string_to_tokens(&buff), lexer::string_to_tokens(&String::from("int my_int=1+1;")));
 }
-

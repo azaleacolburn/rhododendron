@@ -1,11 +1,44 @@
 use std::num::ParseIntError;
 
+/// the index of token_lines is the token_i and the value is the line number
+pub struct LineNumHandler {
+    pub token_lines: Vec<i32>,
+    curr_line: i32,
+}
+
+impl LineNumHandler {
+    pub fn new() {
+        LineNumHandler {
+            token_lines: vec![],
+            curr_line: 1,
+        }
+    }
+
+    /// Pushes a new token_i to the current range
+    pub fn record_token(&mut self) {
+        self.token_lines.push(self.curr_line);
+    }
+
+    /// Creares a new range and pushes the current range along with the current line to the hashmap
+    pub fn new_line(&mut self) {
+        self.curr_line += 1;
+    }
+
+    /// Given a token index, returns the line that token was on
+    pub fn get_line(&mut self, token_i: i32) -> i32 {
+        self.token_lines[token_i]
+    }
+}
+
 /// This is where the lexical analysis happens
-pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError> {
+pub fn string_to_tokens(
+    buff: impl ToString,
+) -> Result<(Vec<Token>, LineNumHandler), ParseIntError> {
     let mut ret: Vec<Token> = vec![];
     let chars = buff.to_string().chars().collect::<Vec<char>>();
     let mut curr: String = String::from("");
     let mut i: usize = 0;
+    let mut line_tracker = LineNumHandler::new();
     while i < chars.len() {
         // Handles num literals but we don't actually know if it is a literal yet
         if chars[i].is_numeric() {
@@ -418,7 +451,9 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
                 }
                 i += 2;
             }
-            '\n' => {}
+            '\n' => {
+                line_tracker.new_line();
+            }
             _ => {
                 // if we'e here it's an identifier
                 for j in i..chars.len() {
@@ -434,6 +469,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
             }
         }
         i += 1;
+        line_tracker.record_token();
         // curr.push(c);
     }
     println!();
@@ -442,7 +478,7 @@ pub fn string_to_tokens(buff: impl ToString) -> Result<Vec<Token>, ParseIntError
     }
     println!();
     println!();
-    Ok(ret)
+    Ok((ret, line_tracker))
 }
 
 #[derive(Debug, PartialEq, Clone)]

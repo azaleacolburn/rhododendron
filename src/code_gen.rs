@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::{Error, NodeType, RhErr, ScopeType, TokenNode};
+use crate::parser::{NodeType, ScopeType, TokenNode};
 
 // This is technically somehow working right now and I have no idea why, I think it does things
 // backwards but it's ok
