@@ -1,5 +1,5 @@
-use crate::error::{RhErr, ET};
-use crate::lexer::{LineNumHandler, RhTypes, Token};
+use crate::compiler::error::{RhErr, ET};
+use crate::compiler::lexer::{LineNumHandler, RhTypes, Token};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScopeType {
@@ -47,6 +47,8 @@ pub enum NodeType {
     Assignment(Option<String>),
     Declaration(Option<String>),
     Asm(String),
+    FunctionDecaration(String),
+    Type(RhTypes),
 }
 
 impl NodeType {
@@ -179,9 +181,10 @@ pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<
         }
 
         scope_node
+            .children
             .as_mut()
-            .expect("A valid ast to be returned")
-            .push(statement(token_handler, scope_type.clone()))?;
+            .unwrap()
+            .push(statement(token_handler, scope_type.clone())?);
 
         println!("past if maybe\n");
         println!("past if token: {:?}", token_handler.get_token());
@@ -211,7 +214,7 @@ pub fn statement(
     // let mut node: TokenNode = TokenNode::new(NodeType::Program, Some(vec![])); // todo: add default type
     let statement_token = token_handler.get_token();
     println!("statment token: {:?}", statement_token);
-    let token = match statement_token {
+    match statement_token {
         Token::Type(_) => declaration(token_handler),
         Token::Id(name) => assignment(token_handler, name.to_string()),
         Token::If => if_statement(token_handler),
@@ -219,15 +222,14 @@ pub fn statement(
         Token::For => for_statement(token_handler),
         Token::Break => {
             if scope_type == ScopeType::While || scope_type == ScopeType::Loop {
-                return Ok(TokenNode::new(NodeType::Break, None));
+                Ok(TokenNode::new(NodeType::Break, None))
             } else {
-                return Err(token_handler.new_err(ET::ExpectedStatement));
+                Err(token_handler.new_err(ET::ExpectedStatement))
             }
         }
         Token::Asm => asm_statement(token_handler),
         _ => Err(token_handler.new_err(ET::ExpectedStatement)),
-    };
-    token_handler.next_token();
+    }
 }
 
 fn declaration(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
@@ -327,7 +329,7 @@ fn assignment(token_handler: &mut TokenHandler, name: String) -> Result<TokenNod
                 NodeType::from_token(token_handler.get_token()).expect("valid id"),
                 None,
             ),
-            expression(token_handler).expect("expression to be valid"),
+            expression(token_handler)?,
         ]),
     ))
 }
@@ -374,6 +376,97 @@ fn if_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         .expect("children to be some")
         .push(scope_node);
     Ok(if_node)
+}
+
+fn function_declare_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    token_handler.next_token();
+    if let Token::Id(id) = token_handler.get_token() {
+        let mut function_node =
+            TokenNode::new(NodeType::FunctionDecaration(id.clone()), Some(vec![]));
+        token_handler.next_token();
+        if *token_handler.get_token() != Token::OParen {
+            return Err(token_handler.new_err(ET::ExpectedCParen));
+        }
+        token_handler.next_token();
+        loop {
+            let declaration_node = declaration(token_handler)?;
+            function_node
+                .children
+                .as_mut()
+                .unwrap()
+                .push(declaration_node);
+            token_handler.next_token();
+            if *token_handler.get_token() != Token::Comma {
+                break;
+            }
+        }
+        token_handler.next_token();
+        if *token_handler.get_token() != Token::CParen {
+            return Err(token_handler.new_err(ET::ExpectedCParen));
+        }
+        token_handler.next_token();
+        if *token_handler.get_token() == Token::Arrow {
+            token_handler.next_token();
+            if let Token::Type(t) = token_handler.get_token() {
+                function_node
+                    .children
+                    .unwrap()
+                    .push(TokenNode::new(NodeType::Type(t.clone()), None));
+            }
+            return Err(token_handler.new_err(ET::ExpectedType));
+        }
+        let scope_node = scope(token_handler, ScopeType::Function)?;
+        function_node.children.as_mut().unwrap().push(scope_node);
+
+        return Ok(function_node);
+    }
+
+    Err(token_handler.new_err(ET::ExpectedId))
+}
+
+fn function_call_statement(
+    token_handler: &mut TokenHandler,
+    name: String,
+) -> Result<TokenNode, RhErr> {
+    let call_node = function_call(token_handler, name)?;
+    token_handler.next_token();
+    if *token_handler.get_token() != Token::Semi {
+        return Err(token_handler.new_err(ET::ExpectedSemi));
+    }
+    Ok(call_node)
+}
+
+fn function_call(token_handler: &mut TokenHandler, name: String) -> Result<TokenNode, RhErr> {
+    let mut function_call_node = TokenNode::new(NodeType::FunctionCall(name), Some(vec![]));
+    token_handler.next_token();
+    loop {
+        let declaration_node = declaration(token_handler)?;
+        function_call_node
+            .children
+            .as_mut()
+            .unwrap()
+            .push(declaration_node);
+        token_handler.next_token();
+        if *token_handler.get_token() != Token::Comma {
+            break;
+        }
+    }
+    token_handler.next_token();
+    if *token_handler.get_token() != Token::CParen {
+        return Err(token_handler.new_err(ET::ExpectedCParen));
+    }
+    Ok(function_call_node)
+}
+
+fn id_statement(token_handler: &mut TokenHandler, id: String) -> Result<TokenNode, RhErr> {
+    match token_handler.get_token() {
+        Token::OParen => {
+            return function_call_statement(token_handler, id);
+        }
+        _ => {
+            return assignment(token_handler, id);
+        }
+    }
 }
 
 fn condition(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
@@ -477,15 +570,15 @@ fn asm_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         Token::StrLiteral(str) => {
             token_handler.next_token();
             if *token_handler.get_token() != Token::CParen {
-                Err(token_handler.new_err(ET::ExpectedCParen));
+                return Err(token_handler.new_err(ET::ExpectedCParen));
             }
             token_handler.next_token();
             if *token_handler.get_token() != Token::Semi {
-                Err(token_handler.new_err(ET::ExpectedSemi));
+                return Err(token_handler.new_err(ET::ExpectedSemi));
             }
-            Ok(TokenNode::new(NodeType::Asm(str.to_string()), None))
+            return Ok(TokenNode::new(NodeType::Asm(str.to_string()), None));
         }
-        _ => Err(token_handler.new_err(ET::ExpectedStrLiteral)),
+        _ => return Err(token_handler.new_err(ET::ExpectedStrLiteral)),
     }
 }
 

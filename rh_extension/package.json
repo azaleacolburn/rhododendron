@@ -1,0 +1,25 @@
+{
+  "name": "rh",
+  "displayName": "rhododendron",
+  "description": "Language support for rhododendron",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "rhododendron",
+      "aliases": ["Rhododendron", "rhododendron"],
+      "extensions": [".rho",".rh",".rhododendron"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "rhododendron",
+      "scopeName": "source.rhododendron",
+      "path": "./syntaxes/rhododendron.tmLanguage.json"
+    }]
+  }
+}

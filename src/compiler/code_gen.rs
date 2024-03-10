@@ -1,16 +1,57 @@
 use std::collections::HashMap;
 
-use crate::parser::{NodeType, ScopeType, TokenNode};
+use crate::compiler::parser::{NodeType, ScopeType, TokenNode};
 
 // This is technically somehow working right now and I have no idea why, I think it does things
 // backwards but it's ok
-pub struct ScopeHandler {
+/// This struct manages the stack and all scopes
+/// It stores the furthest offset from the base of the stack
+/// This model works on the assumption that the base of the stack shifts around as well
+/// So a store looks like this
+/// "store x1, [sp, #{}]", (furthest_offset + sp_offset)
+
+pub struct SymbolTable {
+    table: HashMap<String, i32>,
+    parent: Option<&'static SymbolTable>,
+    children: Vec<SymbolTable>,
+}
+
+impl SymbolTable {
+    fn new(parent: Option<&SymbolTable>) -> SymbolTable {
+        SymbolTable {
+            table: HashMap::new(),
+            parent,
+            children: vec![],
+        }
+    }
+
+    fn add_child(&mut self) {
+        let child = SymbolTable::new(Some(&self));
+        self.children.push(child);
+    }
+
+    fn get_id(&self, id: String) -> Option<&i32> {
+        self.table.get(&id).to_owned()
+    }
+}
+
+pub struct Handler {
     scopes: Vec<String>,
     curr_scope: usize,
+    sym_tree: SymbolTable,
     break_anchors: Vec<usize>, // each number represents the insertuction pointer that can be broken to from the current scope
 }
 
-impl ScopeHandler {
+impl Handler {
+    fn new() -> Self {
+        Handler {
+            scopes: vec![String::from("\n.global _main\nmain:")],
+            curr_scope: 0,
+            break_anchors: vec![],
+            sym_tree: SymbolTable::new(None),
+        }
+    }
+
     fn new_scope(&mut self) {
         self.curr_scope = self.scopes.len();
         self.scopes
@@ -58,28 +99,19 @@ impl ScopeHandler {
     fn new_break_anchor(&mut self) {
         self.break_anchors.push(self.curr_scope);
     }
-}
 
-/// This struct manages the stack
-/// It stores the furthest offset from the base of the stack
-/// This model works on the assumption that the base of the stack shifts around as well
-/// So a store looks like this
-/// "store x1, [sp, #{}]", (furthest_offset + sp_offset)
-pub struct StackHandler {
-    stack_handler: HashMap<String, i32>, // contain the relative stack positions
-    furthest_offset: i32,
-}
+    fn get_id(&self, id: impl ToString) -> Result<&i32> {
+        let sym_res = self.sym_tree.get_id(id.to_string());
 
-impl StackHandler {
-    fn new() -> Self {
-        StackHandler {
-            stack_handler: HashMap::new(),
-            furthest_offset: 0,
+        if sym_res.is_none() {
+            return match self.sym_tree.parent {
+                Some(parent) => parent.get_id(&id),
+                None => return Err() // TODO: Return an error because the sym doesn't exist
+            }
+            self.sym_tree.parent.get_id(&id);
         }
-    }
 
-    fn get_id(&self, id: &str) -> Option<&i32> {
-        self.stack_handler.get(id)
+        Ok(sym_res)
     }
 
     fn insert(&mut self, id: impl ToString, size: i32) {
@@ -95,6 +127,10 @@ impl StackHandler {
     fn insert_expr_literal(&mut self) {
         self.furthest_offset -= 16;
     }
+
+    fn insert_function(&mut self, name: String) {
+        self.function_handler.insert(name, self.curr_scope as i32);
+    }
 }
 
 macro_rules! switch {
@@ -105,11 +141,7 @@ macro_rules! switch {
 
 // Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn main(node: &TokenNode) -> String {
-    let mut scopes = ScopeHandler {
-        scopes: vec![String::from("\n.global _main\nmain:")],
-        curr_scope: 0,
-        break_anchors: vec![],
-    };
+    let mut handler = Handler::new();
     println!("In code gen");
     // use this later
     // var_name : pos_on_stack
@@ -117,88 +149,72 @@ pub fn main(node: &TokenNode) -> String {
 
     // Stores the variable name and their relative position on the stack(from the top of the stack
     // at the begining of runtime). This should be on a per_scope level
-    let mut stack_handler = StackHandler::new();
     println!("{:?}", node.token);
     println!("{:?}", node.children.as_ref().unwrap()[0].token);
     if node.token == NodeType::Program {
         scope_code_gen(
             &node.children.as_ref().unwrap()[0],
-            &mut stack_handler,
+            &mut handler,
             &mut 0,
-            &mut scopes,
             ScopeType::Program,
         );
     }
-    scopes.curr_scope = 0;
-    scopes.push_to_scope("\nmov x7, #1\nmov x0, #0\nsvc 0");
+    handler.curr_scope = 0;
+    handler.push_to_scope("\nmov x7, #1\nmov x0, #0\nsvc 0");
 
-    scopes.format_scopes()
+    handler.format_scopes()
     // code.trim().to_string()
 }
 
-pub fn scope_code_gen(
-    node: &TokenNode,
-    stack_handler: &mut StackHandler,
-    w: &mut i32,
-    scopes: &mut ScopeHandler,
-    scope_type: ScopeType,
-) {
+pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32, scope_type: ScopeType) {
     println!("Scope Node: {:?}", node);
     for child_node in node.children.as_ref().expect("Scope to have children") {
         match &child_node.token {
             NodeType::Declaration(name) => {
                 declare_code_gen(
                     &child_node,
-                    stack_handler,
+                    handler,
                     w,
-                    scopes,
                     name.as_ref()
                         .expect("valid name to have been given")
                         .clone(),
                 );
             }
             NodeType::Assignment(_) => {
-                assignment_code_gen(&child_node, stack_handler, w, scopes);
+                assignment_code_gen(&child_node, handler, w);
             }
             NodeType::If => {
-                if_code_gen(&child_node, stack_handler, w, scopes);
+                if_code_gen(&child_node, handler, w);
             }
             NodeType::While => {
-                while_code_gen(&child_node, stack_handler, w, scopes);
+                while_code_gen(&child_node, handler, w);
             }
             NodeType::Loop => {}
             NodeType::FunctionCall(_id) => {}
-            NodeType::Break => scopes.insert_break(),
+            NodeType::Break => handler.insert_break(),
             _ => {}
         };
     }
     if scope_type == ScopeType::While {
-        scopes.push_to_scope(format!("\nb .L{}", scopes.curr_scope + 1));
+        handler.push_to_scope(format!("\nb .L{}", handler.curr_scope + 1));
     }
-    scopes.push_to_scope("\nret");
+    handler.push_to_scope("\nret");
 }
 
 /// Returns the generated code
 /// Modifies the sp
-pub fn declare_code_gen(
-    node: &TokenNode,
-    stack_handler: &mut StackHandler,
-    w: &mut i32,
-    scopes: &mut ScopeHandler,
-    name: String,
-) {
+pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32, name: String) {
     println!("Declare Node: {:?}", node.token);
     expr_code_gen(
         &node.children.as_ref().expect("Node to have children")[0],
-        stack_handler,
+        handler,
         w,
-        scopes,
     );
-    stack_handler.insert_new_16(&name);
-    scopes.push_to_scope(
+    handler.insert_new_16(&name);
+    handler.push_to_scope(
         format!(
             "\nstr w0, [sp, #{}]",
-            stack_handler
+            handler
                 .get_id(&name)
                 .expect("variable wasn't pushed to stack")
         )
@@ -206,12 +222,7 @@ pub fn declare_code_gen(
     );
 }
 
-pub fn assignment_code_gen(
-    node: &TokenNode,
-    stack_handler: &mut StackHandler,
-    w: &mut i32,
-    scopes: &mut ScopeHandler,
-) {
+pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
     println!("assignment node: {:?}", node.token);
 
     let name = match &node.token {
@@ -219,56 +230,51 @@ pub fn assignment_code_gen(
         _ => panic!("Given given invalid assignment node"),
     };
 
-    expr_code_gen(
-        &node.children.as_ref().unwrap()[1],
-        stack_handler,
-        w,
-        scopes,
-    );
-    let relative_stack_position = stack_handler.get_id(name).expect("Undefined Identifier");
+    expr_code_gen(&node.children.as_ref().unwrap()[1], handler, w);
+    let relative_stack_position = handler.get_id(name).expect("Undefined Identifier");
 
     match node.children.as_ref().unwrap()[0].token {
         NodeType::Eq => {
-            scopes.push_to_scope(format!("\nstr w0, [sp, #{}]", relative_stack_position));
+            handler.push_to_scope(format!("\nstr w0, [sp, #{}]", relative_stack_position));
         }
         NodeType::AddEq => {
-            scopes.push_to_scope(format!(
+            handler.push_to_scope(format!(
                 "\nldr w1, [sp, #{}]\nadd w0, w0, w1\nstr w0, [sp, #{}]",
                 relative_stack_position, relative_stack_position
             ));
         }
         NodeType::SubEq => {
-            scopes.push_to_scope(format!(
+            handler.push_to_scope(format!(
                 "\nldr w1, [sp, #{}]\nsub w0, w0, w1\nstr w0, [sp, #{}]",
                 relative_stack_position, relative_stack_position
             ));
         }
         NodeType::MulEq => {
-            scopes.push_to_scope(format!(
+            handler.push_to_scope(format!(
                 "\nldr w1, [sp, #{}]\nmul w0, w0, w1\nstr w0, [sp, #{}]",
                 relative_stack_position, relative_stack_position
             ));
         }
         NodeType::DivEq => {
-            scopes.push_to_scope(format!(
+            handler.push_to_scope(format!(
                 "\nldr w1, [sp, #{}]\ndiv w0, w0, w1\nstr w0, [sp, #{}]",
                 relative_stack_position, relative_stack_position
             ));
         }
         NodeType::BOrEq => {
-            scopes.push_to_scope(format!(
+            handler.push_to_scope(format!(
                 "\nldr w1, [sp, #{}]\nbor w0, w0, w1\nstr w0, [sp, #{}]",
                 relative_stack_position, relative_stack_position
             ));
         }
         NodeType::BAndEq => {
-            scopes.push_to_scope(format!(
+            handler.push_to_scope(format!(
                 "\nldr w1, [sp, #{}]\nand w0, w0, w1\nstr w0, [sp, #{}]",
                 relative_stack_position, relative_stack_position
             ));
         }
         NodeType::BXorEq => {
-            scopes.push_to_scope(format!(
+            handler.push_to_scope(format!(
                 "\nldr w1, [sp, #{}]\nxor w0, w0, w1\nstr w0, [sp, #{}]",
                 relative_stack_position, relative_stack_position
             ));
@@ -279,98 +285,95 @@ pub fn assignment_code_gen(
     };
 }
 
-fn expr_code_gen(
-    node: &TokenNode,
-    stack_handler: &mut StackHandler,
-    w: &mut i32,
-    scopes: &mut ScopeHandler,
-) {
+fn expr_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
     match &node.token {
         NodeType::NumLiteral(val) => {
-            stack_handler.insert_expr_literal();
-            scopes.push_to_scope(format!("\nstr #{val}, [sp, #-16]"));
+            handler.insert_expr_literal();
+            handler.push_to_scope(format!("\nstr #{val}, [sp, #-16]"));
         }
         NodeType::Id(name) => {
-            stack_handler.insert_expr_literal();
-            let address = stack_handler.get_id(name).expect("Undefined identifier");
-            scopes.push_to_scope(format!(
+            handler.insert_expr_literal();
+            let address = handler.get_id(name).expect("Undefined identifier");
+            handler.push_to_scope(format!(
                 "\nldr w{w}, [sp, #{address}]\nstr, w{w}, [sp, #{}]",
-                stack_handler.furthest_offset
+                handler.furthest_offset
             ));
             switch!(*w);
         }
         _ => {
-            expr_code_gen(
-                &node.children.as_ref().unwrap()[0],
-                stack_handler,
-                w,
-                scopes,
-            );
-            expr_code_gen(
-                &node.children.as_ref().unwrap()[1],
-                stack_handler,
-                w,
-                scopes,
-            );
-            stack_handler.furthest_offset += 32;
-            scopes.push_to_scope(format!(
+            expr_code_gen(&node.children.as_ref().unwrap()[0], handler, w);
+            expr_code_gen(&node.children.as_ref().unwrap()[1], handler, w);
+            handler.furthest_offset += 32;
+            handler.push_to_scope(format!(
                 "\nldr w0, [sp, #{}]\nldr w1, [sp, #{}]",
-                stack_handler.furthest_offset - 16,
-                stack_handler.furthest_offset
+                handler.furthest_offset - 16,
+                handler.furthest_offset
             ));
             match &node.token {
                 NodeType::Add => {
-                    scopes.push_to_scope(format!("\nadd w{w}, w0, w1").as_str());
+                    handler.push_to_scope(format!("\nadd w{w}, w0, w1").as_str());
                 }
                 NodeType::Sub => {
-                    scopes.push_to_scope(format!("\nsub w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nsub w{w}, w0, w1"));
                 }
                 NodeType::Div => {
-                    scopes.push_to_scope(format!("\ndiv w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\ndiv w{w}, w0, w1"));
                 }
                 NodeType::Mul => {
-                    scopes.push_to_scope(format!("\nmul w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nmul w{w}, w0, w1"));
                 }
                 NodeType::BAnd => {
-                    scopes.push_to_scope(format!("\nand w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nand w{w}, w0, w1"));
                 }
                 NodeType::BOr => {
-                    scopes.push_to_scope(format!("\nor w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nor w{w}, w0, w1"));
                 }
                 NodeType::BXor => {
-                    scopes.push_to_scope(format!("\nxor w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nxor w{w}, w0, w1"));
                 }
                 _ => panic!("Expected Expression"),
             };
-            stack_handler.insert_expr_literal();
-            scopes.push_to_scope(format!(
-                "\nstr w{w}, [sp, #{}]",
-                stack_handler.furthest_offset
-            ));
-            switch!(*w);
+            handler.insert_expr_literal();
+            handler.push_to_scope(format!("\nstr w{w}, [sp, #{}]", handler.furthest_offset));
+            switch!(**w);
         }
     }
-    scopes.push_to_scope(format!(
-        "\nldr w{w}, [sp, #{}]",
-        stack_handler.furthest_offset
-    ));
-    stack_handler.furthest_offset += 16;
+    handler.push_to_scope(format!("\nldr w{w}, [sp, #{}]", handler.furthest_offset));
+    handler.furthest_offset += 16;
 }
 
-pub fn if_code_gen(
-    node: &TokenNode,
-    stack_handler: &mut StackHandler,
-    w: &mut i32,
-    scopes: &mut ScopeHandler,
-) {
+pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
+    if node.children.is_none() {
+        panic!("Function children must be some");
+    }
+    handler.new_scope();
+
+    if let NodeType::FunctionDecaration(name) = &node.token {
+        handler
+            .function_handler
+            .insert(name, handler.curr_scope as i32);
+        for child in node.children.as_ref().unwrap().iter() {
+            // TODO: Simplify return types of a function with the scope return type
+            if let NodeType::Type(_) = child.token {
+                break;
+            } else if let NodeType::Scope(_) = child.token {
+                break;
+            }
+        }
+    }
+}
+
+pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {}
+
+pub fn if_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
     match &node.children {
         Some(children) => {
             // cmp x1, #n
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
 
-            condition_expr_code_gen(&children[0], w, stack_handler, scopes);
-            scope_code_gen(&children[1], stack_handler, w, scopes, ScopeType::If);
+            condition_expr_code_gen(&children[0], handler, w);
+            scope_code_gen(&children[1], handler, w, ScopeType::If);
         }
         None => {
             panic!("Expected Condition");
@@ -378,12 +381,7 @@ pub fn if_code_gen(
     };
 }
 
-pub fn condition_expr_code_gen(
-    node: &TokenNode,
-    w: &mut i32,
-    stack_handler: &mut StackHandler,
-    scopes: &mut ScopeHandler,
-) {
+pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
     println!("condition expr node: {:?}", node.token);
     match &node.token {
         NodeType::AndCmp => {}
@@ -395,33 +393,31 @@ pub fn condition_expr_code_gen(
                     .children
                     .as_ref()
                     .expect("more children in condition expr")[0],
+                handler,
                 w,
-                stack_handler,
-                scopes,
             );
             condition_expr_code_gen(
                 &node
                     .children
                     .as_ref()
                     .expect("more children in condition expr")[1],
+                handler,
                 w,
-                stack_handler,
-                scopes,
             );
-            scopes.push_to_scope(
-                format!("\ncmp w0, w1\nbeq .L{}\nret", scopes.curr_scope + 1).as_str(),
+            handler.push_to_scope(
+                format!("\ncmp w0, w1\nbleq .L{}\nret", handler.curr_scope + 1).as_str(),
             );
-            scopes.new_scope();
+            handler.new_scope();
         }
         NodeType::Id(id) => {
-            let relative_path = stack_handler.get_id(id).unwrap(); // relative path moves stack down without -
+            let relative_path = handler.get_id(id).unwrap(); // relative path moves stack down without -
 
-            scopes.push_to_scope(format!("\nldr w{}, [sp, #{}]", w, relative_path).as_str());
+            handler.push_to_scope(format!("\nldr w{}, [sp, #{}]", w, relative_path).as_str());
             switch!(*w);
             // scopes.push_to_scope(format!("\nadd sp, {}, sp", relative_path).as_str());
         }
         NodeType::NumLiteral(num) => {
-            scopes.push_to_scope(format!("\nmov w{}, {}", w, num).as_str());
+            handler.push_to_scope(format!("\nmov w{}, {}", w, num).as_str());
             switch!(*w);
         }
         _ => {
@@ -431,21 +427,16 @@ pub fn condition_expr_code_gen(
     // code.push_str("\nbeq");
 }
 
-fn while_code_gen(
-    node: &TokenNode,
-    stack_handler: &mut StackHandler,
-    w: &mut i32,
-    scopes: &mut ScopeHandler,
-) {
+fn while_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
     match &node.children {
         Some(children) => {
-            scopes.push_to_scope(format!("\nb .L{}", scopes.curr_scope + 1));
-            scopes.new_break_anchor();
-            scopes.new_scope();
+            handler.push_to_scope(format!("\nb .L{}", handler.curr_scope + 1));
+            handler.new_break_anchor();
+            handler.new_scope();
 
-            condition_expr_code_gen(&children[0], w, stack_handler, scopes);
-            scope_code_gen(&children[1], stack_handler, w, scopes, ScopeType::While);
-            scopes.new_scope();
+            condition_expr_code_gen(&children[0], handler, w);
+            scope_code_gen(&children[1], handler, w, ScopeType::While);
+            handler.new_scope();
         }
         None => {
             panic!("Expected Condition")
@@ -453,21 +444,21 @@ fn while_code_gen(
     }
 }
 
-fn asm_code_gen(node: &TokenNode, scopes: &mut ScopeHandler) {
+fn asm_code_gen(node: &TokenNode, handler: &mut Handler) {
     match &node.token {
-        NodeType::Asm(str) => scopes.push_to_scope(str),
+        NodeType::Asm(str) => handler.push_to_scope(str),
         _ => panic!("Expected Asm"),
     }
 }
 
 // TODO: Fix the program so this isn't needed(maybe pass a ret flag into scope_code_gen)
-fn remove_scope_ret(scopes: &mut ScopeHandler) {
+fn remove_scope_ret(handler: &mut Handler) {
     // Removes the last line which is ret
     let mut check = false;
-    for i in (0..scopes.scopes[scopes.curr_scope].len() - 1).rev() {
-        if scopes.scopes[scopes.curr_scope].chars().nth(i).unwrap() == '\n' {
-            let len = scopes.scopes.clone()[scopes.curr_scope].len() - 2;
-            scopes.scopes[scopes.curr_scope].truncate(len);
+    for i in (0..handler.scopes[handler.curr_scope].len() - 1).rev() {
+        if handler.scopes[handler.curr_scope].chars().nth(i).unwrap() == '\n' {
+            let len = handler.scopes.clone()[handler.curr_scope].len() - 2;
+            handler.scopes[handler.curr_scope].truncate(len);
             if check {
                 break;
             }

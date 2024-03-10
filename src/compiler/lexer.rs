@@ -7,7 +7,7 @@ pub struct LineNumHandler {
 }
 
 impl LineNumHandler {
-    pub fn new() {
+    pub fn new() -> LineNumHandler {
         LineNumHandler {
             token_lines: vec![],
             curr_line: 1,
@@ -25,7 +25,7 @@ impl LineNumHandler {
     }
 
     /// Given a token index, returns the line that token was on
-    pub fn get_line(&mut self, token_i: i32) -> i32 {
+    pub fn get_line(&mut self, token_i: usize) -> i32 {
         self.token_lines[token_i]
     }
 }
@@ -162,6 +162,9 @@ pub fn string_to_tokens(
                     // split.push(String::from("for"));
                     ret.push(Token::For);
                     i += 2;
+                } else if chars[i + 1] == 'n' {
+                    ret.push(Token::Fn);
+                    i += 1;
                 } else {
                     for j in i..chars.len() {
                         if !chars[j].is_alphabetic() && chars[j] != '_' {
@@ -219,6 +222,9 @@ pub fn string_to_tokens(
                 } else if chars[i + 1] == '-' {
                     // split.push(String::from("--"));
                     ret.push(Token::SubO);
+                    i += 1;
+                } else if chars[i + 1] == '>' {
+                    ret.push(Token::Arrow);
                     i += 1;
                 } else {
                     // split.push(String::from("-"));
@@ -488,6 +494,7 @@ pub enum Token {
     For,
     While,
     Loop,
+    Fn,
     Type(RhTypes),
     // Assign(String),
     Star,
@@ -541,6 +548,7 @@ pub enum Token {
     Dot,
     Comma,
     Semi,
+    Arrow,
     // this might be to much for the lexer to do
     // FuncDeclare((String, Vec<String>, RhTypes)), // function name, args, return type
     // FuncCall(String, Vec<String>), // function name, args

@@ -7,5 +7,5 @@ int re = 42;
 int this_is_cool = 833;
 
 if (re == this_is_cool) {
-        re -= this_is_cool;
-    }
+    re -= this_is_cool;
+}

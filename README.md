@@ -5,7 +5,7 @@ Just a C-like compiler for fun
 Todo:
 - [x] Support for declaration,
 - [x] Support for while loops and if statements
-- [ ] Support for functions
+- [ ] Support for functions (including stack frames)
 - [ ] Support for structs
 
 This will include non-C features such as

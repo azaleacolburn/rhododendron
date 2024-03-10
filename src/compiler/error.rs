@@ -13,10 +13,12 @@ pub enum ET {
     ExpectedOParen,
     ExpectedCCurl,
     ExpectedStrLiteral,
+    ExpectedType,
+    ExpectedSemi,
 }
 
+#[derive(Debug, Clone)]
 pub struct RhErr {
-    err: ET,
-    line: i32,
+    pub err: ET,
+    pub line: i32,
 }
-impl Error for RhErr {}

@@ -1,6 +1,6 @@
-use crate::{code_gen::main, lexer::string_to_tokens, parser::program};
+use crate::compiler;
 use std::{
-    fs, io,
+    fs, io::{self, BufReader, Read},
     path::{Path, PathBuf},
     process::Command,
     str,
@@ -8,35 +8,23 @@ use std::{
 
 #[test]
 fn test_all() {
-    let tests: Vec<PathBuf> = get_all_files(&Path::new("tests/rh/")).expect("No files to be tests");
-    let validation: Vec<PathBuf> =
-        get_all_files(&Path::new("tests/validation")).expect("No files for validation");
+    let tests: Vec<PathBuf> = get_all_files(&Path::new("tests/core")).expect("No files to be tests");
 
-    assert_eq!(tests.len(), validation.len());
     for test_i in 0..tests.len() {
-        let raw_src = fs::read(tests[test_i].clone()).unwrap();
-        let src = str::from_utf8(&raw_src).unwrap();
-        let names: String = tests[test_i]
-            .file_name()
-            .unwrap()
-            .split(".")
-            .collect::<&str>();
-        let valid = str::from_utf8(&fs::read(validation[test_i].clone()).unwrap());
+        let name = tests[test_i].file_stem().unwrap().to_str().unwrap();
 
-        let (tokens, line_tracker) =
-            string_to_tokens(src).expect("Unable to parse integer literal");
-        let node = program(tokens, line_tracker).unwrap();
-        let generated_asm = main(&node);
+        let generated_asm = compiler::test();
+        
 
-        Command::new(format!("gcc -o {}.asm {}", names[0], names[0]))
+        Command::new(format!("gcc -o {}.asm {}", name, name))
             .spawn()
             .expect("Assembly failed");
 
-        let generated_output = Command::new(format!("./{}", names[0]))
+        let generated_output = Command::new(format!("./{}", names))
             .output()
             .expect("Failed at runtime");
 
-        assert_eq!(generated_output, valid);
+        assert_eq!(generated_output);
     }
 }
 

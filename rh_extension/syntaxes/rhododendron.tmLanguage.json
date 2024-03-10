@@ -1,0 +1,99 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Rhododendron",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"include": "#operators"
+		},
+		{
+			"include": "#reserved-words"
+		},
+		{
+			"include": "#ctrl-statements"
+		},
+		{
+			"include": "#functions"
+		},
+		{
+			"include": "#parentheses"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.rhododendron",
+					"match": "\\b(if|while|for|return|int|break)\\b"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.rhododendron",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.rhododendron",
+					"match": "\\\\."
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.rhododendron",
+					"match": "//.*"
+				}
+			]
+		},
+		"numbers": {
+			"patterns": [
+				{
+					"name": "constant.numeric.rhododendron",
+					"match": "\\b\\d+\\b"
+				}
+			]
+		},
+		"operators": {
+			"patterns": [
+				{
+					"name": "keyword.operator.rhododendron",
+					"match": "\\+=|-=|\\*=|/=|%=|\\^=|&=|\\|=|<<=|>>=|\\+\\+|--|->|==|!=|<=|>=|&&|\\|\\||<<|>>|\\+|-|\\*|/|%|\\^|&|\\||~|\\?|:|="
+				}
+			]
+		},
+		"functions": {
+			"patterns": [
+				{
+					"name": "entity.name.function.rhododendron",
+					"match": "\\b\\w+\\s*\\("
+				}
+			]
+		},
+		"parentheses": {
+			"patterns": [
+				{
+					"name": "punctuation.definition.parameters.rhododendron",
+					"match": "\\("
+				},
+				{
+					"name": "punctuation.definition.parameters.rhododendron",
+					"match": "\\)"
+				}
+			]
+		}
+	},
+	"scopeName": "source.rhododendron"
+}
