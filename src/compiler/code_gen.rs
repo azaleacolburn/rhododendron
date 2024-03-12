@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use crate::compiler::parser::{NodeType, ScopeType, TokenNode};
+use std::collections::HashMap;
 
 // This is technically somehow working right now and I have no idea why, I think it does things
 // backwards but it's ok
@@ -10,28 +9,55 @@ use crate::compiler::parser::{NodeType, ScopeType, TokenNode};
 /// So a store looks like this
 /// "store x1, [sp, #{}]", (furthest_offset + sp_offset)
 
+/// Reusable code snippets
+// const NEW_SCOPE_BYTE_ALIGN: &str = "\n.balign 4\n.L{}:";
+
+const MOV_EXPR_1: &str = "\nldr x19 [sp], #16";
+const MOV_EXPR_2: &str = "\nldr x20 [sp], #16";
+const ADD_EXPR: &str = "\nadd x19, x19, x20";
+
+// const GET_ADR: &str = "\nldr {} [sp], #16"; // assuming it was 32 bit address formatting needed
+// const STR_ADR: &str = "\nstr {}, [sp, #-16]!";
+
+const CMP_EXPR: &str = "\ncmp x19, x20"; // comparison flag set in the processor status register
+
+// const SYS_CALL_NUM: &str = "\nmov x0, {}"; // syscall_number
+// const SYS_CALL_ARG1: &str = "\nmov x0, {}"; // etc
+const SYS_CALL: &str = "\nsvc 0";
+
+#[derive(Debug, Clone)]
 pub struct SymbolTable {
-    table: HashMap<String, i32>,
+    table: HashMap<String, i32>, // id, offsert from current stack frame base
+    function_table: HashMap<String, String>, // function name, label number
     parent: Option<&'static SymbolTable>,
-    children: Vec<SymbolTable>,
+    children: Vec<SymbolTable>, // This probably won't work
+    furthest_offset: i32,
 }
 
 impl SymbolTable {
-    fn new(parent: Option<&SymbolTable>) -> SymbolTable {
+    fn new(parent: Option<&SymbolTable>, arg_num: i32) -> SymbolTable {
         SymbolTable {
             table: HashMap::new(),
+            function_table: HashMap::new(),
             parent,
             children: vec![],
+            furthest_offset: 1 + arg_num, // stackframe_base, ret, a*. Measured in bytes (change if needed)
         }
     }
 
-    fn add_child(&mut self) {
-        let child = SymbolTable::new(Some(&self));
+    fn add_child(&mut self, arg_num: i32) {
+        let child = SymbolTable::new(Some(&self), arg_num);
         self.children.push(child);
     }
 
     fn get_id(&self, id: String) -> Option<&i32> {
         self.table.get(&id).to_owned()
+    }
+
+    fn new_id(&mut self, id: String, size: i32) {
+        self.table.insert(id, self.furthest_offset);
+
+        self.furthest_offset += size;
     }
 }
 
@@ -48,9 +74,11 @@ impl Handler {
             scopes: vec![String::from("\n.global _main\nmain:")],
             curr_scope: 0,
             break_anchors: vec![],
-            sym_tree: SymbolTable::new(None),
+            sym_tree: SymbolTable::new(None, 0),
         }
     }
+
+    /// Scopes
 
     fn new_scope(&mut self) {
         self.curr_scope = self.scopes.len();
@@ -91,6 +119,8 @@ impl Handler {
         }
     }
 
+    /// Breaks
+
     fn insert_break(&mut self) {
         self.push_to_scope(format!("\nb .L{}", self.curr_scope + 1));
         self.new_scope();
@@ -100,36 +130,46 @@ impl Handler {
         self.break_anchors.push(self.curr_scope);
     }
 
-    fn get_id(&self, id: impl ToString) -> Result<&i32> {
+    /// Frames + Symbol Tables
+
+    /// This function must be breaking some borrow checker rule
+    fn new_stack_frame(&mut self, arg_num: i32) {
+        let new_st = SymbolTable::new(Some(&self.sym_tree), arg_num); // TODO: Check how this can be done, we might need to use box
+
+        // FIXME: Finish to switch out new_st properly and make a fully-doubly linked list
+
+        self.sym_tree = new_st;
+    }
+
+    // Panics if id doesn't exist
+    fn get_id(&self, id: impl ToString) -> Option<&i32> {
         let sym_res = self.sym_tree.get_id(id.to_string());
 
         if sym_res.is_none() {
             return match self.sym_tree.parent {
-                Some(parent) => parent.get_id(&id),
-                None => return Err() // TODO: Return an error because the sym doesn't exist
-            }
-            self.sym_tree.parent.get_id(&id);
+                Some(parent) => Some(parent.get_id(id.to_string()).expect("Symbol not found")),
+                None => return None,
+            };
         }
 
-        Ok(sym_res)
+        sym_res
     }
 
-    fn insert(&mut self, id: impl ToString, size: i32) {
-        self.furthest_offset -= size;
-        self.stack_handler
-            .insert(id.to_string(), self.furthest_offset);
+    fn new_id(&mut self, id: impl ToString, size: i32) {
+        self.sym_tree.new_id(id.to_string(), size);
     }
 
-    fn insert_new_16(&mut self, id: impl ToString) {
-        self.insert(id, 16);
+    fn new_16(&mut self, id: impl ToString) {
+        self.sym_tree.new_id(id.to_string(), 16);
     }
 
-    fn insert_expr_literal(&mut self) {
-        self.furthest_offset -= 16;
+    fn new_expr_literal(&mut self) {
+        self.sym_tree.furthest_offset += 16; // Make some macro mechanism to force this to be freed
     }
 
-    fn insert_function(&mut self, name: String) {
-        self.function_handler.insert(name, self.curr_scope as i32);
+    fn new_function(&mut self, name: String, arg_num: i32) {
+        self.sym_tree.new_id(name, 16); // 16 bit instuction pointer
+        self.new_stack_frame(arg_num);
     }
 }
 
@@ -166,7 +206,7 @@ pub fn main(node: &TokenNode) -> String {
     // code.trim().to_string()
 }
 
-pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32, scope_type: ScopeType) {
+pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32, scope_type: ScopeType) {
     println!("Scope Node: {:?}", node);
     for child_node in node.children.as_ref().expect("Scope to have children") {
         match &child_node.token {
@@ -174,20 +214,20 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32, scop
                 declare_code_gen(
                     &child_node,
                     handler,
-                    w,
+                    x,
                     name.as_ref()
                         .expect("valid name to have been given")
                         .clone(),
                 );
             }
             NodeType::Assignment(_) => {
-                assignment_code_gen(&child_node, handler, w);
+                assignment_code_gen(&child_node, handler, x);
             }
             NodeType::If => {
-                if_code_gen(&child_node, handler, w);
+                if_code_gen(&child_node, handler, x);
             }
             NodeType::While => {
-                while_code_gen(&child_node, handler, w);
+                while_code_gen(&child_node, handler, x);
             }
             NodeType::Loop => {}
             NodeType::FunctionCall(_id) => {}
@@ -203,17 +243,17 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32, scop
 
 /// Returns the generated code
 /// Modifies the sp
-pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32, name: String) {
+pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32, name: String) {
     println!("Declare Node: {:?}", node.token);
     expr_code_gen(
         &node.children.as_ref().expect("Node to have children")[0],
         handler,
         w,
     );
-    handler.insert_new_16(&name);
+    handler.new_16(&name);
     handler.push_to_scope(
         format!(
-            "\nstr w0, [sp, #{}]",
+            "\nstr x19, [sp, #{}]",
             handler
                 .get_id(&name)
                 .expect("variable wasn't pushed to stack")
@@ -222,7 +262,7 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32, na
     );
 }
 
-pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
+pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {
     println!("assignment node: {:?}", node.token);
 
     let name = match &node.token {
@@ -230,54 +270,31 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32)
         _ => panic!("Given given invalid assignment node"),
     };
 
-    expr_code_gen(&node.children.as_ref().unwrap()[1], handler, w);
+    expr_code_gen(&node.children.as_ref().unwrap()[1], handler, x);
     let relative_stack_position = handler.get_id(name).expect("Undefined Identifier");
 
     match node.children.as_ref().unwrap()[0].token {
-        NodeType::Eq => {
-            handler.push_to_scope(format!("\nstr w0, [sp, #{}]", relative_stack_position));
-        }
+        NodeType::Eq => handler.push_to_scope("\nstr x19, [sp, #-16]!"),
         NodeType::AddEq => {
-            handler.push_to_scope(format!(
-                "\nldr w1, [sp, #{}]\nadd w0, w0, w1\nstr w0, [sp, #{}]",
-                relative_stack_position, relative_stack_position
-            ));
+            handler.push_to_scope("\nldr x20, [sp], #16\nadd x19, x19, x20\nstr x19, [sp, #-16]!")
         }
         NodeType::SubEq => {
-            handler.push_to_scope(format!(
-                "\nldr w1, [sp, #{}]\nsub w0, w0, w1\nstr w0, [sp, #{}]",
-                relative_stack_position, relative_stack_position
-            ));
+            handler.push_to_scope("\nldr x20, [sp], #16\nsub x19, x19, x20\nstr x19, [sp, #-16]!")
         }
         NodeType::MulEq => {
-            handler.push_to_scope(format!(
-                "\nldr w1, [sp, #{}]\nmul w0, w0, w1\nstr w0, [sp, #{}]",
-                relative_stack_position, relative_stack_position
-            ));
+            handler.push_to_scope("\nldr x20, [sp], #16\nmul x19, x19, x20\nstr x19, [sp, #-16]!")
         }
         NodeType::DivEq => {
-            handler.push_to_scope(format!(
-                "\nldr w1, [sp, #{}]\ndiv w0, w0, w1\nstr w0, [sp, #{}]",
-                relative_stack_position, relative_stack_position
-            ));
+            handler.push_to_scope("\nldr x20, [sp], #16\ndiv x19, x19, x20\nstr x19, [sp, #-16]!")
         }
         NodeType::BOrEq => {
-            handler.push_to_scope(format!(
-                "\nldr w1, [sp, #{}]\nbor w0, w0, w1\nstr w0, [sp, #{}]",
-                relative_stack_position, relative_stack_position
-            ));
+            handler.push_to_scope("\nldr x20, [sp], #16\nbor x19, x19, x20\nstr x19, [sp, #-16]!")
         }
         NodeType::BAndEq => {
-            handler.push_to_scope(format!(
-                "\nldr w1, [sp, #{}]\nand w0, w0, w1\nstr w0, [sp, #{}]",
-                relative_stack_position, relative_stack_position
-            ));
+            handler.push_to_scope("\nldr x20, [sp], #16\nand x19, x19, x20\nstr x19, [sp, #-16]!")
         }
         NodeType::BXorEq => {
-            handler.push_to_scope(format!(
-                "\nldr w1, [sp, #{}]\nxor w0, w0, w1\nstr w0, [sp, #{}]",
-                relative_stack_position, relative_stack_position
-            ));
+            handler.push_to_scope("\nldr x20, [sp], #16\nxor x19, x19, x20\nstr x19, [sp, #-16]!")
         }
         _ => {
             panic!("Expected Assignment")
@@ -285,64 +302,57 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32)
     };
 }
 
-fn expr_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
+fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {
     match &node.token {
         NodeType::NumLiteral(val) => {
-            handler.insert_expr_literal();
-            handler.push_to_scope(format!("\nstr #{val}, [sp, #-16]"));
+            handler.new_expr_literal();
+            handler.push_to_scope(format!("\nstr #{val}, [sp, #-16]!"));
         }
         NodeType::Id(name) => {
-            handler.insert_expr_literal();
-            let address = handler.get_id(name).expect("Undefined identifier");
+            handler.new_expr_literal();
+            let offset = handler.get_id(name).expect("Undefined identifier");
             handler.push_to_scope(format!(
-                "\nldr w{w}, [sp, #{address}]\nstr, w{w}, [sp, #{}]",
-                handler.furthest_offset
+                "\nldr x{x}, [r29] #{offset}\nstr, x{x}, [sp, #-16]!",
             ));
-            switch!(*w);
+            switch!(*x);
         }
         _ => {
-            expr_code_gen(&node.children.as_ref().unwrap()[0], handler, w);
-            expr_code_gen(&node.children.as_ref().unwrap()[1], handler, w);
-            handler.furthest_offset += 32;
-            handler.push_to_scope(format!(
-                "\nldr w0, [sp, #{}]\nldr w1, [sp, #{}]",
-                handler.furthest_offset - 16,
-                handler.furthest_offset
-            ));
+            expr_code_gen(&node.children.as_ref().unwrap()[0], handler, x);
+            expr_code_gen(&node.children.as_ref().unwrap()[1], handler, x);
             match &node.token {
                 NodeType::Add => {
-                    handler.push_to_scope(format!("\nadd w{w}, w0, w1").as_str());
+                    handler.push_to_scope(format!("\nadd x{x}, x19, x20").as_str());
                 }
                 NodeType::Sub => {
-                    handler.push_to_scope(format!("\nsub w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nsub x{x}, x19, x20"));
                 }
                 NodeType::Div => {
-                    handler.push_to_scope(format!("\ndiv w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\ndiv x{x}, x19, x20"));
                 }
                 NodeType::Mul => {
-                    handler.push_to_scope(format!("\nmul w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nmul x{x}, x19, x20"));
                 }
                 NodeType::BAnd => {
-                    handler.push_to_scope(format!("\nand w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nand x{x}, x19, x20"));
                 }
                 NodeType::BOr => {
-                    handler.push_to_scope(format!("\nor w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nor x{x}, x19, x20"));
                 }
                 NodeType::BXor => {
-                    handler.push_to_scope(format!("\nxor w{w}, w0, w1"));
+                    handler.push_to_scope(format!("\nxor x{x}, x19, x20"));
                 }
                 _ => panic!("Expected Expression"),
             };
-            handler.insert_expr_literal();
-            handler.push_to_scope(format!("\nstr w{w}, [sp, #{}]", handler.furthest_offset));
-            switch!(**w);
+            handler.new_expr_literal();
+            handler.push_to_scope("\nstr x{x}, [sp, #16]!");
+            switch!(*x);
         }
     }
-    handler.push_to_scope(format!("\nldr w{w}, [sp, #{}]", handler.furthest_offset));
-    handler.furthest_offset += 16;
+    handler.push_to_scope("\nldr x{x}, [sp, #{}]");
+    handler.sym_tree.furthest_offset += 16;
 }
 
-pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
+pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {
     if node.children.is_none() {
         panic!("Function children must be some");
     }
@@ -363,16 +373,16 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, w: &mu
     }
 }
 
-pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {}
+pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {}
 
-pub fn if_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
+pub fn if_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {
     match &node.children {
         Some(children) => {
             // cmp x1, #n
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
 
-            condition_expr_code_gen(&children[0], handler, w);
+            condition_expr_code_gen(&children[0], handler, x);
             scope_code_gen(&children[1], handler, w, ScopeType::If);
         }
         None => {
@@ -381,7 +391,7 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
     };
 }
 
-pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
+pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {
     println!("condition expr node: {:?}", node.token);
     match &node.token {
         NodeType::AndCmp => {}
@@ -405,7 +415,7 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut 
                 w,
             );
             handler.push_to_scope(
-                format!("\ncmp w0, w1\nbleq .L{}\nret", handler.curr_scope + 1).as_str(),
+                format!("\ncmp x19, x20\nbleq .L{}\nret", handler.curr_scope + 1).as_str(),
             );
             handler.new_scope();
         }
@@ -413,12 +423,12 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut 
             let relative_path = handler.get_id(id).unwrap(); // relative path moves stack down without -
 
             handler.push_to_scope(format!("\nldr w{}, [sp, #{}]", w, relative_path).as_str());
-            switch!(*w);
+            switch!(*x);
             // scopes.push_to_scope(format!("\nadd sp, {}, sp", relative_path).as_str());
         }
         NodeType::NumLiteral(num) => {
             handler.push_to_scope(format!("\nmov w{}, {}", w, num).as_str());
-            switch!(*w);
+            switch!(*x);
         }
         _ => {
             panic!("Expected Condition");
@@ -427,14 +437,14 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut 
     // code.push_str("\nbeq");
 }
 
-fn while_code_gen(node: &TokenNode, handler: &mut Handler, w: &mut i32) {
+fn while_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {
     match &node.children {
         Some(children) => {
             handler.push_to_scope(format!("\nb .L{}", handler.curr_scope + 1));
             handler.new_break_anchor();
             handler.new_scope();
 
-            condition_expr_code_gen(&children[0], handler, w);
+            condition_expr_code_gen(&children[0], handler, x);
             scope_code_gen(&children[1], handler, w, ScopeType::While);
             handler.new_scope();
         }
