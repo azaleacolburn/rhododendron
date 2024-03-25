@@ -2,3 +2,5 @@ int n = 7;
 
 int num=6*7+n;
 int u = 5;
+
+u = num + 5;

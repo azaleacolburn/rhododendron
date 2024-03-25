@@ -13,10 +13,10 @@ fn test_all() {
     for test_i in 0..tests.len() {
         let name = tests[test_i].file_stem().unwrap().to_str().unwrap();
 
-        let generated_asm = compiler::test();
+        let generated_asm = compiler::test(tests[test_i], tests[test_i]);
         
 
-        Command::new(format!("gcc -o {}.asm {}", name, name))
+        Command::new(format!("gcc -o {name}.asm {name}"))
             .spawn()
             .expect("Assembly failed");
 
