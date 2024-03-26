@@ -36,7 +36,7 @@ pub struct FunctionSig {
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
     table: HashMap<String, i32>, // id, offsert from current stack frame base
-    function_table: HashMap<String, FunctionSig>, // function name, label number
+    function_table: HashMap<String, FunctionSig>, // function name, label
     parent: Option<Box<SymbolTable>>,
     furthest_offset: i32,
 }
@@ -85,6 +85,10 @@ impl Handler {
         self.curr_scope = self.scopes.len();
         self.scopes
             .push(format!("\n.balign 4\n.L{}:", self.curr_scope));
+    }
+
+    fn prev_scope(&mut self) {
+        self.curr_scope -= 1;
     }
 
     fn push_to_scope(&mut self, string: impl ToString) {
@@ -169,9 +173,10 @@ impl Handler {
     fn new_function(&mut self, name: impl ToString, args: Vec<String>) {
         self.sym_tree.new_id(name.to_string(), 16); // 16 bit instuction pointer
         self.new_stack_frame(args.len() as i32);
+        let new_scope_label = format!(".L{}", self.curr_scope);
         let function_sig = FunctionSig {
             args,
-            label: "".to_string(), // figure out how to determine label (probably based on a property in handler)
+            label: new_scope_label, // figure out how to determine label (probably based on a property in handler)
         };
         self.sym_tree
             .function_table
@@ -230,7 +235,12 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32, scop
                 while_code_gen(&child_node, handler, x);
             }
             NodeType::Loop => {}
-            NodeType::FunctionCall(_id) => {}
+            NodeType::FunctionCall(id) => {
+                function_call_code_gen(&child_node, handler, id.to_string())
+            }
+            NodeType::FunctionDecaration(id) => {
+                function_declare_code_gen(&child_node, handler, id.to_string(), x)
+            }
             NodeType::Break => handler.insert_break(),
             _ => {}
         };
@@ -253,6 +263,7 @@ pub fn declare_code_gen(
     t: RhTypes,
 ) {
     println!("Declare Node: {:?}", node.token);
+    println!("Node children: {:?}", node.children);
     expr_code_gen(
         &node.children.as_ref().expect("Node to have children")[0],
         handler,
@@ -341,28 +352,36 @@ pub fn function_declare_code_gen(
 
     for child in children.iter() {
         if let NodeType::Declaration((id, t)) = &child.token {
+            println!("Function Declare Argument Found");
             let size = match t {
                 RhTypes::Char => 4,
                 RhTypes::Int => 16,
             };
-            handler.new_id(id, size);
-            // TODO: figure out what other code needs to go here
+            handler.new_id(id, size); // This shuld be enough since each arg should be on the top of the stack
+                                      // TODO: figure out what other code needs to go here (id any)
             args.push(id.clone());
         } else if let NodeType::Scope(_) = child.token {
-            scope_code_gen(node, handler, x, ScopeType::Function);
+            scope_code_gen(child, handler, x, ScopeType::Function);
             break;
         }
     }
     handler.new_function(name.clone(), args);
+    handler.prev_scope();
 }
 
-pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32, name: String) {
+pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: String) {
     // This assembly should:
     // Store the address of the current stack fb on the top of the stack
     // Decrement the sp by 32
     // load the address of the new stack frame base into the sfb register
     handler.push_to_scope("\nstr x29, [sp, #-32]!"); // might change, check pointer size
     handler.push_to_scope("\nldr x29, sp");
+
+    println!("Function call node\n");
+
+    node.print(&mut 0);
+
+    println!("");
 
     if node.children.is_none() {
         panic!("Function has no children");
@@ -380,7 +399,9 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i
         .get(&name)
         .expect("Invalid function name")
         .clone();
-    assert_eq!(children.len() - 2, function_sig.args.len());
+    handler.push_to_scope("\nldr x20, [x29]"); // x20 contains previous sfb address
+    println!("Node children {:?}", children);
+    println!("Function sig: {:?}", function_sig);
     for i in 1..children.len() {
         match children[i].clone().token {
             NodeType::Id(id) => {
@@ -388,7 +409,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i
                 let offset = *handler
                     .get_id(arg_name)
                     .expect("Invalid id: INTERNAL FUNCITON ERROR");
-                handler.push_to_scope(format!("\nldr x19, [x29], #{offset}\nstr x19, [sp, #-16]"));
+                handler.push_to_scope(format!("\nldr x19, [x0], #{offset}\nstr x19, [sp, #-16]"));
                 // validate this code
             }
             NodeType::NumLiteral(num) => handler.push_to_scope(format!("\nstr #{num}, [sp, #-16]")),
@@ -402,11 +423,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i
             _ => panic!("Expected ID or literal"),
         }
     }
-    if let NodeType::Id(name) = children[0].token.clone() {
-        handler.push_to_scope(format!("\nb {name}"));
-    } else {
-        panic!("Undeclared function called");
-    }
+    handler.push_to_scope(format!("\nb {}", function_sig.label));
 }
 
 pub fn if_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32) {
