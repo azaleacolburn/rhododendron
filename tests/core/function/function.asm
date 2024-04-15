@@ -1,32 +1,27 @@
 .global _main
 main:
 	mov x29, sp
-	mov x19, 1
+	mov x19, 8
 	str x19, [x29, #-16]!
 	ldr x20, [x29], #16
 	str x20, [x29, #-16]!
-	ldr w20, [sp, #4]
-	mov w19, 2
-	cmp x19, x20
-	bleq .L1
-	ret
+	str x29, [sp, #-32]! # save the stack pointer; might have to change size
+	ldr x20, [x29]
+	b .L1
 	mov x7, #1
 	mov x0, #0
 	svc 0
 
 .balign 4
 .L1:
-	mov x20, 3
+	ldr x20, [x29], #20
 	str x20, [x29, #-16]!
 	ldr x19, [x29], #16
-	str x19, [x29, 4]
-	ret
-	mov x19, 4
+	ldr x19, [x29], #20
 	str x19, [x29, #-16]!
 	ldr x20, [x29], #16
-	str x20, [x29, #-16]!
-	mov x20, 5
+	mul x20, x19, x20
 	str x20, [x29, #-16]!
 	ldr x19, [x29], #16
-	str x19, [x29, 4]
+	str x19, [x29, #-16]!
 	ret

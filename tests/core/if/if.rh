@@ -6,6 +6,6 @@ if (num == 2) {
 
 int c = 4;
 
-if (c == num) {
+if (c == num || num == 3) {
     num = 5;
 }

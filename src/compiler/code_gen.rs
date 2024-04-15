@@ -22,9 +22,8 @@ const ADD_EXPR: &str = "\nadd x19, x19, x20";
 // const STR_ADR: &str = "\nstr {}, [sp, #-16]!";
 
 const CMP_EXPR: &str = "\ncmp x19, x20"; // comparison flag set in the processor status register
-
-// const SYS_CALL_NUM: &str = "\nmov x0, {}"; // syscall_number
-// const SYS_CALL_ARG1: &str = "\nmov x0, {}"; // etc
+                                         // const SYS_CALL_NUM: &str = "\nmov x0, {}"; // syscall_number
+                                         // const SYS_CALL_ARG1: &str = "\nmov x0, {}"; // etc
 const SYS_CALL: &str = "\nsvc 0";
 
 #[derive(Debug, Clone)]
@@ -281,7 +280,7 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler, x: &mut i32)
         _ => panic!("Given given invalid assignment node"),
     };
 
-    expr_code_gen(&node.children.as_ref().unwrap()[1], handler, x);
+    expr_code_gen(&node.children.as_ref().unwrap()[0], handler, x);
     let relative_stack_position = handler.get_id(name).expect("Undefined Identifier").clone();
 
     match node.children.as_ref().unwrap()[0].token {

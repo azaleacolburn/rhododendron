@@ -52,7 +52,8 @@ pub enum NodeType {
 }
 
 impl NodeType {
-    fn from_token(tok: Token) -> Result<NodeType, ()> {
+    fn from_token(tok: &Token) -> Result<NodeType, ()> {
+        println!("tok: {:?}", tok);
         match tok {
             Token::Sub => Ok(NodeType::Sub),
             Token::Div => Ok(NodeType::Div),
@@ -60,6 +61,8 @@ impl NodeType {
             Token::Id(str) => Ok(NodeType::Id(str.to_string())),
             Token::EqCmp => Ok(NodeType::EqCmp),
             Token::NeqCmp => Ok(NodeType::NeqCmp),
+            Token::OrCmp => Ok(NodeType::OrCmp),
+            Token::AndCmp => Ok(NodeType::AndCmp),
             Token::BOr => Ok(NodeType::BOr),
             Token::BAnd => Ok(NodeType::BAnd),
             Token::BXor => Ok(NodeType::BXor),
@@ -71,7 +74,7 @@ impl NodeType {
             Token::DivEq => Ok(NodeType::DivEq),
             Token::MulEq => Ok(NodeType::MulEq),
             Token::Star => Ok(NodeType::Mul), // exception for pointer
-            Token::NumLiteral(i) => Ok(NodeType::NumLiteral(i)),
+            Token::NumLiteral(i) => Ok(NodeType::NumLiteral(*i)),
             Token::Add => Ok(NodeType::Add),
             Token::For => Ok(NodeType::For),
             Token::While => Ok(NodeType::While),
@@ -104,8 +107,8 @@ impl TokenHandler {
         self.curr_token += 1;
     }
 
-    pub fn peek(&self, i: usize) -> Token {
-        self.tokens[self.curr_token + i].clone()
+    pub fn peek(&self, i: usize) -> &Token {
+        &self.tokens[self.curr_token + i]
     }
 
     pub fn prev_token(&mut self) {
@@ -150,9 +153,7 @@ impl TokenNode {
     }
 
     pub fn print(&self, n: &mut i32) {
-        (0..*n).into_iter().for_each(|_| {
-            print!("    ");
-        });
+        (0..*n).into_iter().for_each(|_| print!("\t"));
         println!("{}", self);
         *n += 1;
         if let Some(children) = &self.children {
@@ -245,7 +246,7 @@ fn declaration(token_handler: &mut TokenHandler, t: RhTypes) -> Result<TokenNode
                 node.children
                     .as_mut()
                     .expect("node to have children")
-                    .push(expression(token_handler)?);
+                    .push(arithmetic_expression(token_handler)?);
             }
             Ok(node.clone())
         }
@@ -262,45 +263,37 @@ fn declaration_statement(token_handler: &mut TokenHandler, t: RhTypes) -> Result
     declare
 }
 
-fn expression(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
-    let mut left = term(token_handler)?;
-    if token_handler.peek(1) != Token::Add && token_handler.peek(1) != Token::Sub {
-        return Ok(left);
-    }
-    token_handler.next_token();
-    let mut curr = token_handler.get_token();
+fn arithmetic_expression(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    let mut left = arithmetic_term(token_handler)?;
+    let mut curr = token_handler.get_token().clone();
     println!("Expression curr: {:?}", curr);
-    while *curr == Token::Add || *curr == Token::Sub {
-        let op = curr.clone();
-        let right = term(token_handler)?;
-        let op_tok = TokenNode::new(NodeType::from_token(op).unwrap(), Some(vec![left, right]));
-
-        left = op_tok;
-        curr = &token_handler.get_token();
+    while curr == Token::Add || curr == Token::Sub {
+        let right = arithmetic_term(token_handler)?;
+        left = TokenNode::new(
+            NodeType::from_token(&curr).unwrap(),
+            Some(vec![left, right]),
+        );
+        curr = token_handler.get_token().clone();
     }
     Ok(left)
 }
 
-fn term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
-    let mut left: TokenNode = factor(token_handler)?;
-    if token_handler.peek(1) != Token::Div && token_handler.peek(1) != Token::Star {
-        return Ok(left);
-    }
-    token_handler.next_token();
-    let mut curr = token_handler.get_token();
+fn arithmetic_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    let mut left: TokenNode = arithmetic_factor(token_handler)?;
+    let mut curr = token_handler.get_token().clone();
     println!("Term curr: {:?}", curr);
-    while *curr == Token::Star || *curr == Token::Div {
-        let op = curr.clone();
-        token_handler.next_token();
-        let right = factor(token_handler)?;
-        let op_tok = TokenNode::new(NodeType::from_token(op).unwrap(), Some(vec![left, right]));
-        left = op_tok;
-        curr = &token_handler.get_token();
+    while curr == Token::Star || curr == Token::Div {
+        let right = arithmetic_factor(token_handler)?;
+        left = TokenNode::new(
+            NodeType::from_token(&curr).unwrap(),
+            Some(vec![left, right]),
+        );
+        curr = token_handler.get_token().clone();
     }
     Ok(left)
 }
 
-fn factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let token = token_handler.get_token();
     println!("Factor: {:?}, ", token);
     match token {
@@ -308,7 +301,7 @@ fn factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         Token::Id(id) => Ok(TokenNode::new(NodeType::Id(id.to_string()), None)),
         Token::OParen => {
             token_handler.next_token();
-            match expression(token_handler) {
+            match arithmetic_expression(token_handler) {
                 Ok(node) => {
                     if *token_handler.get_token() == Token::CParen {
                         Ok(node)
@@ -327,13 +320,7 @@ fn assignment(token_handler: &mut TokenHandler, name: String) -> Result<TokenNod
     token_handler.next_token();
     let token = TokenNode::new(
         NodeType::Assignment(name),
-        Some(vec![
-            TokenNode::new(
-                NodeType::from_token(token_handler.get_token().clone()).expect("valid id"),
-                None,
-            ),
-            expression(token_handler)?,
-        ]),
+        Some(vec![arithmetic_expression(token_handler)?]),
     );
     token_handler.next_token();
     if *token_handler.get_token() != Token::Semi {
@@ -461,7 +448,7 @@ fn function_call(token_handler: &mut TokenHandler, name: String) -> Result<Token
     token_handler.next_token();
     loop {
         println!("Call arg: {:?}", token_handler.get_token());
-        let arg_node = expression(token_handler)?;
+        let arg_node = arithmetic_expression(token_handler)?;
         function_call_node.children.as_mut().unwrap().push(arg_node);
         token_handler.next_token();
         if *token_handler.get_token() != Token::Comma {
@@ -513,65 +500,43 @@ fn condition(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
 }
 
 fn condition_expr(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
-    println!("CONDITION expr");
     let mut left = condition_term(token_handler)?;
-    if token_handler.peek(1) != Token::AndCmp && token_handler.peek(1) != Token::OrCmp {
-        return Ok(left);
-    }
+    println!("Condition Expr Left: {:?}", left);
     token_handler.next_token();
-    let mut curr = token_handler.get_token();
-    while *curr == Token::AndCmp || *curr == Token::OrCmp {
-        let cmp = curr.clone();
+    let mut curr = token_handler.get_token().clone();
+    while curr == Token::AndCmp || curr == Token::OrCmp {
+        token_handler.next_token();
         let right = condition_term(token_handler)?;
-        let cmp_tok = TokenNode::new(NodeType::from_token(cmp).unwrap(), Some(vec![left, right]));
+        left = TokenNode::new(
+            NodeType::from_token(&curr).unwrap(),
+            Some(vec![left, right]),
+        );
+        token_handler.next_token();
 
-        left = cmp_tok;
-        // token_handler.next_token();
-        curr = token_handler.get_token();
-        println!("{:?}", curr);
+        curr = token_handler.get_token().clone();
+        println!("Condition expr curr: {:?}", curr);
     }
     Ok(left)
 }
 
 fn condition_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
-    println!("Condition term");
-    let mut left = condition_factor(token_handler)?;
-    if token_handler.peek(1) != Token::NeqCmp && token_handler.peek(1) != Token::EqCmp {
-        return Ok(left);
-    }
+    let mut left = arithmetic_expression(token_handler)?;
+    println!("Left factor: {:?}", left);
     token_handler.next_token();
-    let mut curr = token_handler.get_token();
-    while *curr == Token::NeqCmp || *curr == Token::EqCmp {
-        let cmp: Token = curr.clone();
-        println!("condition cmp: {:?}", cmp);
+    let mut curr = token_handler.get_token().clone();
+    println!("Condition factor token: {:?}", curr);
+    while curr == Token::NeqCmp || curr == Token::EqCmp {
         token_handler.next_token();
-        let right = condition_factor(token_handler)?;
-        let cmp_tok = TokenNode::new(NodeType::from_token(cmp).unwrap(), Some(vec![left, right]));
-
-        left = cmp_tok;
-        token_handler.next_token();
-        curr = &token_handler.get_token();
-        println!("{:?}", curr);
+        let right = arithmetic_expression(token_handler)?;
+        println!("Right factor: {:?}", right);
+        left = TokenNode::new(
+            NodeType::from_token(&curr).unwrap(),
+            Some(vec![left, right]),
+        );
+        curr = token_handler.get_token().clone();
+        println!("curr: {:?}", curr);
     }
     Ok(left)
-}
-
-fn condition_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
-    println!("Condition factor: {:?}", token_handler.get_token());
-    match token_handler.get_token() {
-        Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(*num), None)),
-        Token::Id(name) => Ok(TokenNode::new(NodeType::Id(name.clone()), None)),
-        Token::OParen => {
-            token_handler.next_token();
-            let node = expression(token_handler)?;
-            if *token_handler.get_token() == Token::CParen {
-                Ok(node)
-            } else {
-                Err(token_handler.new_err(ET::ExpectedCParen))
-            }
-        }
-        _ => Err(token_handler.new_err(ET::ExpectedCondition)),
-    }
 }
 
 fn asm_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
