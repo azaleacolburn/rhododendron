@@ -135,6 +135,18 @@ pub fn string_to_tokens(
                     curr = String::from("");
                 }
             }
+            'r' => {
+                if chars[i + 1] == 'e'
+                    && chars[i + 2] == 't'
+                    && chars[i + 3] == 'u'
+                    && chars[i + 4] == 'r'
+                    && chars[i + 5] == 'n'
+                    && chars[i + 6] == '('
+                {
+                    ret.push(Token::Return);
+                    i += 5;
+                }
+            }
             'c' => {
                 if chars[i + 1] == 'h'
                     && chars[i + 2] == 'a'
@@ -198,6 +210,18 @@ pub fn string_to_tokens(
                     println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
+                }
+            }
+            'a' => {
+                if chars[i + 1] == 's'
+                    && chars[i + 2] == 's'
+                    && chars[i + 3] == 'e'
+                    && chars[i + 4] == 'r'
+                    && chars[i + 5] == 't'
+                    && chars[i + 6] == ' '
+                {
+                    ret.push(Token::Assert);
+                    i += 5;
                 }
             }
             '+' => {
@@ -549,9 +573,10 @@ pub enum Token {
     Comma,
     Semi,
     Arrow,
-    // this might be to much for the lexer to do
-    // FuncDeclare((String, Vec<String>, RhTypes)), // function name, args, return type
-    // FuncCall(String, Vec<String>), // function name, args
+    Return,
+    Assert, // this might be to much for the lexer to do
+            // FuncDeclare((String, Vec<String>, RhTypes)), // function name, args, return type
+            // FuncCall(String, Vec<String>), // function name, args
 }
 
 #[derive(Debug, PartialEq, Clone)]

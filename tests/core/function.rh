@@ -4,5 +4,6 @@ int square(int x) {
     if (j == x) {
         j = 0;
     }
+    j = 1;
 }
 square(i);

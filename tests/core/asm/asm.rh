@@ -1,6 +1,0 @@
-int i = 0;
-if (i == 4) {
-    asm("mov x4, #0");
-}
-
-int j = 6;
