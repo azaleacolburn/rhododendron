@@ -1,9 +1,6 @@
-int i = 8;
-int square(int x) {
-    int j = x * x;
-    if (j == x) {
-        j = 0;
-    }
-    j = 1;
-}
-square(i);
+    asm("mov x8, #64 ; syscall for write");
+    asm("mov x2, #1 ; length of string");
+    asm("str x2, [sp, #-4] ; value to be printed");
+    asm("ldr x1, [sp], #4 ; pull param off stack");
+    asm("mov x0, #1 ; file descriptor 1 (stdout)");
+    asm("svc #0");

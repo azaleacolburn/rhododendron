@@ -222,6 +222,12 @@ pub fn string_to_tokens(
                 {
                     ret.push(Token::Assert);
                     i += 5;
+                } else if chars[i + 1] == 's'
+                    && chars[i + 2] == 'm'
+                    && (chars[i + 3] == ' ' || chars[i + 3] == '(')
+                {
+                    ret.push(Token::Asm);
+                    i += 2;
                 }
             }
             '+' => {

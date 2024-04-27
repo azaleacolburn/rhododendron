@@ -71,7 +71,7 @@ impl Handler {
     fn new() -> Self {
         Handler {
             scopes: vec![String::from(
-                "\n.global _main\nmain:\n; rhododendron programs use x29 as a sp\nmov x29, sp",
+                "\n.global .main\n.balign 4\n.main:\n; rhododendron programs use x29 for stack frame base\nmov x29, sp",
             )],
             curr_scope: 0,
             break_anchors: vec![],
@@ -230,7 +230,12 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
                 function_declare_code_gen(&child_node, handler, id.to_string())
             }
             NodeType::Break => handler.insert_break(),
-            NodeType::Return => handler.return_statement_code_gen();
+            NodeType::Return => {
+                if scope_type == ScopeType::Function {
+                    return return_statement_code_gen(&child_node, handler);
+                }
+            }
+            NodeType::Asm(str) => asm_code_gen(&child_node, handler, str.to_string()),
             _ => {}
         };
     }
@@ -247,16 +252,18 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
 pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _t: RhTypes) {
     println!("Declare Node: {:?}", node.token);
     println!("Node children: {:?}", node.children);
+    handler.push_to_scope("\n\n; variable declaration");
     expr_code_gen(
         &node.children.as_ref().expect("Node to have children")[0],
         handler,
         19,
     );
     handler.new_16(&name);
-    handler.push_to_scope(format!("\nstr x19, [x29, #-4]!"));
+    handler.push_to_scope(format!("\nstr x19, [sp, #-4]!"));
 }
 
 pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
+    handler.push_to_scope("\n\n; variable assignment");
     println!("Assignment Node: {:?}", node.token);
 
     let (name, op) = match &node.token {
@@ -290,14 +297,14 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
     match &node.token {
         NodeType::NumLiteral(val) => {
             handler.new_expr_literal();
-            handler.push_to_scope(format!("\nmov x{x}, {val}"));
-            handler.push_to_scope(format!("\nstr x{x}, [x29, #-4]!"));
+            handler.push_to_scope(format!("\nmov x{x}, #{val}"));
+            handler.push_to_scope(format!("\nstr x{x}, [sp, #-4]!"));
         }
         NodeType::Id(name) => {
             handler.new_expr_literal();
             let offset = handler.get_id(name).expect("Undefined identifier");
             handler.push_to_scope(format!(
-                "\nldr x{x}, [x29], #{offset}\nstr x{x}, [x29, #-4]!",
+                "\nldr x{x}, [x29], #{offset}\nstr x{x}, [sp, #-4]!",
             ));
         }
         _ => {
@@ -314,10 +321,10 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
                 _ => panic!("Expected Expression"),
             };
             handler.new_expr_literal();
-            handler.push_to_scope(format!("\nstr x{x}, [x29, #-4]!"));
+            handler.push_to_scope(format!("\nstr x{x}, [sp, #-4]!"));
         }
     }
-    handler.push_to_scope(format!("\nldr x{x}, [x29], #4"));
+    handler.push_to_scope(format!("\nldr x{x}, [sp], #4"));
     handler.sym_tree.furthest_offset -= 4;
 }
 
@@ -326,10 +333,9 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
         panic!("Function children must be some");
     }
 
-    handler.push_to_scope("\n\n; function declaration");
-
     let children = node.children.as_ref().unwrap();
     handler.new_scope();
+    handler.push_to_scope("\n; function declaration");
     let function_scope = handler.curr_scope;
     let mut args: Vec<String> = vec![];
 
@@ -349,7 +355,7 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
             break;
         }
     }
-    handler.push_to_scope("\n\n; move x29 back to previous sfb\nmov x29, [x29]\nret");
+    handler.push_to_scope("\n\n; sp <- x29\n; x29 <- &old_sfb\nmov sp, x29\nldr x29, [x29]\nret");
     handler.new_function(name.clone(), args, function_scope as i32);
     handler.curr_scope = function_scope - 1;
 }
@@ -359,7 +365,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     // Store the address of the current stack fb on the top of the stack
     // Decrement the sp by 32
     // load the address of the new stack frame base into the sfb register
-    handler.push_to_scope("\nstr x29, [x29, #-4]!"); // might change, check pointer size
+    handler.push_to_scope("\n\n; place address of previous sfb on stack as the value of the new sfb\nstr x29, [sp, #-4]!"); // might change, check pointer size
 
     println!("Function call node\n");
 
@@ -385,7 +391,10 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
         .clone();
     handler.push_to_scope("\nldr x20, [x29]"); // x20 contains previous sfb address
                                                // Place the return label on the stack
-    handler.push_to_scope(format!("\nstr #{}, [x29, #-4]!", handler.curr_scope));
+    handler.push_to_scope(format!(
+        "\nmov x19, #{}\nstr x19, [sp, #-4]!",
+        handler.curr_scope
+    ));
     println!("Node children {:?}", children);
     println!("Function sig: {:?}", function_sig);
     for i in 1..children.len() {
@@ -395,18 +404,19 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
                 let offset = *handler
                     .get_id(arg_name)
                     .expect("Invalid id: INTERNAL FUNCTION ERROR");
-                handler.push_to_scope(format!("\nldr x19, [x29], #{offset}\nstr x19, [x29, #-4]!"));
+                handler.push_to_scope(format!("\nldr x19, [x29], #{offset}\nstr x19, [sp, #-4]!"));
                 // validate this code
             }
             NodeType::NumLiteral(num) => {
-                handler.push_to_scope(format!("\nstr #{num}, [x29, #-4]!"))
+                handler.push_to_scope(format!("\nmov x19, #{num}\nstr x19, [sp, #-4]!"))
             }
             NodeType::Type(t) => {
                 let size = match t {
                     RhTypes::Int => 16,
                     RhTypes::Char => 4,
                 };
-                handler.push_to_scope(format!("\nstr #{size}, [x29, #-4]!")) // this does not need to be 16 but is for convinience
+                handler.push_to_scope(format!("\nmov x19, #{size}\nstr x19, [sp, #-4]!"))
+                // this does not need to be 16 but is for convinience
             }
             _ => panic!("Expected ID or literal"),
         }
@@ -415,6 +425,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
 }
 
 pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
+    handler.push_to_scope("\n\n; if statement");
     match &node.children {
         Some(children) => {
             // cmp x1, #n
@@ -422,6 +433,7 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
             // node.children.unwrap()[0] is condition node, other child is scope
 
             condition_expr_code_gen(&children[0], handler, 19);
+            handler.push_to_scope("\n; scope of if statement");
             scope_code_gen(&children[1], handler, ScopeType::If);
             handler.curr_scope -= 1;
         }
@@ -504,11 +516,24 @@ fn assert_code_gen(node: &TokenNode, handler: &mut Handler) {
     handler.push_to_scope("\nmov x0, #1\nmov x8, #93\nsvc #0")
 }
 
-fn asm_code_gen(node: &TokenNode, handler: &mut Handler) {
-    match &node.token {
-        NodeType::Asm(str) => handler.push_to_scope(str),
-        _ => panic!("Expected Asm"),
-    }
+fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
+    handler.push_to_scope("\n\n; evaluate return statement and place on stack");
+    expr_code_gen(
+        &node
+            .children
+            .as_ref()
+            .expect("Return statement has no expression")[0],
+        handler,
+        19,
+    );
+    handler.push_to_scope("\nldr x19, [sp]");
+    handler.push_to_scope(
+        "\n\n; sp <- x29\n; x29 <- &old_sfb\nmov sp, x29\nldr x29, [x29]\nstr x19, [sp, #-4]!\nret",
+    );
+}
+
+fn asm_code_gen(node: &TokenNode, handler: &mut Handler, str: String) {
+    handler.push_to_scope(format!("\n{}", str));
 }
 
 // TODO: Fix the program so this isn't needed(maybe pass a ret flag into scope_code_gen)

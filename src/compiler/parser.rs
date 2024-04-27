@@ -595,12 +595,14 @@ fn asm_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     token_handler.next_token();
     match token_handler.get_token().clone() {
         Token::StrLiteral(str) => {
+            println!("Asm string: {}", str);
             token_handler.next_token();
             if *token_handler.get_token() != Token::CParen {
                 return Err(token_handler.new_err(ET::ExpectedCParen));
             }
             token_handler.next_token();
             if *token_handler.get_token() != Token::Semi {
+                println!("TOKEN: {:?}", token_handler.get_token());
                 return Err(token_handler.new_err(ET::ExpectedSemi));
             }
             return Ok(TokenNode::new(NodeType::Asm(str.to_string()), None));
@@ -659,7 +661,7 @@ pub fn assert_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, R
     return Ok(node);
 }
 
-pub fn return_statement(token_handler: &mut TokenHandler) -> Result<(TokenNode, RhErr)> {
+pub fn return_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     token_handler.next_token();
     if *token_handler.get_token() != Token::OParen {
         return Err(token_handler.new_err(ET::ExpectedOParen));
@@ -669,4 +671,6 @@ pub fn return_statement(token_handler: &mut TokenHandler) -> Result<(TokenNode, 
     if *token_handler.get_token() != Token::CParen {
         return Err(token_handler.new_err(ET::ExpectedCParen));
     }
+    let return_token = TokenNode::new(NodeType::Return, Some(vec![expr_node]));
+    return Ok(return_token);
 }
