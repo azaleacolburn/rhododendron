@@ -51,6 +51,7 @@ pub enum NodeType {
     Type(RhTypes),
     Assert,
     Return,
+    PutChar,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -267,6 +268,7 @@ pub fn statement(
         Token::Asm => asm_statement(token_handler),
         Token::Assert => assert_statement(token_handler),
         Token::Return => return_statement(token_handler),
+        Token::PutChar => putchar_statement(token_handler),
         _ => Err(token_handler.new_err(ET::ExpectedStatement)),
     }
 }
@@ -657,9 +659,34 @@ pub fn assert_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, R
     if *token_handler.get_token() == Token::CParen {
         return Err(token_handler.new_err(ET::ExpectedCParen));
     }
+    token_handler.next_token();
+    if *token_handler.get_token() != Token::Semi {
+        return Err(token_handler.new_err(ET::ExpectedSemi));
+    }
 
     return Ok(node);
 }
+
+pub fn putchar_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    token_handler.next_token();
+    if *token_handler.get_token() != Token::OParen {
+        return Err(token_handler.new_err(ET::ExpectedOParen));
+    }
+    token_handler.next_token();
+    let expr_node = condition_expr(token_handler)?;
+    let putchar_node = TokenNode::new(NodeType::PutChar, Some(vec![expr_node]));
+    println!("putchar token after: {:?}", token_handler.get_token());
+    if *token_handler.get_token() != Token::CParen {
+        return Err(token_handler.new_err(ET::ExpectedCParen));
+    }
+    token_handler.next_token();
+    if *token_handler.get_token() != Token::Semi {
+        return Err(token_handler.new_err(ET::ExpectedSemi));
+    }
+    return Ok(putchar_node);
+}
+
+// pub fn print_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {}
 
 pub fn return_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     token_handler.next_token();

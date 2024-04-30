@@ -230,6 +230,15 @@ pub fn string_to_tokens(
                     i += 2;
                 }
             }
+            'p' => {
+                if chars[i + 1] == 'u'
+                    && chars[i + 2] == 't'
+                    && (chars[i + 3] == '(' || chars[i + 3] == ' ')
+                {
+                    ret.push(Token::PutChar);
+                    i += 2;
+                }
+            }
             '+' => {
                 if chars[i + 1] == '=' {
                     //split.push(String::from("+="));
@@ -580,6 +589,7 @@ pub enum Token {
     Semi,
     Arrow,
     Return,
+    PutChar,
     Assert, // this might be to much for the lexer to do
             // FuncDeclare((String, Vec<String>, RhTypes)), // function name, args, return type
             // FuncCall(String, Vec<String>), // function name, args
