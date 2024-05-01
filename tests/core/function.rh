@@ -1,2 +1,4 @@
 int x = 50;
+int y = 49;
 put(x);
+put(y);
