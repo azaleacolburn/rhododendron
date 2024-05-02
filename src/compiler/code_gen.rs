@@ -80,7 +80,7 @@ impl Handler {
         handler.scopes.push(String::new());
 
         handler
-            .push_to_scope("\n.main:\n; x29 is our sfb\n;x28 is our sp\nmov x29, sp\nmov x28, sp");
+            .push_to_scope("\n.main:\n; x29 is our sfb\n;x15 is our sp\nmov x29, sp\nmov x15, sp");
 
         handler
     }
@@ -266,7 +266,7 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _
     expr_code_gen(
         &node.children.as_ref().expect("Node to have children")[0],
         handler,
-        19,
+        9,
     );
     handler.new_4_byte(&name);
     handler.push_to_scope("\n");
@@ -274,7 +274,7 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _
 }
 
 pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
-    handler.push_to_scope("\n\n; variable assignment");
+    handler.push_to_scope("\n; variable assignment");
     println!("Assignment Node: {:?}", node.token);
 
     let (name, op) = match &node.token {
@@ -283,25 +283,25 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
     };
     let relative_stack_position = handler.get_id(name).expect("Undefined Identifier").clone();
 
-    expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 19);
-    handler.push_to_scope("\nldr x19, [x28], #4");
+    expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 9);
+    handler.push_to_scope("\nldr x9, [x28], #4");
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
-        handler.push_to_scope(format!("\nldr x20, [x29, #{relative_stack_position}]"));
+        handler.push_to_scope(format!("\nldr x10, [x29, #{relative_stack_position}]"));
         match op {
-            AssignmentOpType::AddEq => handler.push_to_scope("\nadd x19, x19, x20"),
-            AssignmentOpType::SubEq => handler.push_to_scope("\nsub x19, x19, x20"),
-            AssignmentOpType::MulEq => handler.push_to_scope("\nmul x19, x19, x20"),
-            AssignmentOpType::DivEq => handler.push_to_scope("\ndiv x19, x19, x20"),
-            AssignmentOpType::BOrEq => handler.push_to_scope("\nbor x19, x19, x20"),
-            AssignmentOpType::BAndEq => handler.push_to_scope("\nand x19, x19, x20"),
-            AssignmentOpType::BXorEq => handler.push_to_scope("\nxor x19, x19, x20"),
+            AssignmentOpType::AddEq => handler.push_to_scope("\nadd x9, x9, x10"),
+            AssignmentOpType::SubEq => handler.push_to_scope("\nsub x9, x9, x10"),
+            AssignmentOpType::MulEq => handler.push_to_scope("\nmul x9, x9, x10"),
+            AssignmentOpType::DivEq => handler.push_to_scope("\ndiv x9, x9, x10"),
+            AssignmentOpType::BOrEq => handler.push_to_scope("\nbor x9, x9, x10"),
+            AssignmentOpType::BAndEq => handler.push_to_scope("\nand x9, x9, x10"),
+            AssignmentOpType::BXorEq => handler.push_to_scope("\nxor x9, x9, x10"),
             _ => panic!("Unexpected Operator"),
         };
     }
 
-    handler.push_to_scope(format!("\nstr x19, [x29, #{relative_stack_position}]!"));
+    handler.push_to_scope(format!("\nstr x9, [x29, #{relative_stack_position}]!"));
 }
 
 // Leaves the result on TOS
@@ -309,29 +309,29 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
     match &node.token {
         NodeType::NumLiteral(val) => {
             handler.push_to_scope(format!("\nmov x{x}, #{val}"));
-            handler.push_to_scope(format!("\nstr x{x}, [x28, #-4]!"));
+            handler.push_to_scope(format!("\nstr x{x}, [x15, #-4]!"));
         }
         NodeType::Id(name) => {
             let offset = handler.get_id(name).expect("Undefined identifier");
             handler.push_to_scope(format!(
-                "\nldr x{x}, [x29, #{offset}]\nstr x{x}, [x28, #-4]!",
+                "\nldr x{x}, [x29, #{offset}]\nstr x{x}, [x15, #-4]!",
             ));
         }
         _ => {
             expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 19);
             expr_code_gen(&node.children.as_ref().unwrap()[1], handler, 20);
-            handler.push_to_scope("\n\n; load from stack\nldr x19, [x28], #4\nldr x20, [x28], #4");
+            handler.push_to_scope("\n\n; load from stack\nldr x9, [x15], #4\nldr x10, [x15], #4");
             match &node.token {
-                NodeType::Add => handler.push_to_scope(format!("\nadd x19, x19, x20")),
-                NodeType::Sub => handler.push_to_scope(format!("\nsub x19, x19, x20")),
-                NodeType::Div => handler.push_to_scope(format!("\ndiv x19, x19, x20")),
-                NodeType::Mul => handler.push_to_scope(format!("\nmul x19, x19, x20")),
-                NodeType::BAnd => handler.push_to_scope(format!("\nand x19, x19, x20")),
-                NodeType::BOr => handler.push_to_scope(format!("\nor x19, x19, x20")),
-                NodeType::BXor => handler.push_to_scope(format!("\nxor x19, x19, x20")),
+                NodeType::Add => handler.push_to_scope(format!("\nadd x9, x9, x10")),
+                NodeType::Sub => handler.push_to_scope(format!("\nsub x9, x9, x10")),
+                NodeType::Div => handler.push_to_scope(format!("\ndiv x9, x9, x10")),
+                NodeType::Mul => handler.push_to_scope(format!("\nmul x9, x9, x10")),
+                NodeType::BAnd => handler.push_to_scope(format!("\nand x9, x9, x10")),
+                NodeType::BOr => handler.push_to_scope(format!("\nor x9, x9, x10")),
+                NodeType::BXor => handler.push_to_scope(format!("\nxor x9, x9, x10")),
                 _ => panic!("Expected Expression"),
             };
-            handler.push_to_scope("\nstr x19, [x28, #-4]!");
+            handler.push_to_scope("\nstr x9, [x15, #-4]!");
         }
     }
 }
@@ -352,7 +352,7 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
             println!("Function Declare Argument Found");
             let size = match t {
                 RhTypes::Char => 4,
-                RhTypes::Int => 16,
+                RhTypes::Int => 4,
             };
             handler.new_id(id, size); // This shuld be enough since each arg should be on the top of the stack
                                       // TODO: figure out what other code needs to go here (id any)
@@ -363,7 +363,7 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
             break;
         }
     }
-    handler.push_to_scope("\n\n; sp <- x29\n; x29 <- &old_sfb\nmov x28, x29\nldr x29, [x29]\nret");
+    handler.push_to_scope("\n\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nret");
     handler.new_function(name.clone(), args, function_scope as i32);
     handler.curr_scope = function_scope - 1;
 }
@@ -373,7 +373,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     // Store the address of the current stack fb on the top of the stack
     // Decrement the sp by 32
     // load the address of the new stack frame base into the sfb register
-    handler.push_to_scope("\n\n; place address of previous sfb on stack as the value of the new sfb\nstr x29, [x28, #-4]!"); // might change, check pointer size
+    handler.push_to_scope("\n\n; place address of previous sfb on stack as the value of the new sfb\nstr x29, [x15, #-4]!"); // might change, check pointer size
 
     println!("Function call node\n");
 
@@ -397,10 +397,10 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
         .get(&name)
         .expect("Invalid function name")
         .clone();
-    handler.push_to_scope("\nldr x20, [x29]"); // x20 contains previous sfb address
+    handler.push_to_scope("\nldr x10, [x29]"); // x29 contains previous sfb address
                                                // Place the return label on the stack
     handler.push_to_scope(format!(
-        "\nmov x19, #{}\nstr x19, [x28, #-4]!",
+        "\nmov x9, #{}\nstr x9, [x15, #-4]!",
         handler.curr_scope
     ));
     println!("Node children {:?}", children);
@@ -412,18 +412,18 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
                 let offset = *handler
                     .get_id(arg_name)
                     .expect("Invalid id: INTERNAL FUNCTION ERROR");
-                handler.push_to_scope(format!("\nldr x19, [x29], #{offset}\nstr x19, [x28, #-4]!"));
+                handler.push_to_scope(format!("\nldr x9, [x29], #{offset}\nstr x9, [x15, #-4]!"));
                 // validate this code
             }
             NodeType::NumLiteral(num) => {
-                handler.push_to_scope(format!("\nmov x19, #{num}\nstr x19, [x28, #-4]!"))
+                handler.push_to_scope(format!("\nmov x9, #{num}\nstr x19, [x15, #-4]!"))
             }
             NodeType::Type(t) => {
                 let size = match t {
-                    RhTypes::Int => 16,
+                    RhTypes::Int => 4,
                     RhTypes::Char => 4,
                 };
-                handler.push_to_scope(format!("\nmov x19, #{size}\nstr x19, [x28, #-4]!"))
+                handler.push_to_scope(format!("\nmov x9, #{size}\nstr x9, [x15, #-4]!"))
                 // this does not need to be 16 but is for convinience
             }
             _ => panic!("Expected ID or literal"),
@@ -440,7 +440,7 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
             // beq label
             // node.children.unwrap()[0] is condition node, other child is scope
 
-            condition_expr_code_gen(&children[0], handler, 19);
+            condition_expr_code_gen(&children[0], handler, 9);
             handler.push_to_scope("\n; scope of if statement");
             scope_code_gen(&children[1], handler, ScopeType::If);
             handler.curr_scope -= 1;
@@ -456,29 +456,29 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) 
     let children: Vec<TokenNode> = node.children.as_ref().unwrap_or(&Vec::new()).to_vec();
     match &node.token {
         NodeType::AndCmp => {
-            condition_expr_code_gen(&children[0], handler, 19);
-            condition_expr_code_gen(&children[1], handler, 20);
+            condition_expr_code_gen(&children[0], handler, 9);
+            condition_expr_code_gen(&children[1], handler, 10);
         }
         // This makes putting booleans into conditions illegal
         // TODO: Fix this or add it to parsing restraints
         NodeType::OrCmp => {
-            condition_expr_code_gen(&children[0], handler, 19);
+            condition_expr_code_gen(&children[0], handler, 9);
             handler.curr_scope -= 1;
             handler.scopes.pop();
-            condition_expr_code_gen(&children[1], handler, 20);
+            condition_expr_code_gen(&children[1], handler, 10);
         }
         NodeType::NeqCmp => {
-            condition_expr_code_gen(&children[0], handler, 19);
-            condition_expr_code_gen(&children[1], handler, 20);
+            condition_expr_code_gen(&children[0], handler, 9);
+            condition_expr_code_gen(&children[1], handler, 10);
 
-            handler.push_to_scope(format!("\ncmp x19, x20\nbne .L{}", handler.curr_scope + 1));
+            handler.push_to_scope(format!("\ncmp x9, x10\nbne .L{}", handler.curr_scope + 1));
             handler.new_scope();
         }
         NodeType::EqCmp => {
-            condition_expr_code_gen(&children[0], handler, 19);
-            condition_expr_code_gen(&children[1], handler, 20);
+            condition_expr_code_gen(&children[0], handler, 9);
+            condition_expr_code_gen(&children[1], handler, 10);
 
-            handler.push_to_scope(format!("\ncmp x19, x20\nbeq .L{}", handler.curr_scope + 1));
+            handler.push_to_scope(format!("\ncmp x9, x10\nbeq .L{}", handler.curr_scope + 1));
             handler.new_scope();
         }
         NodeType::Id(id) => {
@@ -534,9 +534,9 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
         handler,
         19,
     );
-    handler.push_to_scope("\nldr x19, [28]");
+    handler.push_to_scope("\nldr x9, [28]");
     handler.push_to_scope(
-        "\n\n; sp <- x29\n; x29 <- &old_sfb\nmov x28, x29\nldr x29, [x29]\nstr x19, [x28, #-4]!\nret",
+        "\n\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nstr x9, [x15, #-4]!\nret",
     );
 }
 
@@ -551,7 +551,7 @@ fn putchar_code_gen(node: &TokenNode, handler: &mut Handler) {
         .expect("Putchar node has no children");
     expr_code_gen(&children[0], handler, 19);
     // We can assume that the result goes on top of the stack
-    handler.push_to_scope("\n\n; putchar\nmov x0, #1 ; stdout\nmov x1, x28 ; put from TOS\nmov x2, #1 ; print 1 char\nmov x16, #4 ; write\nsvc #0x80");
+    handler.push_to_scope("\n\n; putchar\nmov x0, #1 ; stdout\nmov x1, x15 ; put from TOS\nmov x2, #1 ; print 1 char\nmov x16, #4 ; write\nsvc #0x80\n");
 }
 
 // TODO: Fix the program so this isn't needed(maybe pass a ret flag into scope_code_gen)
