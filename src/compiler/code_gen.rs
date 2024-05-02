@@ -45,7 +45,7 @@ impl SymbolTable {
             table: HashMap::new(),
             function_table: HashMap::new(),
             parent,
-            furthest_offset: 4 + arg_num, // stackframe_base(0), ret(4), a*. Measured in bytes (change if needed)
+            furthest_offset: 8 + arg_num, // stackframe_base(0), ret(4), a*. Measured in bytes (change if needed)
         }
     }
 
@@ -174,12 +174,12 @@ impl Handler {
         self.sym_tree.new_id(id.to_string(), size);
     }
 
-    fn new_4_byte(&mut self, id: impl ToString) {
-        self.sym_tree.new_id(id.to_string(), 4);
+    fn new_8_byte(&mut self, id: impl ToString) {
+        self.sym_tree.new_id(id.to_string(), 8);
     }
 
     fn new_function(&mut self, name: impl ToString, args: Vec<String>, scope: i32) {
-        self.sym_tree.new_id(name.to_string(), 4); // 16 bit instuction pointer
+        self.sym_tree.new_id(name.to_string(), 8); // 64 bit instuction pointer
         self.new_stack_frame(args.len() as i32);
         let new_scope_label = format!(".L{}", scope);
         let function_sig = FunctionSig {
@@ -268,7 +268,7 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _
         handler,
         9,
     );
-    handler.new_4_byte(&name);
+    handler.new_8_byte(&name);
     handler.push_to_scope("\n");
     //handler.push_to_scope(format!("\nstr x19, [sp, #-4]!"));
 }
@@ -284,7 +284,7 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
     let relative_stack_position = handler.get_id(name).expect("Undefined Identifier").clone();
 
     expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 9);
-    handler.push_to_scope("\nldr x9, [x28], #4");
+    handler.push_to_scope("\nldr x9, [x15], #8");
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
@@ -309,18 +309,18 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
     match &node.token {
         NodeType::NumLiteral(val) => {
             handler.push_to_scope(format!("\nmov x{x}, #{val}"));
-            handler.push_to_scope(format!("\nstr x{x}, [x15, #-4]!"));
+            handler.push_to_scope(format!("\nstr x{x}, [x15, #-8]!"));
         }
         NodeType::Id(name) => {
             let offset = handler.get_id(name).expect("Undefined identifier");
             handler.push_to_scope(format!(
-                "\nldr x{x}, [x29, #{offset}]\nstr x{x}, [x15, #-4]!",
+                "\nldr x{x}, [x29, #{offset}]\nstr x{x}, [x15, #-8]!",
             ));
         }
         _ => {
             expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 19);
             expr_code_gen(&node.children.as_ref().unwrap()[1], handler, 20);
-            handler.push_to_scope("\n\n; load from stack\nldr x9, [x15], #4\nldr x10, [x15], #4");
+            handler.push_to_scope("\n\n; load from stack\nldr x9, [x15], #8\nldr x10, [x15], #8");
             match &node.token {
                 NodeType::Add => handler.push_to_scope(format!("\nadd x9, x9, x10")),
                 NodeType::Sub => handler.push_to_scope(format!("\nsub x9, x9, x10")),
@@ -331,7 +331,7 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
                 NodeType::BXor => handler.push_to_scope(format!("\nxor x9, x9, x10")),
                 _ => panic!("Expected Expression"),
             };
-            handler.push_to_scope("\nstr x9, [x15, #-4]!");
+            handler.push_to_scope("\nstr x9, [x15, #-8]!");
         }
     }
 }
@@ -351,8 +351,8 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
         if let NodeType::Declaration((id, t)) = &child.token {
             println!("Function Declare Argument Found");
             let size = match t {
-                RhTypes::Char => 4,
-                RhTypes::Int => 4,
+                RhTypes::Char => 8,
+                RhTypes::Int => 8,
             };
             handler.new_id(id, size); // This shuld be enough since each arg should be on the top of the stack
                                       // TODO: figure out what other code needs to go here (id any)
@@ -373,7 +373,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     // Store the address of the current stack fb on the top of the stack
     // Decrement the sp by 32
     // load the address of the new stack frame base into the sfb register
-    handler.push_to_scope("\n\n; place address of previous sfb on stack as the value of the new sfb\nstr x29, [x15, #-4]!"); // might change, check pointer size
+    handler.push_to_scope("\n\n; place address of previous sfb on stack as the value of the new sfb\nstr x29, [x15, #-8]!"); // might change, check pointer size
 
     println!("Function call node\n");
 
@@ -400,7 +400,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     handler.push_to_scope("\nldr x10, [x29]"); // x29 contains previous sfb address
                                                // Place the return label on the stack
     handler.push_to_scope(format!(
-        "\nmov x9, #{}\nstr x9, [x15, #-4]!",
+        "\nmov x9, #{}\nstr x9, [x15, #-8]!",
         handler.curr_scope
     ));
     println!("Node children {:?}", children);
@@ -412,18 +412,18 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
                 let offset = *handler
                     .get_id(arg_name)
                     .expect("Invalid id: INTERNAL FUNCTION ERROR");
-                handler.push_to_scope(format!("\nldr x9, [x29], #{offset}\nstr x9, [x15, #-4]!"));
+                handler.push_to_scope(format!("\nldr x9, [x29], #{offset}\nstr x9, [x15, #-8]!"));
                 // validate this code
             }
             NodeType::NumLiteral(num) => {
-                handler.push_to_scope(format!("\nmov x9, #{num}\nstr x19, [x15, #-4]!"))
+                handler.push_to_scope(format!("\nmov x9, #{num}\nstr x19, [x15, #-8]!"))
             }
             NodeType::Type(t) => {
                 let size = match t {
-                    RhTypes::Int => 4,
-                    RhTypes::Char => 4,
+                    RhTypes::Int => 8,
+                    RhTypes::Char => 8,
                 };
-                handler.push_to_scope(format!("\nmov x9, #{size}\nstr x9, [x15, #-4]!"))
+                handler.push_to_scope(format!("\nmov x9, #{size}\nstr x9, [x15, #-8]!"))
                 // this does not need to be 16 but is for convinience
             }
             _ => panic!("Expected ID or literal"),
@@ -536,7 +536,7 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
     );
     handler.push_to_scope("\nldr x9, [28]");
     handler.push_to_scope(
-        "\n\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nstr x9, [x15, #-4]!\nret",
+        "\n\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nstr x9, [x15, #-8]!\nret",
     );
 }
 
