@@ -14,20 +14,20 @@ use super::lexer::RhTypes;
 /// Reusable code snippets
 // const NEW_SCOPE_BYTE_ALIGN: &str = "\n.balign 4\n.L{}:";
 
-const _MOV_EXPR_1: &str = "\nldr x19 [sp], #4";
-const _MOV_EXPR_2: &str = "\nldr x20 [sp], #4";
-const _ADD_EXPR: &str = "\nadd x19, x19, x20";
+const _MOV_EXPR_1: &str = "\nldr x9 [sp], #8";
+const _MOV_EXPR_2: &str = "\nldr x10 [sp], #8";
+const _ADD_EXPR: &str = "\nadd x9, x9, x10";
 
 // const GET_ADR: &str = "\nldr {} [sp], #16"; // assuming it was 32 bit address formatting needed
 // const STR_ADR: &str = "\nstr {}, [sp, #-16]!";
 
-const _CMP_EXPR: &str = "\ncmp x19, x20"; // comparison flag set in the processor status register
-                                          // const SYS_CALL_NUM: &str = "\nmov x0, {}"; // syscall_number
-                                          // const SYS_CALL_ARG1: &str = "\nmov x0, {}"; // etc
-const _SYS_CALL: &str = "\nsvc 0";
+const _CMP_EXPR: &str = "\ncmp x9, x0"; // comparison flag set in the processor status register
+                                        // const SYS_CALL_NUM: &str = "\nmov x0, {}"; // syscall_number
+                                        // const SYS_CALL_ARG1: &str = "\nmov x0, {}"; // etc
+const _SYS_CALL: &str = "\nsvc #0x80";
 #[derive(Debug, Clone)]
 pub struct FunctionSig {
-    args: Vec<String>, // ids in order
+    args: Vec<(String, i32)>, // ids in order
     label: String,
 }
 
@@ -35,17 +35,17 @@ pub struct FunctionSig {
 pub struct SymbolTable {
     table: HashMap<String, i32>, // id, offsert from current stack frame base
     function_table: HashMap<String, FunctionSig>, // function name, label
-    parent: Option<Box<SymbolTable>>,
+    parent: Option<usize>,       // the index in the
     furthest_offset: i32,
 }
 
 impl SymbolTable {
-    fn new(parent: Option<Box<SymbolTable>>, arg_num: i32) -> SymbolTable {
+    fn new(parent: Option<usize>, offset: i32) -> SymbolTable {
         SymbolTable {
             table: HashMap::new(),
             function_table: HashMap::new(),
             parent,
-            furthest_offset: 8 + arg_num, // stackframe_base(0), ret(4), a*. Measured in bytes (change if needed)
+            furthest_offset: offset, // stackframe_base(0), ret(4), a*. Measured in bytes (change if needed)
         }
     }
 
@@ -63,7 +63,8 @@ impl SymbolTable {
 pub struct Handler {
     scopes: Vec<String>,
     curr_scope: usize,
-    sym_tree: SymbolTable,
+    curr_frame: usize,
+    sym_arena: Vec<SymbolTable>,
     break_anchors: Vec<usize>, // each number represents the insertuction pointer that can be broken to from the current scope
 }
 
@@ -73,7 +74,8 @@ impl Handler {
             scopes: vec![String::from("\n.global .main\n.align 4\n")],
             curr_scope: 0,
             break_anchors: vec![],
-            sym_tree: SymbolTable::new(None, 0),
+            sym_arena: vec![SymbolTable::new(None, 0)],
+            curr_frame: 0,
         };
 
         handler.curr_scope = handler.scopes.len();
@@ -150,19 +152,23 @@ impl Handler {
     /// Frames + Symbol Tables
 
     /// This function must be breaking some borrow checker rule
-    fn new_stack_frame(&mut self, arg_num: i32) {
-        let new_st = SymbolTable::new(Some(Box::new(self.sym_tree.clone())), arg_num); // TODO: Check how this can be done, we might need to use bo
-
-        self.sym_tree = new_st;
+    fn new_stack_frame(&mut self) {
+        self.sym_arena
+            .push(SymbolTable::new(Some(self.curr_frame), 8));
+        self.curr_frame = self.sym_arena.len() - 1;
     }
 
     // Panics if id doesn't exist
     fn get_id(&self, id: impl ToString) -> Option<&i32> {
-        let sym_res = self.sym_tree.get_id(id.to_string());
+        let sym_res = self.sym_arena[self.curr_frame].get_id(id.to_string());
 
         if sym_res.is_none() {
-            return match &self.sym_tree.parent {
-                Some(parent) => Some(parent.get_id(id.to_string()).expect("Symbol not found")),
+            return match &self.sym_arena[self.curr_frame].parent {
+                Some(parent) => Some(
+                    self.sym_arena[*parent]
+                        .get_id(id.to_string())
+                        .expect("Symbol not found"),
+                ),
                 None => return None,
             };
         }
@@ -171,24 +177,37 @@ impl Handler {
     }
 
     fn new_id(&mut self, id: impl ToString, size: i32) {
-        self.sym_tree.new_id(id.to_string(), size);
+        self.sym_arena[self.curr_frame].new_id(id.to_string(), size);
     }
 
     fn new_8_byte(&mut self, id: impl ToString) {
-        self.sym_tree.new_id(id.to_string(), 8);
+        self.sym_arena[self.curr_frame].new_id(id.to_string(), 8);
     }
 
-    fn new_function(&mut self, name: impl ToString, args: Vec<String>, scope: i32) {
-        self.sym_tree.new_id(name.to_string(), 8); // 64 bit instuction pointer
-        self.new_stack_frame(args.len() as i32);
+    fn new_expr_lit(&mut self) {
+        self.sym_arena[self.curr_frame].furthest_offset += 8;
+    }
+
+    fn unload_expr_lit(&mut self) {
+        self.sym_arena[self.curr_frame].furthest_offset -= 8;
+    }
+
+    fn new_function(&mut self, name: impl ToString, scope: i32, args: Vec<(String, i32)>) {
         let new_scope_label = format!(".L{}", scope);
         let function_sig = FunctionSig {
-            args,
+            args: args.clone(),
             label: new_scope_label, // figure out how to determine label (probably based on a property in handler)
         };
-        self.sym_tree
+        self.sym_arena[self.curr_frame]
             .function_table
             .insert(name.to_string(), function_sig);
+
+        self.new_stack_frame();
+        self.new_expr_lit();
+
+        for arg in args.into_iter() {
+            self.new_id(arg.0, arg.1);
+        }
     }
 }
 
@@ -268,9 +287,8 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _
         handler,
         9,
     );
-    handler.new_8_byte(&name);
+    handler.new_id(&name, 0);
     handler.push_to_scope("\n");
-    //handler.push_to_scope(format!("\nstr x19, [sp, #-4]!"));
 }
 
 pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
@@ -285,6 +303,7 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
 
     expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 9);
     handler.push_to_scope("\nldr x9, [x15], #8");
+    handler.unload_expr_lit();
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
@@ -310,17 +329,21 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
         NodeType::NumLiteral(val) => {
             handler.push_to_scope(format!("\nmov x{x}, #{val}"));
             handler.push_to_scope(format!("\nstr x{x}, [x15, #-8]!"));
+            handler.new_expr_lit();
         }
         NodeType::Id(name) => {
             let offset = handler.get_id(name).expect("Undefined identifier");
             handler.push_to_scope(format!(
                 "\nldr x{x}, [x29, #{offset}]\nstr x{x}, [x15, #-8]!",
             ));
+            handler.new_expr_lit();
         }
         _ => {
-            expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 19);
-            expr_code_gen(&node.children.as_ref().unwrap()[1], handler, 20);
+            expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 9);
+            expr_code_gen(&node.children.as_ref().unwrap()[1], handler, 10);
             handler.push_to_scope("\n\n; load from stack\nldr x9, [x15], #8\nldr x10, [x15], #8");
+            handler.unload_expr_lit();
+            handler.unload_expr_lit();
             match &node.token {
                 NodeType::Add => handler.push_to_scope(format!("\nadd x9, x9, x10")),
                 NodeType::Sub => handler.push_to_scope(format!("\nsub x9, x9, x10")),
@@ -332,6 +355,7 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
                 _ => panic!("Expected Expression"),
             };
             handler.push_to_scope("\nstr x9, [x15, #-8]!");
+            handler.new_expr_lit();
         }
     }
 }
@@ -345,27 +369,33 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
     handler.new_scope();
     handler.push_to_scope("\n; function declaration");
     let function_scope = handler.curr_scope;
-    let mut args: Vec<String> = vec![];
+    let mut args: Vec<(String, i32)> = vec![];
 
-    for child in children.iter() {
-        if let NodeType::Declaration((id, t)) = &child.token {
-            println!("Function Declare Argument Found");
+    for child in 0..children.len() - 1 {
+        if let NodeType::Declaration((id, t)) = &children[child].token {
             let size = match t {
                 RhTypes::Char => 8,
                 RhTypes::Int => 8,
             };
-            handler.new_id(id, size); // This shuld be enough since each arg should be on the top of the stack
-                                      // TODO: figure out what other code needs to go here (id any)
-            args.push(id.clone());
-        } else if let NodeType::Scope(_) = child.token {
-            println!("SCOPE TIME");
-            scope_code_gen(child, handler, ScopeType::Function);
-            break;
+            // TODO: figure out what other code needs to go here (id any)
+            args.push((id.clone(), size));
         }
     }
-    handler.push_to_scope("\n\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nret");
-    handler.new_function(name.clone(), args, function_scope as i32);
+    handler.new_function(name.clone(), function_scope as i32, args);
+    let scope_child = &children[children.len() - 1];
+
+    if let NodeType::Scope(_) = scope_child.token {
+        println!("Function Scope Time");
+        scope_code_gen(&scope_child, handler, ScopeType::Function);
+    }
+
+    handler.push_to_scope(
+        "\n\n; unload stack\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nret",
+    );
     handler.curr_scope = function_scope - 1;
+    handler.curr_frame = handler.sym_arena[handler.curr_frame]
+        .parent
+        .expect("Function has no parent sym tree");
 }
 
 pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: String) {
@@ -373,63 +403,29 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     // Store the address of the current stack fb on the top of the stack
     // Decrement the sp by 32
     // load the address of the new stack frame base into the sfb register
-    handler.push_to_scope("\n\n; place address of previous sfb on stack as the value of the new sfb\nstr x29, [x15, #-8]!"); // might change, check pointer size
+    handler.push_to_scope("\n\n; place old sfb\nmov x10, x15\nstr x29, [x15, #-8]!");
 
-    println!("Function call node\n");
+    handler.new_expr_lit();
 
-    node.print(&mut 0);
+    let children = node.children.as_ref().expect("Function has no children");
 
-    println!("");
-
-    if node.children.is_none() {
-        panic!("Function has no children");
-    }
-
-    let children = node.children.as_ref().unwrap();
-
-    // This asm should:
-    // Store each 16-bit argument on the stack
-    // Store the 16-bit size of the return value on the stack
-
-    let function_sig = handler
-        .sym_tree
+    let function_sig = handler.sym_arena[handler.curr_frame]
         .function_table
         .get(&name)
         .expect("Invalid function name")
         .clone();
-    handler.push_to_scope("\nldr x10, [x29]"); // x29 contains previous sfb address
-                                               // Place the return label on the stack
-    handler.push_to_scope(format!(
-        "\nmov x9, #{}\nstr x9, [x15, #-8]!",
-        handler.curr_scope
-    ));
-    println!("Node children {:?}", children);
-    println!("Function sig: {:?}", function_sig);
-    for i in 1..children.len() {
-        match children[i].clone().token {
-            NodeType::Id(_id) => {
-                let arg_name = function_sig.args[i].clone();
-                let offset = *handler
-                    .get_id(arg_name)
-                    .expect("Invalid id: INTERNAL FUNCTION ERROR");
-                handler.push_to_scope(format!("\nldr x9, [x29], #{offset}\nstr x9, [x15, #-8]!"));
-                // validate this code
-            }
-            NodeType::NumLiteral(num) => {
-                handler.push_to_scope(format!("\nmov x9, #{num}\nstr x19, [x15, #-8]!"))
-            }
-            NodeType::Type(t) => {
-                let size = match t {
-                    RhTypes::Int => 8,
-                    RhTypes::Char => 8,
-                };
-                handler.push_to_scope(format!("\nmov x9, #{size}\nstr x9, [x15, #-8]!"))
-                // this does not need to be 16 but is for convinience
-            }
-            _ => panic!("Expected ID or literal"),
-        }
+    // TODO: Check if the return address (pc) needs to go on the stack
+    // Place the return label on the stack
+    //handler.push_to_scope(format!(
+    //    "\nmov x9, #{}\nstr x9, [x15, #-8]!",
+    //    handler.curr_scope
+    //));
+    for i in 0..function_sig.args.len() {
+        expr_code_gen(&children[i], handler, 9);
     }
-    handler.push_to_scope(format!("\nb {}", function_sig.label));
+
+    handler.push_to_scope("\nmov x29, x10");
+    handler.push_to_scope(format!("\nbl {}", function_sig.label));
 }
 
 pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
@@ -443,6 +439,7 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
             condition_expr_code_gen(&children[0], handler, 9);
             handler.push_to_scope("\n; scope of if statement");
             scope_code_gen(&children[1], handler, ScopeType::If);
+            handler.push_to_scope("\nret");
             handler.curr_scope -= 1;
         }
         None => {
@@ -504,7 +501,7 @@ fn while_code_gen(node: &TokenNode, handler: &mut Handler) {
             handler.new_break_anchor();
             handler.new_scope();
 
-            condition_expr_code_gen(&children[0], handler, 19);
+            condition_expr_code_gen(&children[0], handler, 9);
             scope_code_gen(&children[1], handler, ScopeType::While);
             handler.new_scope();
         }
@@ -520,7 +517,7 @@ fn assert_code_gen(node: &TokenNode, handler: &mut Handler) {
     if children.len() != 1 {
         panic!("Assert incorrect children: {}", children.len());
     }
-    condition_expr_code_gen(&children[0], handler, 19);
+    condition_expr_code_gen(&children[0], handler, 9);
     handler.push_to_scope("\nmov x0, #1\nmov x8, #93\nsvc #0")
 }
 
@@ -532,7 +529,7 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
             .as_ref()
             .expect("Return statement has no expression")[0],
         handler,
-        19,
+        9,
     );
     handler.push_to_scope("\nldr x9, [28]");
     handler.push_to_scope(
@@ -549,23 +546,8 @@ fn putchar_code_gen(node: &TokenNode, handler: &mut Handler) {
         .children
         .as_ref()
         .expect("Putchar node has no children");
-    expr_code_gen(&children[0], handler, 19);
+    expr_code_gen(&children[0], handler, 9);
     // We can assume that the result goes on top of the stack
-    handler.push_to_scope("\n\n; putchar\nmov x0, #1 ; stdout\nmov x1, x15 ; put from TOS\nmov x2, #1 ; print 1 char\nmov x16, #4 ; write\nsvc #0x80\n");
-}
-
-// TODO: Fix the program so this isn't needed(maybe pass a ret flag into scope_code_gen)
-fn remove_scope_ret(handler: &mut Handler) {
-    // Removes the last line which is ret
-    let mut check = false;
-    for i in (0..handler.scopes[handler.curr_scope].len() - 1).rev() {
-        if handler.scopes[handler.curr_scope].chars().nth(i).unwrap() == '\n' {
-            let len = handler.scopes.clone()[handler.curr_scope].len() - 2;
-            handler.scopes[handler.curr_scope].truncate(len);
-            if check {
-                break;
-            }
-            check = true
-        }
-    }
+    handler.push_to_scope("\n\n; putchar\nmov x0, #1 ; stdout\nmov x1, x15 ; put from TOS\nmov x2, #1 ; print 1 char\nmov x16, #4 ; write\nsvc #0x80\n; unload the TOS\nadd x15, x15, #8\n");
+    handler.unload_expr_lit();
 }

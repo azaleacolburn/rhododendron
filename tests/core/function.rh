@@ -1,4 +1,9 @@
-int x = 50;
-int y = 49;
-put(x);
-put(y);
+int putchars(int i, int j, int k) {
+    put(i);
+    put(j);
+    put(k);
+}
+int y = 'y';
+int t = '\t';
+int o = 'o';
+putchars(y, t, o);

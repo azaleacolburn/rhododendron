@@ -442,10 +442,11 @@ fn function_declare_statement(token_handler: &mut TokenHandler) -> Result<TokenN
                 .as_mut()
                 .unwrap()
                 .push(declaration_node);
-            // token_handler.next_token();
+            println!("token: {:?}", token_handler.get_token());
             if *token_handler.get_token() != Token::Comma {
                 break;
             }
+            token_handler.next_token();
         }
         // token_handler.next_token();
         println!("Cparent: {:?}", token_handler.get_token());
@@ -505,6 +506,7 @@ fn function_call(token_handler: &mut TokenHandler, name: String) -> Result<Token
         if *token_handler.get_token() != Token::Comma {
             break;
         }
+        token_handler.next_token();
     }
     println!("post args token: {:?}", token_handler.get_token());
     if *token_handler.get_token() != Token::CParen {

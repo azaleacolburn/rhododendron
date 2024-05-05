@@ -1,0 +1,8 @@
+int y = 73;
+int x = 83;
+put(x);
+int z = 78;
+put(y);
+put(z);
+int t = 69;
+put(t);

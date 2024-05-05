@@ -145,6 +145,18 @@ pub fn string_to_tokens(
                 {
                     ret.push(Token::Return);
                     i += 5;
+                } else {
+                    // if we'e here it's an identifier
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             }
             'c' => {
@@ -228,6 +240,18 @@ pub fn string_to_tokens(
                 {
                     ret.push(Token::Asm);
                     i += 2;
+                } else {
+                    // if we'e here it's an identifier
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             }
             'p' => {
@@ -237,6 +261,18 @@ pub fn string_to_tokens(
                 {
                     ret.push(Token::PutChar);
                     i += 2;
+                } else {
+                    // if we'e here it's an identifier
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
                 }
             }
             '+' => {
@@ -490,14 +526,31 @@ pub fn string_to_tokens(
                     curr = String::from("");
                 }
             }
-            'a' => {
-                if chars[i + 1] == 's' && chars[i + 2] == 'm' {
-                    ret.push(Token::Asm);
-                }
-                i += 2;
-            }
             '\n' => {
                 line_tracker.new_line();
+            }
+            '\'' => {
+                if chars[i + 1].is_ascii() {
+                    let mut val: i32 = 0;
+                    if chars[i + 1] == '\\' {
+                        if chars[i + 2].is_ascii_digit() {
+                            val = chars[i + 2].to_digit(10).expect("Invalid literal digit") as i32;
+                        } else {
+                            val = match chars[i + 2] {
+                                'n' => 10,
+                                't' => 9,
+                                _ => 0,
+                            }
+                        }
+                        i += 1
+                    } else {
+                        val = chars[i + 1] as i32;
+                    }
+                    ret.push(Token::NumLiteral(val));
+                    i += 2;
+                } else {
+                    println!("Found ' without lit");
+                }
             }
             _ => {
                 // if we'e here it's an identifier
