@@ -11,18 +11,6 @@
 	mov x9, #121
 	str x9, [x15, #-8]!
 	
-	ldr x9, [x29, #-8]
-	str x9, [x15, #-8]!
-	
-	; putchar
-	mov x0, #1 ; stdout
-	mov x1, x15 ; put from TOS
-	mov x2, #1 ; print 1 char
-	mov x16, #4 ; write
-	svc #0x80
-	; unload the TOS
-	add x15, x15, #8
-	
 	
 	; variable declaration: t
 	mov x9, #9
@@ -33,7 +21,31 @@
 	mov x9, #111
 	str x9, [x15, #-8]!
 	
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x10, x15
 	ldr x9, [x29, #-8]
+	str x9, [x15, #-8]!
+	ldr x9, [x29, #-16]
+	str x9, [x15, #-8]!
+	ldr x9, [x29, #-24]
+	str x9, [x15, #-8]!
+	mov x29, x10
+	bl .L2
+	
+	; variable declaration: z
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x10, x15
+	mov x9, #8
+	str x9, [x15, #-8]!
+	mov x29, x10
+	bl .L3
+	; assume ret is TOS
+	
+	ldr x9, [x29, #-80]
 	str x9, [x15, #-8]!
 	
 	; putchar

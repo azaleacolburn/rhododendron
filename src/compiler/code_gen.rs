@@ -40,12 +40,12 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
-    fn new(parent: Option<usize>, offset: i32) -> SymbolTable {
+    fn new(parent: Option<usize>) -> SymbolTable {
         SymbolTable {
             table: HashMap::new(),
             function_table: HashMap::new(),
             parent,
-            furthest_offset: offset, // stackframe_base(0), ret(4), a*. Measured in bytes (change if needed)
+            furthest_offset: 0,
         }
     }
 
@@ -74,7 +74,7 @@ impl Handler {
             scopes: vec![String::from("\n.global .main\n.align 4\n")],
             curr_scope: 0,
             break_anchors: vec![],
-            sym_arena: vec![SymbolTable::new(None, 0)],
+            sym_arena: vec![SymbolTable::new(None)],
             curr_frame: 0,
         };
 
@@ -153,8 +153,7 @@ impl Handler {
 
     /// This function must be breaking some borrow checker rule
     fn new_stack_frame(&mut self) {
-        self.sym_arena
-            .push(SymbolTable::new(Some(self.curr_frame), 0));
+        self.sym_arena.push(SymbolTable::new(Some(self.curr_frame)));
         self.curr_frame = self.sym_arena.len() - 1;
     }
 
@@ -203,8 +202,8 @@ impl Handler {
             .insert(name.to_string(), function_sig);
 
         self.new_stack_frame();
-        self.new_expr_lit(); // represents the SFB
 
+        self.sym_arena[self.curr_frame].furthest_offset += 8;
         for arg in args.into_iter() {
             self.new_id(arg.0, arg.1);
         }
@@ -323,7 +322,7 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
         };
     }
 
-    handler.push_to_scope(format!("\nstr x9, [x29, #{relative_stack_position}]!"));
+    handler.push_to_scope(format!("\nstr x9, [x29], #{relative_stack_position}"));
 }
 
 // Leaves the result on TOS
@@ -339,12 +338,12 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
             handler.push_to_scope(format!(
                 "\nldr x{x}, [x29, #{offset}]\nstr x{x}, [x15, #-8]!",
             ));
-            //handler.new_expr_lit();
+            handler.new_expr_lit();
         }
         NodeType::FunctionCall(name) => {
             function_call_code_gen(&node, handler, name.to_string());
+            handler.push_to_scope("\n; assume ret is TOS");
             handler.new_expr_lit();
-            handler.push_to_scope("\n; assume ret is TOS")
         }
         _ => {
             expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 9);
@@ -418,7 +417,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     // Store the address of the current stack fb on the top of the stack
     // Decrement the sp by 32
     // load the address of the new stack frame base into the sfb register
-    handler.push_to_scope("\n\n; place old sfb\nmov x10, x15\n\nstr x29, [x15, #-8]!");
+    handler.push_to_scope("\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x10, x15");
 
     handler.new_expr_lit();
 
