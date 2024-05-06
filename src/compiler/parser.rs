@@ -3,7 +3,7 @@ use crate::compiler::lexer::{LineNumHandler, RhTypes, Token};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScopeType {
-    Function,
+    Function(RhTypes),
     While,
     Program,
     If,
@@ -47,7 +47,7 @@ pub enum NodeType {
     Assignment((String, AssignmentOpType)),
     Declaration((String, RhTypes)),
     Asm(String),
-    FunctionDecaration(String),
+    FunctionDecaration((String, RhTypes)),
     Type(RhTypes),
     Assert,
     Return,
@@ -337,7 +337,14 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
     println!("Factor: {:?}, ", token);
     let ret = match token {
         Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(*num), None)),
-        Token::Id(id) => Ok(TokenNode::new(NodeType::Id(id.to_string()), None)),
+        Token::Id(id) => {
+            if *token_handler.peek(1) == Token::OParen {
+                Ok(function_call(token_handler, id.to_string())?)
+            } else {
+                Ok(TokenNode::new(NodeType::Id(id.to_string()), None))
+            }
+        }
+
         Token::OParen => {
             token_handler.next_token();
             match arithmetic_expression(token_handler) {
@@ -420,12 +427,20 @@ fn if_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
 
 fn function_declare_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     println!("Function Declaration");
+    println!("Function Return Type: {:?}", token_handler.get_token());
+    let t = if let Token::Type(t) = token_handler.get_token().clone() {
+        t
+    } else {
+        panic!("Expected type");
+    };
     token_handler.next_token();
     let token = token_handler.get_token();
     println!("Token: {:?}", token);
     if let Token::Id(id) = token {
-        let mut function_node =
-            TokenNode::new(NodeType::FunctionDecaration(id.clone()), Some(vec![]));
+        let mut function_node = TokenNode::new(
+            NodeType::FunctionDecaration((id.clone(), t.clone())),
+            Some(vec![]),
+        );
         token_handler.next_token();
         if *token_handler.get_token() != Token::OParen {
             return Err(token_handler.new_err(ET::ExpectedCParen));
@@ -454,6 +469,7 @@ fn function_declare_statement(token_handler: &mut TokenHandler) -> Result<TokenN
             return Err(token_handler.new_err(ET::ExpectedCParen));
         }
         token_handler.next_token();
+        // TODO: Decide if we want to remove
         if *token_handler.get_token() == Token::Arrow {
             token_handler.next_token();
             if let Token::Type(t) = token_handler.get_token() {
@@ -466,7 +482,7 @@ fn function_declare_statement(token_handler: &mut TokenHandler) -> Result<TokenN
         }
         println!("Pre Scope Token: {:?}", token_handler.get_token());
         token_handler.next_token();
-        let scope_node = scope(token_handler, ScopeType::Function)?;
+        let scope_node = scope(token_handler, ScopeType::Function(t.clone()))?;
         function_node.children.as_mut().unwrap().push(scope_node);
 
         return Ok(function_node);
@@ -484,6 +500,7 @@ fn function_call_statement(
         token_handler.get_token()
     );
     let call_node = function_call(token_handler, name)?;
+    token_handler.next_token();
     println!("post call statement {:?}", token_handler.get_token());
     if *token_handler.get_token() != Token::Semi {
         return Err(token_handler.new_err(ET::ExpectedSemi));
@@ -512,7 +529,6 @@ fn function_call(token_handler: &mut TokenHandler, name: String) -> Result<Token
     if *token_handler.get_token() != Token::CParen {
         return Err(token_handler.new_err(ET::ExpectedCParen));
     }
-    token_handler.next_token();
     Ok(function_call_node)
 }
 
@@ -675,7 +691,7 @@ pub fn putchar_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, 
         return Err(token_handler.new_err(ET::ExpectedOParen));
     }
     token_handler.next_token();
-    let expr_node = condition_expr(token_handler)?;
+    let expr_node = arithmetic_expression(token_handler)?;
     let putchar_node = TokenNode::new(NodeType::PutChar, Some(vec![expr_node]));
     println!("putchar token after: {:?}", token_handler.get_token());
     if *token_handler.get_token() != Token::CParen {
@@ -697,8 +713,13 @@ pub fn return_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, R
     }
     token_handler.next_token();
     let expr_node = condition_expr(token_handler)?;
+    println!("post return {:?}", token_handler.get_token());
     if *token_handler.get_token() != Token::CParen {
         return Err(token_handler.new_err(ET::ExpectedCParen));
+    }
+    token_handler.next_token();
+    if *token_handler.get_token() != Token::Semi {
+        return Err(token_handler.new_err(ET::ExpectedSemi));
     }
     let return_token = TokenNode::new(NodeType::Return, Some(vec![expr_node]));
     return Ok(return_token);

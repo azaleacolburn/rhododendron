@@ -1,9 +1,13 @@
-int putchars(int i, int j, int k) {
+void putchars(int i, int j, int k) {
     put(i);
     put(j);
     put(k);
 }
+int square(int i) {
+    return (i * i);
+}
 int y = 'y';
+put(y);
 int t = '\t';
 int o = 'o';
-putchars(y, t, o);
+put(t);

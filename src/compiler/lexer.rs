@@ -141,7 +141,7 @@ pub fn string_to_tokens(
                     && chars[i + 3] == 'u'
                     && chars[i + 4] == 'r'
                     && chars[i + 5] == 'n'
-                    && chars[i + 6] == '('
+                    && (chars[i + 6] == '(' || chars[i + 6] == ' ')
                 {
                     ret.push(Token::Return);
                     i += 5;
@@ -526,6 +526,27 @@ pub fn string_to_tokens(
                     curr = String::from("");
                 }
             }
+            'v' => {
+                if chars[i + 1] == 'o'
+                    && chars[i + 2] == 'i'
+                    && chars[i + 3] == 'd'
+                    && (chars[i + 4] == ' ' || chars[i + 4] == '*')
+                {
+                    ret.push(Token::Type(RhTypes::Void));
+                    i += 3;
+                } else {
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphabetic() && chars[j] != '_' {
+                            break;
+                        }
+                        curr.push(chars[j]);
+                    }
+                    ret.push(Token::Id(curr.clone()));
+                    println!("curr before overflow: {}", curr);
+                    i += curr.len() - 1;
+                    curr = String::from("");
+                }
+            }
             '\n' => {
                 line_tracker.new_line();
             }
@@ -652,4 +673,5 @@ pub enum Token {
 pub enum RhTypes {
     Char,
     Int,
+    Void,
 }

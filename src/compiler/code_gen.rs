@@ -154,7 +154,7 @@ impl Handler {
     /// This function must be breaking some borrow checker rule
     fn new_stack_frame(&mut self) {
         self.sym_arena
-            .push(SymbolTable::new(Some(self.curr_frame), 8));
+            .push(SymbolTable::new(Some(self.curr_frame), 0));
         self.curr_frame = self.sym_arena.len() - 1;
     }
 
@@ -203,7 +203,7 @@ impl Handler {
             .insert(name.to_string(), function_sig);
 
         self.new_stack_frame();
-        self.new_expr_lit();
+        self.new_expr_lit(); // represents the SFB
 
         for arg in args.into_iter() {
             self.new_id(arg.0, arg.1);
@@ -253,13 +253,16 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
             NodeType::FunctionCall(id) => {
                 function_call_code_gen(&child_node, handler, id.to_string())
             }
-            NodeType::FunctionDecaration(id) => {
-                function_declare_code_gen(&child_node, handler, id.to_string())
+            NodeType::FunctionDecaration((id, t)) => {
+                function_declare_code_gen(&child_node, handler, id.to_string(), t.clone())
             }
             NodeType::Break => handler.insert_break(),
             NodeType::Return => {
-                if scope_type == ScopeType::Function {
+                if let ScopeType::Function(_t) = scope_type {
+                    // return type shouldn't matter for now
                     return return_statement_code_gen(&child_node, handler);
+                } else {
+                    panic!("Return statements only allowed in function scopes");
                 }
             }
             NodeType::Asm(str) => asm_code_gen(&child_node, handler, str.to_string()),
@@ -281,7 +284,7 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
 pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _t: RhTypes) {
     println!("Declare Node: {:?}", node.token);
     println!("Node children: {:?}", node.children);
-    handler.push_to_scope("\n\n; variable declaration");
+    handler.push_to_scope(format!("\n\n; variable declaration: {}", name));
     expr_code_gen(
         &node.children.as_ref().expect("Node to have children")[0],
         handler,
@@ -336,7 +339,12 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
             handler.push_to_scope(format!(
                 "\nldr x{x}, [x29, #{offset}]\nstr x{x}, [x15, #-8]!",
             ));
+            //handler.new_expr_lit();
+        }
+        NodeType::FunctionCall(name) => {
+            function_call_code_gen(&node, handler, name.to_string());
             handler.new_expr_lit();
+            handler.push_to_scope("\n; assume ret is TOS")
         }
         _ => {
             expr_code_gen(&node.children.as_ref().unwrap()[0], handler, 9);
@@ -360,15 +368,21 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler, x: i32) {
     }
 }
 
-pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String) {
-    if node.children.is_none() {
-        panic!("Function children must be some");
-    }
-
-    let children = node.children.as_ref().unwrap();
+pub fn function_declare_code_gen(
+    node: &TokenNode,
+    handler: &mut Handler,
+    name: String,
+    t: RhTypes,
+) {
+    let children = node
+        .children
+        .as_ref()
+        .expect("Function node must have children");
+    let orig_scope = handler.curr_scope;
     handler.new_scope();
     handler.push_to_scope("\n; function declaration");
     let function_scope = handler.curr_scope;
+    println!("function_scope: {}", handler.curr_scope);
     let mut args: Vec<(String, i32)> = vec![];
 
     for child in 0..children.len() - 1 {
@@ -376,6 +390,7 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
             let size = match t {
                 RhTypes::Char => 8,
                 RhTypes::Int => 8,
+                RhTypes::Void => 8,
             };
             // TODO: figure out what other code needs to go here (id any)
             args.push((id.clone(), size));
@@ -386,13 +401,13 @@ pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: 
 
     if let NodeType::Scope(_) = scope_child.token {
         println!("Function Scope Time");
-        scope_code_gen(&scope_child, handler, ScopeType::Function);
+        scope_code_gen(&scope_child, handler, ScopeType::Function(t));
     }
 
-    handler.push_to_scope(
-        "\n\n; unload stack\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nret",
-    );
-    handler.curr_scope = function_scope - 1;
+    handler
+        .push_to_scope("\n\n; unload stack\nmov x15, x29\nadd x15, x15, #8\nldr x29, [x29]\nret");
+    handler.curr_scope = orig_scope;
+    println!("handler prev curr scope: {}", handler.curr_scope);
     handler.curr_frame = handler.sym_arena[handler.curr_frame]
         .parent
         .expect("Function has no parent sym tree");
@@ -403,7 +418,7 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     // Store the address of the current stack fb on the top of the stack
     // Decrement the sp by 32
     // load the address of the new stack frame base into the sfb register
-    handler.push_to_scope("\n\n; place old sfb\nmov x10, x15\nstr x29, [x15, #-8]!");
+    handler.push_to_scope("\n\n; place old sfb\nmov x10, x15\n\nstr x29, [x15, #-8]!");
 
     handler.new_expr_lit();
 
@@ -531,10 +546,9 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
         handler,
         9,
     );
-    handler.push_to_scope("\nldr x9, [28]");
-    handler.push_to_scope(
-        "\n\n; x15 <- x29\n; x29 <- &old_sfb\nmov x15, x29\nldr x29, [x29]\nstr x9, [x15, #-8]!\nret",
-    );
+    handler.push_to_scope("\n\n; ldr expr into x9\nldr x9, [x15], #8");
+    handler.push_to_scope("\n\n; reset sfb\nmov x15, x29\nldr x29, [x29]");
+    handler.push_to_scope("\nstr x9, [x15, #-8]!\nret");
 }
 
 fn asm_code_gen(_node: &TokenNode, handler: &mut Handler, str: String) {
@@ -542,6 +556,8 @@ fn asm_code_gen(_node: &TokenNode, handler: &mut Handler, str: String) {
 }
 
 fn putchar_code_gen(node: &TokenNode, handler: &mut Handler) {
+    println!("sym_tree: {:?}", handler.sym_arena[0]);
+
     let children = node
         .children
         .as_ref()
