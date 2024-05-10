@@ -6,9 +6,13 @@ void putchars(int i, int j, int k) {
 int square(int i) {
     return (i * i);
 }
+int count(int i) {
+    put(i);
+    count(i + 1);
+}
 int y = 'y';
 int t = '\t';
 int o = 'o';
-putchars(y, t, o);
-int z = square(8);
-put(z);
+
+
+put(square(9));

@@ -4,6 +4,7 @@ use snafu::prelude::*;
 #[derive(Debug, Clone, strum::Display)]
 pub enum ET {
     ExpectedCParen,
+    ExpectedCSquare,
     ExpectedExpression,
     ExpectedId,
     UndeclaredId,

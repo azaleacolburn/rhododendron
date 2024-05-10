@@ -1,6 +1,8 @@
-int num = 1;
-int c = 4;
-
-if (c == num || num == 3) {
-    num ^= 5;
+void check(int i, int j) {
+    if (i == j && (i == 20 || j == 21)) {
+        put(i + j);
+    }
 }
+int num = 20;
+int c = 20;
+check(num, c);

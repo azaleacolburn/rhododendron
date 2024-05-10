@@ -6,3 +6,10 @@ put(y);
 put(z);
 int t = 69;
 put(t);
+
+void putlit(int i) {
+    put(i + 48);
+}
+putlit(7);
+put('\n');
+putlit(5);

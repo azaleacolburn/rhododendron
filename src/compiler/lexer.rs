@@ -54,8 +54,6 @@ pub fn string_to_tokens(
                 }
                 num.push(chars[j]);
             }
-            println!("num: {}", num);
-            println!("is dec: {}", is_dec);
             if chars[i] == '0' {
                 // handles literals // TODO: DO LITERAL SHIT
                 // let string = chars.into_iter().collect::<String>();
@@ -100,7 +98,6 @@ pub fn string_to_tokens(
             }
         }
 
-        println!("char: {}", chars[i]);
         match chars[i] {
             ' ' => {}
             '\"' => {
@@ -114,7 +111,6 @@ pub fn string_to_tokens(
             }
             'i' => {
                 if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
-                    println!("here in int");
                     // split.push(String::from("int"));
                     ret.push(Token::Type(RhTypes::Int));
                     i += 2; // I think there's a problem with incrementing the iterator
@@ -130,7 +126,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -154,7 +149,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -176,7 +170,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -197,7 +190,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -219,7 +211,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -249,7 +240,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -270,7 +260,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -338,9 +327,9 @@ pub fn string_to_tokens(
             '{' => {
                 ret.push(Token::OCurl);
             }
-            '}' => {
-                ret.push(Token::CCurl);
-            }
+            '}' => ret.push(Token::CCurl),
+            '[' => ret.push(Token::OSquare),
+            ']' => ret.push(Token::CSquare),
             '&' => {
                 if chars[i + 1] == '=' {
                     ret.push(Token::BAndEq);
@@ -464,7 +453,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Label(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 } else {
@@ -475,7 +463,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -489,7 +476,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Goto(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 } else {
@@ -500,7 +486,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -521,7 +506,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -542,7 +526,6 @@ pub fn string_to_tokens(
                         curr.push(chars[j]);
                     }
                     ret.push(Token::Id(curr.clone()));
-                    println!("curr before overflow: {}", curr);
                     i += curr.len() - 1;
                     curr = String::from("");
                 }
@@ -569,8 +552,6 @@ pub fn string_to_tokens(
                     }
                     ret.push(Token::NumLiteral(val));
                     i += 2;
-                } else {
-                    println!("Found ' without lit");
                 }
             }
             _ => {
@@ -582,7 +563,6 @@ pub fn string_to_tokens(
                     curr.push(chars[j]);
                 }
                 ret.push(Token::Id(curr.clone()));
-                println!("curr before overflow: {}", curr);
                 i += curr.len() - 1;
                 curr = String::from("");
             }
@@ -591,12 +571,6 @@ pub fn string_to_tokens(
         line_tracker.record_token();
         // curr.push(c);
     }
-    println!();
-    for i in &ret {
-        println!("{:?}", i);
-    }
-    println!();
-    println!();
     Ok((ret, line_tracker))
 }
 
@@ -655,6 +629,8 @@ pub enum Token {
     CParen,
     OCurl,
     CCurl,
+    OSquare,
+    CSquare,
     Goto(String),
     Label(String),
     Asm,

@@ -1,0 +1,12 @@
+int j = 'h';
+int l = 'i';
+
+put(l);
+
+put(j);
+
+put(*(&j));
+
+put('\n');
+
+put(j);

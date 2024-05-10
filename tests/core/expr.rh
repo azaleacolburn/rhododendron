@@ -1,0 +1,14 @@
+int my_mul = 4 * 7;
+int my_sub = my_mul - 15;
+
+int my_div = 60 / 5;
+int my_sum = my_div + 60;
+
+int my_res = my_sum + my_sub;
+int my_int = 60 / 5 + 60 + (4 * 7 - 15);
+
+put(my_int);
+put(10);
+put(my_res);
+put(10);
+put('/');

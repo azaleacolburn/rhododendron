@@ -39,14 +39,16 @@ pub enum NodeType {
     If,
     For,
     While,
-    Loop,
+    _Loop,
     Break,
     FunctionCall(String),
     Scope(Option<RhTypes>), // <-- anything that has {} is a scope, scope is how we're handling multiple statements, scopes return the last statement's result or void
-    Condition(bool), // true is eq false is neq; This might not be completely clear when optimizing conditionals and loops start
     Assignment((String, AssignmentOpType)),
     Declaration((String, RhTypes)),
     Asm(String),
+    Adr(String),
+    DeRef,
+    Array,
     FunctionDecaration((String, RhTypes)),
     Type(RhTypes),
     Assert,
@@ -188,7 +190,7 @@ impl TokenNode {
     }
 
     pub fn print(&self, n: &mut i32) {
-        (0..*n).into_iter().for_each(|_| print!("\t"));
+        (0..*n).into_iter().for_each(|_| print!("  "));
         println!("{}", self);
         *n += 1;
         if let Some(children) = &self.children {
@@ -209,7 +211,6 @@ pub fn program(tokens: Vec<Token>, line_tracker: LineNumHandler) -> Result<Token
     program_node.children.as_mut().unwrap().push(top_scope);
 
     program_node.print(&mut 0);
-    println!("past parsing");
     Ok(program_node)
 }
 
@@ -241,7 +242,6 @@ pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<
     if *token_handler.get_prev_token() == Token::Semi {
         scope_node.token = NodeType::Scope(Some(RhTypes::Int)) // TODO: Change this to evaluate the  type of the last statement
     }
-    println!("past scope\n");
     Ok(scope_node)
 }
 
@@ -340,9 +340,65 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
         Token::Id(id) => {
             if *token_handler.peek(1) == Token::OParen {
                 Ok(function_call(token_handler, id.to_string())?)
+            } else if *token_handler.peek(1) == Token::OSquare {
+                token_handler.next_token();
+                token_handler.next_token();
+                let post_mul = TokenNode::new(
+                    NodeType::Mul,
+                    vec![
+                        arithmetic_expression(token_handler)?,
+                        TokenNode::new(NodeType::NumLiteral(-8), None),
+                    ]
+                    .into(),
+                );
+                println!("post arith indexing token: {:?}", token_handler.get_token());
+                if *token_handler.get_token() != Token::CSquare {
+                    return Err(token_handler.new_err(ET::ExpectedCSquare));
+                }
+                Ok(TokenNode::new(NodeType::DeRef, vec![post_mul].into()))
             } else {
                 Ok(TokenNode::new(NodeType::Id(id.to_string()), None))
             }
+        }
+
+        // Address of a variable
+        Token::BAnd => {
+            token_handler.next_token();
+            if let Token::Id(id) = token_handler.get_token() {
+                Ok(TokenNode::new(NodeType::Adr(id.to_string()), None))
+            } else {
+                Err(token_handler.new_err(ET::ExpectedId))
+            }
+        }
+
+        Token::Star => {
+            token_handler.next_token();
+            let factor = arithmetic_factor(token_handler)?;
+            token_handler.prev_token();
+            Ok(TokenNode::new(NodeType::DeRef, vec![factor].into()))
+        }
+
+        Token::OSquare => {
+            token_handler.next_token();
+
+            let mut node = TokenNode::new(NodeType::Array, vec![].into());
+
+            loop {
+                node.children
+                    .as_mut()
+                    .unwrap()
+                    .push(condition_expr(token_handler)?);
+                if *token_handler.get_token() != Token::Comma {
+                    break;
+                }
+                token_handler.next_token();
+            }
+
+            if *token_handler.get_token() != Token::CSquare {
+                return Err(token_handler.new_err(ET::ExpectedCSquare));
+            }
+
+            Ok(node)
         }
 
         Token::OParen => {
@@ -556,6 +612,7 @@ fn condition(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
             // evaluate condition
             token_handler.next_token();
             let condition = condition_expr(token_handler);
+            println!("Post condition token: {:?}", token_handler.get_token());
             //token_handler.next_token();
             match token_handler.get_token() {
                 Token::CParen => condition,
@@ -575,13 +632,20 @@ fn condition_expr(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> 
     let mut curr = token_handler.get_token().clone();
     while curr == Token::AndCmp || curr == Token::OrCmp {
         token_handler.next_token();
-        let right = condition_term(token_handler)?;
+        let right = if *token_handler.get_token() == Token::OParen {
+            let expr = condition_expr(token_handler)?;
+            if *token_handler.get_token() != Token::CParen {
+                return Err(token_handler.new_err(ET::ExpectedCParen));
+            }
+
+            expr
+        } else {
+            condition_term(token_handler)?
+        };
         left = TokenNode::new(
             NodeType::from_token(&curr).unwrap(),
             Some(vec![left, right]),
         );
-        //token_handler.next_token();
-
         curr = token_handler.get_token().clone();
         println!("\nCondition expr curr: {:?}", curr);
     }
@@ -592,10 +656,9 @@ fn condition_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> 
     let mut left = arithmetic_expression(token_handler)?;
     println!("Left factor: {:?}", left);
     let mut curr = token_handler.get_token().clone();
-    println!("Condition factor token: {:?}", curr);
     while curr == Token::NeqCmp || curr == Token::EqCmp {
         token_handler.next_token();
-        let right = arithmetic_expression(token_handler)?;
+        let right = condition_factor(token_handler)?;
         println!("Right factor: {:?}", right);
         left = TokenNode::new(
             NodeType::from_token(&curr).unwrap(),
@@ -605,6 +668,22 @@ fn condition_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> 
         println!("curr: {:?}", curr);
     }
     Ok(left)
+}
+
+fn condition_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    println!("Condition factor token: {:?}", token_handler.get_token());
+    match token_handler.get_token() {
+        Token::OParen => {
+            token_handler.next_token();
+            let expr = condition_expr(token_handler);
+            println!("Post arith token: {:?}", token_handler.get_token());
+            if *token_handler.get_token() != Token::CParen {
+                return Err(token_handler.new_err(ET::ExpectedCParen));
+            }
+            expr
+        }
+        _ => arithmetic_expression(token_handler),
+    }
 }
 
 fn asm_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
