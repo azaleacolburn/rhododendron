@@ -290,6 +290,61 @@ pub fn string_to_tokens(
                 } else if chars[i + 1] == '>' {
                     ret.push(Token::Arrow);
                     i += 1;
+                } else if chars[i + 1].is_numeric() {
+                    let mut is_dec = true;
+                    // chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
+                    let mut num = String::from("-");
+                    for j in i..chars.len() {
+                        if !chars[j].is_alphanumeric() {
+                            break;
+                        }
+                        if chars[j].is_alphabetic() && chars[j].is_uppercase() {
+                            is_dec = false;
+                        }
+                        num.push(chars[j]);
+                    }
+                    if chars[i] == '0' {
+                        // handles literals // TODO: DO LITERAL SHIT
+                        // let string = chars.into_iter().collect::<String>();
+
+                        let mut radix = 0; // 0 is not extranious base value
+                        match chars[i + 1] {
+                            'x' => {
+                                // hex
+                                radix = 12;
+                            }
+                            'o' => {
+                                // octal
+                                radix = 8;
+                            }
+                            'b' => {
+                                // binary
+                                radix = 2;
+                            }
+                            _ => {
+                                if chars[i + 1].is_alphabetic() {
+                                    panic!("Not supported base")
+                                }
+                            }
+                        }
+                        if radix != 0 {
+                            match i32::from_str_radix(&num, radix) {
+                                Ok(value) => {
+                                    ret.push(Token::NumLiteral(value));
+                                }
+                                Err(err) => {
+                                    continue;
+                                }
+                            };
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    if is_dec {
+                        ret.push(Token::NumLiteral(num.parse::<i32>().unwrap()));
+                        i += num.len();
+                        continue;
+                    }
                 } else {
                     // split.push(String::from("-"));
                     ret.push(Token::Sub);
@@ -300,6 +355,11 @@ pub fn string_to_tokens(
                     //split.push(String::from("/="));
                     ret.push(Token::DivEq);
                     i += 1;
+                } else if chars[i + 1] == '/' {
+                    i += 1;
+                    while chars[i] != '\n' {
+                        i += 1;
+                    }
                 } else {
                     // split.push(String::from("/"));
                     ret.push(Token::Div);

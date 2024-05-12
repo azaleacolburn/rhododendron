@@ -10,7 +10,6 @@
 	; var dec: h, offset: 8 (wrong for arrays)
 	; new array
 	mov x11, x15 ; anchor ptr
-	sub x11, x11, #8
 	mov x9, #54
 	str x9, [x15, #-8]!
 	
@@ -23,17 +22,28 @@
 	mov x9, #51
 	str x9, [x15, #-8]!
 	
-	str x11, [x15, #-8]! ; str array anchor TOS
+	mov x9, #50
+	str x9, [x15, #-8]!
 	
-	
-	; var dec: j, offset: 48 (wrong for arrays)
 	mov x9, #49
 	str x9, [x15, #-8]!
 	
-	ldr x9, [x29, #-40]
+	mov x9, #48
 	str x9, [x15, #-8]!
+	
+	str x11, [x15, #-8]! ; str array anchor TOS
+	
+	
+	; var dec: j, offset: 72 (wrong for arrays)
+	mov x9, #49
+	str x9, [x15, #-8]!
+	
+	ldr x9, [x29, #-64]
+	str x9, [x15, #-8]!
+	
 	; deref expr
 	ldr x9, [x15], #8
+	sub x9, x9, #8
 	ldr x10, [x9]
 	str x10, [x15, #-8]!
 	
@@ -46,7 +56,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-40]
+	ldr x9, [x29, #-64]
 	str x9, [x15, #-8]!
 	mov x9, #8
 	str x9, [x15, #-8]!
@@ -56,8 +66,10 @@
 	ldr x9, [x15], #8
 	sub x9, x9, x10
 	str x9, [x15, #-8]!
+	
 	; deref expr
 	ldr x9, [x15], #8
+	sub x9, x9, #8
 	ldr x10, [x9]
 	str x10, [x15, #-8]!
 	
@@ -70,7 +82,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-40]
+	ldr x9, [x29, #-64]
 	str x9, [x15, #-8]!
 	mov x9, #16
 	str x9, [x15, #-8]!
@@ -80,8 +92,10 @@
 	ldr x9, [x15], #8
 	sub x9, x9, x10
 	str x9, [x15, #-8]!
+	
 	; deref expr
 	ldr x9, [x15], #8
+	sub x9, x9, #8
 	ldr x10, [x9]
 	str x10, [x15, #-8]!
 	
@@ -94,7 +108,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-40]
+	ldr x9, [x29, #-64]
 	str x9, [x15, #-8]!
 	mov x9, #24
 	str x9, [x15, #-8]!
@@ -104,8 +118,10 @@
 	ldr x9, [x15], #8
 	sub x9, x9, x10
 	str x9, [x15, #-8]!
+	
 	; deref expr
 	ldr x9, [x15], #8
+	sub x9, x9, #8
 	ldr x10, [x9]
 	str x10, [x15, #-8]!
 	
@@ -118,8 +134,22 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	mov x9, #50
+	ldr x9, [x29, #-64]
 	str x9, [x15, #-8]!
+	mov x9, #32
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	sub x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; deref expr
+	ldr x9, [x15], #8
+	sub x9, x9, #8
+	ldr x10, [x9]
+	str x10, [x15, #-8]!
 	
 	; putchar
 	mov x0, #1 ; stdout
@@ -130,8 +160,116 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-48]
+	ldr x9, [x29, #-64]
 	str x9, [x15, #-8]!
+	mov x9, #40
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	sub x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; deref expr
+	ldr x9, [x15], #8
+	sub x9, x9, #8
+	ldr x10, [x9]
+	str x10, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	ldr x9, [x29, #-64]
+	str x9, [x15, #-8]!
+	mov x9, #48
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	sub x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; deref expr
+	ldr x9, [x15], #8
+	sub x9, x9, #8
+	ldr x10, [x9]
+	str x10, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	ldr x9, [x29, #-64]
+	str x9, [x15, #-8]!
+	mov x9, #1
+	str x9, [x15, #-8]!
+	mov x9, #8
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	mul x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	add x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; deref expr
+	ldr x9, [x15], #8
+	sub x9, x9, #8
+	ldr x10, [x9]
+	str x10, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	ldr x9, [x29, #-64]
+	str x9, [x15, #-8]!
+	mov x9, #2
+	str x9, [x15, #-8]!
+	mov x9, #8
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	mul x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	add x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; deref expr
+	ldr x9, [x15], #8
+	sub x9, x9, #8
+	ldr x10, [x9]
+	str x10, [x15, #-8]!
 	
 	; putchar
 	mov x0, #1 ; stdout

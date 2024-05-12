@@ -32,6 +32,7 @@ pub enum NodeType {
     DivEq,
     MulEq,
     Mul,
+    MNeg,
     AndCmp,
     OrCmp,
     NumLiteral(i32),
@@ -43,7 +44,7 @@ pub enum NodeType {
     Break,
     FunctionCall(String),
     Scope(Option<RhTypes>), // <-- anything that has {} is a scope, scope is how we're handling multiple statements, scopes return the last statement's result or void
-    Assignment((String, AssignmentOpType)),
+    Assignment(AssignmentOpType),
     Declaration((String, RhTypes)),
     Asm(String),
     Adr(String),
@@ -333,10 +334,10 @@ fn arithmetic_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr>
 }
 
 fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
-    let token = token_handler.get_token();
+    let token = token_handler.get_token().clone();
     println!("Factor: {:?}, ", token);
     let ret = match token {
-        Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(*num), None)),
+        Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(num), None)),
         Token::Id(id) => {
             if *token_handler.peek(1) == Token::OParen {
                 Ok(function_call(token_handler, id.to_string())?)
@@ -347,15 +348,19 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
                     NodeType::Mul,
                     vec![
                         arithmetic_expression(token_handler)?,
-                        TokenNode::new(NodeType::NumLiteral(-8), None),
+                        TokenNode::new(NodeType::NumLiteral(8), None),
                     ]
                     .into(),
+                );
+                let post_add = TokenNode::new(
+                    NodeType::Add,
+                    vec![TokenNode::new(NodeType::Id(id.to_string()), None), post_mul].into(),
                 );
                 println!("post arith indexing token: {:?}", token_handler.get_token());
                 if *token_handler.get_token() != Token::CSquare {
                     return Err(token_handler.new_err(ET::ExpectedCSquare));
                 }
-                Ok(TokenNode::new(NodeType::DeRef, vec![post_mul].into()))
+                Ok(TokenNode::new(NodeType::DeRef, vec![post_add].into()))
             } else {
                 Ok(TokenNode::new(NodeType::Id(id.to_string()), None))
             }
@@ -422,13 +427,46 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
 
 fn assignment(token_handler: &mut TokenHandler, name: String) -> Result<TokenNode, RhErr> {
     println!("Assignment token: {:?}", token_handler.get_token());
+    if *token_handler.peek(1) == Token::OSquare {
+        token_handler.next_token();
+        token_handler.next_token();
+        let post_mul = TokenNode::new(
+            NodeType::Mul,
+            vec![
+                arithmetic_expression(token_handler)?,
+                TokenNode::new(NodeType::NumLiteral(8), None),
+            ]
+            .into(),
+        );
+        let post_add = TokenNode::new(
+            NodeType::Add,
+            vec![TokenNode::new(NodeType::Id(name.clone()), None), post_mul].into(),
+        );
+        if *token_handler.get_token() != Token::CSquare {
+            return Err(token_handler.new_err(ET::ExpectedCSquare));
+        }
+        token_handler.next_token();
+        let deref_token = TokenNode::new(NodeType::DeRef, vec![post_add].into());
+        let assignment_tok = AssignmentOpType::from_token(token_handler.get_token()).unwrap();
+        token_handler.next_token();
+        let token = TokenNode::new(
+            NodeType::Assignment(assignment_tok),
+            vec![deref_token, arithmetic_expression(token_handler)?].into(),
+        );
+        if *token_handler.get_token() != Token::Semi {
+            return Err(token_handler.new_err(ET::ExpectedSemi));
+        }
+        return Ok(token);
+    }
+
     token_handler.next_token();
     let assignment_tok = AssignmentOpType::from_token(token_handler.get_token()).unwrap();
 
     token_handler.next_token();
+    let name_token = TokenNode::new(NodeType::Id(name.clone()), None);
     let token = TokenNode::new(
-        NodeType::Assignment((name, assignment_tok)),
-        Some(vec![arithmetic_expression(token_handler)?]),
+        NodeType::Assignment(assignment_tok),
+        Some(vec![name_token, arithmetic_expression(token_handler)?]),
     );
     if *token_handler.get_token() != Token::Semi {
         return Err(token_handler.new_err(ET::ExpectedSemi));

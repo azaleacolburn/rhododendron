@@ -49,6 +49,10 @@ impl SymbolTable {
         }
     }
 
+    fn get_function(&self, id: String) -> Option<&FunctionSig> {
+        self.function_table.get(&id).to_owned()
+    }
+
     fn get_id(&self, id: String) -> Option<&i32> {
         self.table.get(&id).to_owned()
     }
@@ -175,6 +179,22 @@ impl Handler {
         sym_res
     }
 
+    fn get_function(&self, id: impl ToString) -> Option<&FunctionSig> {
+        let sym_res = self.sym_arena[self.curr_frame].get_function(id.to_string());
+        if sym_res.is_none() {
+            return match &self.sym_arena[self.curr_frame].parent {
+                Some(parent) => Some(
+                    self.sym_arena[*parent]
+                        .get_function(id.to_string())
+                        .expect("Symbol not found"),
+                ),
+                None => panic!("Symbol not found"),
+            };
+        }
+
+        sym_res
+    }
+
     fn new_id(&mut self, id: impl ToString, size: i32) {
         self.sym_arena[self.curr_frame].new_id(id.to_string(), size);
     }
@@ -228,8 +248,6 @@ pub fn main(node: &TokenNode) -> String {
     }
     handler.push_to_scope("\n\n; exit program gracefully\nmov x0, #0\nmov x16, #1\nsvc #0x80");
 
-    println!();
-    println!("sym_area:\n{:?}", handler.sym_arena);
     // code.trim().to_string()
 
     handler.format_scopes()
@@ -292,6 +310,7 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _
         &node.children.as_ref().expect("Node to have children")[0],
         handler,
     );
+
     handler.new_id(&name, 0);
     handler.push_to_scope("\n");
 }
@@ -299,20 +318,49 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, _
 pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
     handler.push_to_scope("\n; variable assignment");
     println!("Assignment Node: {:?}", node.token);
+    let children = &node
+        .children
+        .as_ref()
+        .expect("Assignment token need children");
+    assert_eq!(children.len(), 2);
 
-    let (name, op) = match &node.token {
-        NodeType::Assignment(name) => name,
+    let op = match &node.token {
+        NodeType::Assignment(op) => op,
         _ => panic!("Given given invalid assignment node"),
     };
-    let relative_stack_position = handler.get_id(name).expect("Undefined Identifier").clone();
+    let relative_stack_position: String = match &children[0].token {
+        NodeType::Id(name) => {
+            let pos = handler.get_id(name).expect("Undefined Identifier").clone();
+            format!("#{}", pos).to_string()
+        }
+        NodeType::DeRef => {
+            println!("node:\n{:?}", children[0]);
+            handler.push_to_scope("\n\n; deref assignment");
+            expr_code_gen(
+                &children[0]
+                    .children
+                    .as_ref()
+                    .expect("deref must have children in assignment")[0],
+                handler,
+            );
+            handler.push_to_scope("\n\n; str offset to assign to\nmov x12, x15");
+            format!("x12").to_string()
+        }
+        _ => panic!("Only Ids are legal for assignments"),
+    };
+    // TODO: Figure out how to handle expressions
 
-    expr_code_gen(&node.children.as_ref().unwrap()[0], handler);
+    expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
     handler.push_to_scope("\nldr x9, [x15], #8");
     handler.unload_expr_lit();
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
-        handler.push_to_scope(format!("\nldr x10, [x29, #{relative_stack_position}]"));
+        if relative_stack_position == "x12" {
+            handler.push_to_scope("\nsub x12, x29, x12\nldr x10, [x13]");
+        } else {
+            handler.push_to_scope(format!("\nldr x10, [x29, {relative_stack_position}]"));
+        }
         match op {
             AssignmentOpType::AddEq => handler.push_to_scope("\nadd x9, x9, x10"),
             AssignmentOpType::SubEq => handler.push_to_scope("\nsub x9, x9, x10"),
@@ -325,7 +373,16 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
         };
     }
 
-    handler.push_to_scope(format!("\nstr x9, [x29], #{relative_stack_position}"));
+    if relative_stack_position == "x12" {
+        if *op == AssignmentOpType::Eq {
+            handler.push_to_scope("\nsub x12, x29, x12")
+        }
+        handler.push_to_scope("\nstr x9, [x13]\n");
+    } else {
+        handler.push_to_scope(format!("\nstr x9, [x29, {relative_stack_position}]\n"));
+    }
+
+    //handler.push_to_scope(format!("\nstr x9, [x29], #{relative_stack_position}"));
 }
 
 // Leaves the result on TOS
@@ -354,22 +411,14 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             handler.new_expr_lit();
         }
         NodeType::DeRef => {
-            let children = node
-                .children
-                .as_ref()
-                .expect("DeRef node should have children");
-            assert_eq!(children.len(), 1);
-            expr_code_gen(&children[0], handler);
-            handler.push_to_scope(
-                "\n; deref expr\nldr x9, [x15], #8\nldr x10, [x9]\nstr x10, [x15, #-8]!",
-            );
+            deref_code_gen(&node, handler);
         }
         NodeType::Array => {
             let children = node
                 .children
                 .as_ref()
                 .expect("Array node should have children");
-            handler.push_to_scope("\n; new array\nmov x11, x15 ; anchor ptr\nsub x11, x11, #8");
+            handler.push_to_scope("\n; new array\nmov x11, x15 ; anchor ptr");
             for node in children.iter() {
                 expr_code_gen(&node, handler);
                 handler.push_to_scope("\n")
@@ -384,13 +433,14 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             handler.unload_expr_lit();
             handler.unload_expr_lit();
             match &node.token {
-                NodeType::Add => handler.push_to_scope(format!("\nadd x9, x9, x10")),
-                NodeType::Sub => handler.push_to_scope(format!("\nsub x9, x9, x10")),
-                NodeType::Div => handler.push_to_scope(format!("\nudiv x9, x9, x10")),
-                NodeType::Mul => handler.push_to_scope(format!("\nmul x9, x9, x10")),
-                NodeType::BAnd => handler.push_to_scope(format!("\nand x9, x9, x10")),
-                NodeType::BOr => handler.push_to_scope(format!("\nor x9, x9, x10")),
-                NodeType::BXor => handler.push_to_scope(format!("\nxor x9, x9, x10")),
+                NodeType::Add => handler.push_to_scope("\nadd x9, x9, x10"),
+                NodeType::Sub => handler.push_to_scope("\nsub x9, x9, x10"),
+                NodeType::Div => handler.push_to_scope("\nudiv x9, x9, x10"),
+                NodeType::Mul => handler.push_to_scope("\nmul x9, x9, x10"),
+                NodeType::MNeg => handler.push_to_scope("\nmneg x9, x9, x10"),
+                NodeType::BAnd => handler.push_to_scope("\nand x9, x9, x10"),
+                NodeType::BOr => handler.push_to_scope("\nor x9, x9, x10"),
+                NodeType::BXor => handler.push_to_scope("\nxor x9, x9, x10"),
                 _ => panic!("Expected Expression"),
             };
             handler.push_to_scope("\nstr x9, [x15, #-8]!");
@@ -455,11 +505,11 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
 
     let children = node.children.as_ref().expect("Function has no children");
 
-    let function_sig = handler.sym_arena[handler.curr_frame]
-        .function_table
-        .get(&name)
-        .expect("Invalid function name")
+    let function_sig = handler
+        .get_function(&name)
+        .expect("Function id not found")
         .clone();
+
     // TODO: Check if the return address (pc) needs to go on the stack
     // Place the return label on the stack
     //handler.push_to_scope(format!(
@@ -494,8 +544,21 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     };
 }
 
+pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) {
+    let children = node
+        .children
+        .as_ref()
+        .expect("DeRef node should have children");
+    assert_eq!(children.len(), 1);
+    expr_code_gen(&children[0], handler);
+    handler.push_to_scope(
+        "\n\n; deref expr\nldr x9, [x15], #8\nsub x9, x9, #8\nldr x10, [x9]\nstr x10, [x15, #-8]!",
+    );
+}
+
 pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler) {
     let children: Vec<TokenNode> = node.children.as_ref().unwrap_or(&Vec::new()).to_vec();
+    println!("condition token: {:?}", node.token);
     match &node.token {
         NodeType::AndCmp => {
             condition_expr_code_gen(&children[0], handler);
@@ -513,44 +576,26 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             condition_expr_code_gen(&children[0], handler);
             condition_expr_code_gen(&children[1], handler);
 
-            handler.push_to_scope(format!("\ncmp x9, x10\nbne .L{}", handler.curr_scope + 1));
+            handler.push_to_scope(format!(
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}",
+                handler.curr_scope + 1
+            ));
             handler.new_scope();
         }
         NodeType::EqCmp => {
             condition_expr_code_gen(&children[0], handler);
             condition_expr_code_gen(&children[1], handler);
 
-            handler.push_to_scope(format!("\ncmp x9, x10\nbeq .L{}", handler.curr_scope + 1));
+            handler.push_to_scope(format!(
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}",
+                handler.curr_scope + 1
+            ));
+            handler.unload_expr_lit();
+            handler.unload_expr_lit();
             handler.new_scope();
         }
-        NodeType::Id(id) => {
-            let relative_offset = handler.get_id(id).unwrap(); // relative path moves stack down without -
-
-            // This instruction grabs a specific address without modifying the register
-            handler.push_to_scope(format!("\nldr x9, [x29, #{relative_offset}]",));
-            // scopes.push_to_scope(format!("\nadd sp, {}, sp", relative_path).as_str());
-        }
-        NodeType::Adr(id) => {
-            let relative_offset = handler.get_id(id).unwrap();
-
-            handler.push_to_scope(format!("\n; getting the adr of: {id}\nmov x9, x29\nmov x10, #{relative_offset}\nsub x9, x9, x10\nstr x9, [x15, #-8]!"));
-        }
-        NodeType::DeRef => {
-            let children = node
-                .children
-                .as_ref()
-                .expect("DeRef node should have children");
-            assert_eq!(children.len(), 1);
-            expr_code_gen(&children[0], handler);
-            handler.push_to_scope(
-                "\n; deref expr\nldr x9, [x15], #8\nldr x10, [x9]\nstr x10, [x15, #-8]!",
-            );
-        }
-        NodeType::NumLiteral(num) => {
-            handler.push_to_scope(format!("\nmov x9, #{num}"));
-        }
         _ => {
-            panic!("Expected Condition");
+            expr_code_gen(&node, handler);
         }
     };
 }
@@ -604,12 +649,11 @@ fn asm_code_gen(_node: &TokenNode, handler: &mut Handler, str: String) {
 }
 
 fn putchar_code_gen(node: &TokenNode, handler: &mut Handler) {
-    println!("sym_table: {:?}\n", handler.sym_arena[0]);
-
     let children = node
         .children
         .as_ref()
         .expect("Putchar node has no children");
+
     expr_code_gen(&children[0], handler);
     // We can assume that the result goes on top of the stack
     handler.push_to_scope("\n\n; putchar\nmov x0, #1 ; stdout\nmov x1, x15 ; put from TOS\nmov x2, #1 ; print 1 char\nmov x16, #4 ; write\nsvc #0x80\n; unload the TOS\nadd x15, x15, #8\n");

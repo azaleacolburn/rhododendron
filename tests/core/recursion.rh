@@ -1,0 +1,8 @@
+void put_array(int arr, int i, int len) {
+    put(*(arr - 8 * i));
+    if (i != len - 1) {
+        put_array(arr, i + 1, len);
+    }
+}
+int h = ['0', '1', '2'];
+put_array(h, 0, 3);

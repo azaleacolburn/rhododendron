@@ -1,0 +1,5 @@
+int h = '0';
+int u = '5';
+put(h);
+h = u;
+put(h);
