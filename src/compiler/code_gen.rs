@@ -328,26 +328,13 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
         NodeType::Assignment(op) => op,
         _ => panic!("Given given invalid assignment node"),
     };
-    let relative_stack_position: String = match &children[0].token {
-        NodeType::Id(name) => {
-            let pos = handler.get_id(name).expect("Undefined Identifier").clone();
-            format!("#{}", pos).to_string()
-        }
-        NodeType::DeRef => {
-            println!("node:\n{:?}", children[0]);
-            handler.push_to_scope("\n\n; deref assignment");
-            expr_code_gen(
-                &children[0]
-                    .children
-                    .as_ref()
-                    .expect("deref must have children in assignment")[0],
-                handler,
-            );
-            handler.push_to_scope("\n\n; str offset to assign to\nmov x12, x15");
-            format!("x12").to_string()
-        }
-        _ => panic!("Only Ids are legal for assignments"),
+
+    let relative_stack_position: i32 = match &children[0].token {
+        NodeType::DeRef => return deref_assignment_code_gen(node, handler, op.clone()),
+        NodeType::Id(name) => handler.get_id(name).expect("Undefined Identifier").clone(),
+        _ => panic!("Can only assign to deref or id"),
     };
+
     // TODO: Figure out how to handle expressions
 
     expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
@@ -356,11 +343,7 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
-        if relative_stack_position == "x12" {
-            handler.push_to_scope("\nsub x12, x29, x12\nldr x10, [x13]");
-        } else {
-            handler.push_to_scope(format!("\nldr x10, [x29, {relative_stack_position}]"));
-        }
+        handler.push_to_scope(format!("\nldr x10, [x29, #{relative_stack_position}]"));
         match op {
             AssignmentOpType::AddEq => handler.push_to_scope("\nadd x9, x9, x10"),
             AssignmentOpType::SubEq => handler.push_to_scope("\nsub x9, x9, x10"),
@@ -373,16 +356,45 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
         };
     }
 
-    if relative_stack_position == "x12" {
-        if *op == AssignmentOpType::Eq {
-            handler.push_to_scope("\nsub x12, x29, x12")
-        }
-        handler.push_to_scope("\nstr x9, [x13]\n");
-    } else {
-        handler.push_to_scope(format!("\nstr x9, [x29, {relative_stack_position}]\n"));
-    }
+    handler.push_to_scope(format!("\nstr x9, [x29, #{relative_stack_position}]\n"));
 
     //handler.push_to_scope(format!("\nstr x9, [x29], #{relative_stack_position}"));
+}
+
+fn deref_assignment_code_gen(node: &TokenNode, handler: &mut Handler, op: AssignmentOpType) {
+    let children = node
+        .children
+        .as_ref()
+        .expect("deref assignment node must have children");
+    println!("node:\n{:?}", children[0]);
+    handler.push_to_scope("\n\n; deref assignment");
+    expr_code_gen(
+        &children[0]
+            .children
+            .as_ref()
+            .expect("deref must have children in assignment")[0],
+        handler,
+    );
+    expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
+    handler.push_to_scope("\nldr x9, [x15], #8\nldr x11, [x15], #8");
+    handler.unload_expr_lit();
+
+    // this load the old value in case we need it
+    if op != AssignmentOpType::Eq {
+        handler.push_to_scope("\nldr x10, [x11]");
+        match op {
+            AssignmentOpType::AddEq => handler.push_to_scope("\nadd x9, x9, x10"),
+            AssignmentOpType::SubEq => handler.push_to_scope("\nsub x9, x9, x10"),
+            AssignmentOpType::MulEq => handler.push_to_scope("\nmul x9, x9, x10"),
+            AssignmentOpType::DivEq => handler.push_to_scope("\nudiv x9, x9, x10"),
+            AssignmentOpType::BOrEq => handler.push_to_scope("\nbor x9, x9, x10"),
+            AssignmentOpType::BAndEq => handler.push_to_scope("\nand x9, x9, x10"),
+            AssignmentOpType::BXorEq => handler.push_to_scope("\nxor x9, x9, x10"),
+            _ => panic!("Unexpected Operator"),
+        };
+    }
+
+    handler.push_to_scope("\nstr x9, [x11]");
 }
 
 // Leaves the result on TOS
@@ -418,7 +430,7 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
                 .children
                 .as_ref()
                 .expect("Array node should have children");
-            handler.push_to_scope("\n; new array\nmov x11, x15 ; anchor ptr");
+            handler.push_to_scope("\n; new array\nsub x11, x15, #8; anchor ptr\n");
             for node in children.iter() {
                 expr_code_gen(&node, handler);
                 handler.push_to_scope("\n")
@@ -462,7 +474,7 @@ pub fn function_declare_code_gen(
     let orig_scope = handler.curr_scope;
     let orig_frame = handler.curr_frame;
     handler.new_scope();
-    handler.push_to_scope("\n; function declaration");
+    handler.push_to_scope(format!("\n; function declaration: {name}"));
     let function_scope = handler.curr_scope;
     let mut args: Vec<(String, i32)> = vec![];
 
@@ -477,6 +489,7 @@ pub fn function_declare_code_gen(
             args.push((id.clone(), size));
         }
     }
+    handler.push_to_scope("\n\n; save link reg\nstr lr, [x15, #-8]!");
     handler.new_function(name.clone(), function_scope as i32, args);
     let scope_child = &children[children.len() - 1];
 
@@ -486,7 +499,7 @@ pub fn function_declare_code_gen(
 
     if t == RhTypes::Void {
         handler.push_to_scope(
-            "\n\n; unload stack\nmov x15, x29\nadd x15, x15, #8\nldr x29, [x29]\nret",
+            "\n\n; load link register\nldr lr, [x15], #8\n; unload stack\nmov x15, x29\nadd x15, x15, #8\nldr x29, [x29]\nret",
         );
     }
 
@@ -516,6 +529,10 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
     //    "\nmov x9, #{}\nstr x9, [x15, #-8]!",
     //    handler.curr_scope
     //));
+
+    println!("Function args: {:?}", function_sig.args);
+    println!("Function Node Children: {:?}", children);
+
     for i in 0..function_sig.args.len() {
         expr_code_gen(&children[i], handler);
     }
@@ -525,23 +542,22 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
 }
 
 pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
-    handler.push_to_scope("\n\n; if statement");
-    match &node.children {
-        Some(children) => {
-            // cmp x1, #n
-            // beq label
-            // node.children.unwrap()[0] is condition node, other child is scope
+    handler.push_to_scope("\n\n; if statement\n");
+    let children = &node.children.as_ref().expect("Expected Condition");
 
-            condition_expr_code_gen(&children[0], handler);
-            handler.push_to_scope("\n; scope of if statement");
-            scope_code_gen(&children[1], handler, ScopeType::If);
-            handler.push_to_scope("\nret");
-            handler.curr_scope -= 1;
-        }
-        None => {
-            panic!("Expected Condition");
-        }
-    };
+    // cmp x1, #n
+    // beq label
+    // node.children.unwrap()[0] is condition node, other child is scope
+
+    condition_expr_code_gen(&children[0], handler);
+    handler.push_to_scope("\n; scope of if statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15\nstr lr, [x15, #-8]!");
+    handler.new_expr_lit();
+    scope_code_gen(&children[1], handler, ScopeType::If);
+    handler.push_to_scope(
+        "\n\n;unload stack\nadd x15, x29, #8\nldr x29, [x29]\n\n; restore link reg\nldr lr, [x15], #8\nret",
+    );
+    handler.unload_expr_lit();
+    handler.curr_scope -= 1;
 }
 
 pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) {
@@ -551,9 +567,8 @@ pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) {
         .expect("DeRef node should have children");
     assert_eq!(children.len(), 1);
     expr_code_gen(&children[0], handler);
-    handler.push_to_scope(
-        "\n\n; deref expr\nldr x9, [x15], #8\nsub x9, x9, #8\nldr x10, [x9]\nstr x10, [x15, #-8]!",
-    );
+    handler
+        .push_to_scope("\n\n; deref expr\nldr x9, [x15], #8\nldr x10, [x9]\nstr x10, [x15, #-8]!");
 }
 
 pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler) {

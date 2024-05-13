@@ -7,17 +7,17 @@
 	mov x29, sp
 	mov x15, sp
 	
-	; var dec: y, offset: 8
+	; var dec: y, offset: 8 (wrong for arrays)
 	mov x9, #50
 	str x9, [x15, #-8]!
 	
 	
-	; var dec: t, offset: 16
+	; var dec: t, offset: 16 (wrong for arrays)
 	mov x9, #5
 	str x9, [x15, #-8]!
 	
 	
-	; var dec: ptr, offset: 24
+	; var dec: ptr, offset: 24 (wrong for arrays)
 	; getting the adr of: y
 	mov x9, x29
 	mov x10, #8
@@ -74,6 +74,7 @@
 	
 	ldr x9, [x29, #-24]
 	str x9, [x15, #-8]!
+	
 	; deref expr
 	ldr x9, [x15], #8
 	ldr x10, [x9]
@@ -105,6 +106,7 @@
 	mov x10, #8
 	sub x9, x9, x10
 	str x9, [x15, #-8]!
+	
 	; deref expr
 	ldr x9, [x15], #8
 	ldr x10, [x9]
@@ -132,17 +134,17 @@
 	add x15, x15, #8
 	
 	
-	; var dec: j, offset: 32
+	; var dec: j, offset: 32 (wrong for arrays)
 	mov x9, #106
 	str x9, [x15, #-8]!
 	
 	
-	; var dec: l, offset: 40
+	; var dec: l, offset: 40 (wrong for arrays)
 	mov x9, #108
 	str x9, [x15, #-8]!
 	
 	
-	; var dec: ptr_j, offset: 48
+	; var dec: ptr_j, offset: 48 (wrong for arrays)
 	; getting the adr of: j
 	mov x9, x29
 	mov x10, #32
@@ -159,6 +161,40 @@
 	ldr x9, [x15], #8
 	sub x9, x9, x10
 	str x9, [x15, #-8]!
+	
+	; deref expr
+	ldr x9, [x15], #8
+	ldr x10, [x9]
+	str x10, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	ldr x9, [x29, #-48]
+	str x9, [x15, #-8]!
+	mov x9, #1
+	str x9, [x15, #-8]!
+	mov x9, #8
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	mul x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	add x9, x9, x10
+	str x9, [x15, #-8]!
+	
 	; deref expr
 	ldr x9, [x15], #8
 	ldr x10, [x9]
