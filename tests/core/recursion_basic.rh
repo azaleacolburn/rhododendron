@@ -1,0 +1,20 @@
+// infinite loop if i_start > end
+void basic_recursion_test(int i, int end) {
+    put(i);
+    put(end);
+    if (i != end) {
+        i += 1;
+        put(i);
+        basic_recursion_test(i, end);
+    }
+}
+
+int j = 'j';
+int k = 'k';
+
+int ptr_j = &j;
+int ptr_k = &k;
+
+basic_recursion_test('0', '3');
+put('\n');
+put('i');

@@ -1,8 +1,3 @@
-void putchars(int i, int j, int k) {
-    put(i);
-    put(j);
-    put(k);
-}
 int square(int i) {
     return (i * i);
 }
@@ -10,9 +5,26 @@ int count(int i) {
     put(i);
     count(i + 1);
 }
-int y = 'y';
-int t = '\t';
-int o = 'o';
+void putchars(int i, int j, int k) {
+    put(i);
+    put(j);
+    put(k);
+}
+int y = 'a';
+int t = 'u';
+int o = 't';
+
+putchars(y, t, o);
+int j = 'o';
+int d = 'd';
+int e = 'e';
+int s = 's';
+int k = 'k';
+put(j);
+put(d);
+put(e);
+put(s);
+put(k);
 
 
-put(square(9));
+put(square(10));

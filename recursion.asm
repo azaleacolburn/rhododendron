@@ -86,6 +86,7 @@
 	
 	
 	; if statement
+	
 	ldr x9, [x29, #-16]
 	str x9, [x15, #-8]!
 	ldr x9, [x29, #-24]
@@ -102,17 +103,22 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L3
-	
-	; load link register
-	ldr lr, [x15], #8
+	                
+	; restore lr
+	ldr lr, [x29, #-32]
+	                
 	; unload stack
-	mov x15, x29
-	add x15, x15, #8
+	add x15, x29, #8
 	ldr x29, [x29]
 	ret
+	            
 
 .L3:
 	; scope of if statement
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x29, x15
 	str lr, [x15, #-8]!
 	
 	; place old sfb
@@ -135,8 +141,12 @@
 	mov x29, x10
 	bl .L2
 	
-	; the stack should be unloaded now
-	ldr lr, [x15], #8
+	; restore link reg
+	ldr lr, [x29, #-16]
+	
+	;unload stack
+	add x15, x29, #8
+	ldr x29, [x29]
 	ret
 
 .L4:
@@ -207,6 +217,7 @@
 	
 	
 	; if statement
+	
 	ldr x9, [x29, #-16]
 	str x9, [x15, #-8]!
 	ldr x9, [x29, #-32]
@@ -223,17 +234,22 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L5
-	
-	; load link register
-	ldr lr, [x15], #8
+	                
+	; restore lr
+	ldr lr, [x29, #-40]
+	                
 	; unload stack
-	mov x15, x29
-	add x15, x15, #8
+	add x15, x29, #8
 	ldr x29, [x29]
 	ret
+	            
 
 .L5:
 	; scope of if statement
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x29, x15
 	str lr, [x15, #-8]!
 	
 	; place old sfb
@@ -258,8 +274,12 @@
 	mov x29, x10
 	bl .L4
 	
-	; the stack should be unloaded now
-	ldr lr, [x15], #8
+	; restore link reg
+	ldr lr, [x29, #-16]
+	
+	;unload stack
+	add x15, x29, #8
+	ldr x29, [x29]
 	ret
 
 .L6:
@@ -281,6 +301,7 @@
 	
 	
 	; if statement
+	
 	ldr x9, [x29, #-8]
 	str x9, [x15, #-8]!
 	ldr x9, [x29, #-16]
@@ -289,17 +310,22 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L7
-	
-	; load link register
-	ldr lr, [x15], #8
+	                
+	; restore lr
+	ldr lr, [x29, #-24]
+	                
 	; unload stack
-	mov x15, x29
-	add x15, x15, #8
+	add x15, x29, #8
 	ldr x29, [x29]
 	ret
+	            
 
 .L7:
 	; scope of if statement
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x29, x15
 	str lr, [x15, #-8]!
 	; variable assignment
 	mov x9, #1
@@ -320,6 +346,10 @@
 	mov x29, x10
 	bl .L6
 	
-	; the stack should be unloaded now
-	ldr lr, [x15], #8
+	; restore link reg
+	ldr lr, [x29, #-16]
+	
+	;unload stack
+	add x15, x29, #8
+	ldr x29, [x29]
 	ret

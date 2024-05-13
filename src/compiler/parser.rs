@@ -580,7 +580,7 @@ fn function_declare_statement(token_handler: &mut TokenHandler) -> Result<TokenN
         loop {
             let t = match token_handler.get_token() {
                 Token::Type(t) => t,
-                _ => return Err(token_handler.new_err(ET::ExpectedType)),
+                _ => break,
             };
             let declaration_node = declaration(token_handler, t.clone())?;
             function_node
@@ -649,6 +649,9 @@ fn function_call(token_handler: &mut TokenHandler, name: String) -> Result<Token
     token_handler.next_token();
     loop {
         println!("Call arg: {:?}", token_handler.get_token());
+        if *token_handler.get_token() == Token::CParen {
+            break;
+        }
         let arg_node = arithmetic_expression(token_handler)?;
         function_call_node.children.as_mut().unwrap().push(arg_node);
         if *token_handler.get_token() != Token::Comma {
