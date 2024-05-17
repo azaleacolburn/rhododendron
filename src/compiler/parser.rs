@@ -544,6 +544,7 @@ fn if_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
         .expect("If children to be some")
         .push(condition_node);
 
+    println!("Post condition if token: {:?}", token_handler.get_token());
     token_handler.next_token();
     token_handler.next_token();
 
@@ -708,14 +709,17 @@ fn condition_expr(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> 
     let mut left = condition_term(token_handler)?;
     println!("Condition Expr Left: {:?}", left);
     let mut curr = token_handler.get_token().clone();
+    println!("cond expr curr: {:?}", curr);
     while curr == Token::AndCmp || curr == Token::OrCmp {
         token_handler.next_token();
         let right = if *token_handler.get_token() == Token::OParen {
+            token_handler.next_token();
             let expr = condition_expr(token_handler)?;
             if *token_handler.get_token() != Token::CParen {
                 return Err(token_handler.new_err(ET::ExpectedCParen));
             }
 
+            token_handler.next_token();
             expr
         } else {
             condition_term(token_handler)?

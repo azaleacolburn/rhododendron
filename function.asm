@@ -161,21 +161,11 @@
 	mul x9, x9, x10
 	str x9, [x15, #-8]!
 	        
-	
-	; ldr expr into x9
+	; function return
 	ldr x9, [x15], #8
-	        
-	
-	; restore link register
-	ldr lr, [x15], #8
-	        
-	
-	; reset sfb
-	mov x15, x29
-	add x15, x15, #8
+	ldr lr, [x29, #-16]
+	add x15, x29, #8
 	ldr x29, [x29]
-	        
-	
 	str x9, [x15, #-8]!
 	ret
 
@@ -254,11 +244,8 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	                
-	; restore lr
+	; void function return
 	ldr lr, [x29, #-32]
-	                
-	; unload stack
 	add x15, x29, #8
 	ldr x29, [x29]
 	ret

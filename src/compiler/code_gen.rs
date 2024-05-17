@@ -475,9 +475,7 @@ pub fn function_declare_code_gen(
     let orig_frame = handler.curr_frame;
     println!("orig_frame: {}", handler.curr_frame);
     handler.new_scope();
-    handler.push_to_scope(format!(
-        "\n; function declaration: {name}\n\n; save link reg\nstr lr, [x15, #-8]!"
-    ));
+    handler.push_to_scope(format!("\n; function declaration: {name}\n"));
 
     let function_scope = handler.curr_scope;
     let mut args: Vec<(String, i32)> = vec![];
@@ -494,8 +492,9 @@ pub fn function_declare_code_gen(
         }
     }
     handler.new_function(name.clone(), function_scope as i32, args.clone());
+    handler.push_to_scope("\n; save link reg\nstr lr, [x15, #-8]!");
 
-    handler.new_expr_lit(); // link register
+    handler.new_id("lr", 8); // link register
     let scope_child = &children[children.len() - 1];
 
     if let NodeType::Scope(_) = scope_child.token {
@@ -505,10 +504,10 @@ pub fn function_declare_code_gen(
     if t == RhTypes::Void {
         handler.push_to_scope(format!(
             "
-                \n; restore lr\nldr lr, [x29, #-{}]
-                \n; unload stack\nadd x15, x29, #8\nldr x29, [x29]\nret
+; void function return\nldr lr, [x29, #{}]
+add x15, x29, #8\nldr x29, [x29]\nret
             ",
-            8 + (args.len() * 8)
+            handler.get_id("lr").expect("LR not placed in table")
         ));
     }
 
@@ -546,16 +545,16 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     // beq label
     // node.children.unwrap()[0] is condition node, other child is scope
     condition_expr_code_gen(&children[0], handler);
-
     handler.new_stack_frame();
     handler.push_to_scope(
-        "\n; scope of if statement\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15",
+        "\n; scope of if statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15\nstr lr, [x15, #-8]!\n",
     );
-    handler.new_expr_lit();
-    handler.new_expr_lit();
+
+    handler.new_expr_lit(); // lr
+
     scope_code_gen(&children[1], handler, ScopeType::If);
     handler.push_to_scope(
-        "\n\n; restore link reg\nldr lr, [x29, #8]\n\n;unload stack\nadd x15, x29, #16\nldr x29, [x29]\nret",
+        "\n\n; if return\nldr lr, [x29, #-8]\nadd x15, x29, #8\nldr x29, [x29]\nret",
     );
 
     handler.curr_scope = orig_scope;
@@ -585,8 +584,6 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler) {
         // TODO: Fix this or add it to parsing restraints
         NodeType::OrCmp => {
             condition_expr_code_gen(&children[0], handler);
-            handler.push_to_scope("\nldr lr, [x15], #8");
-            handler.unload_expr_lit();
             handler.curr_scope -= 1;
             handler.scopes.pop();
             condition_expr_code_gen(&children[1], handler);
@@ -596,24 +593,20 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             condition_expr_code_gen(&children[1], handler);
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}",
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}\n",
                 handler.scopes.len()
             ));
             handler.new_scope();
-            handler.push_to_scope("\nstr lr, [x15, #-8]!");
-            handler.unload_expr_lit();
         }
         NodeType::EqCmp => {
             condition_expr_code_gen(&children[0], handler);
             condition_expr_code_gen(&children[1], handler);
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}",
-                handler.curr_scope + 1
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}\n",
+                handler.scopes.len()
             ));
-            handler.unload_expr_lit();
             handler.new_scope();
-            handler.push_to_scope("\nstr lr, [x15, #-8]!");
         }
         _ => {
             expr_code_gen(&node, handler);
@@ -657,13 +650,17 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
             .expect("Return statement has no expression")[0],
         handler,
     );
-    handler.push_to_scope(
+    handler.push_to_scope(format!(
         "
-        \n\n; ldr expr into x9\nldr x9, [x15], #8
-        \n\n; restore link register\nldr lr, [x15], #8
-        \n\n; reset sfb\nmov x15, x29\nadd x15, x15, #8\nldr x29, [x29]
-        \n\nstr x9, [x15, #-8]!\nret",
-    );
+        \n; function return
+ldr x9, [x15], #8
+ldr lr, [x29, #{}]
+add x15, x29, #8
+ldr x29, [x29]
+str x9, [x15, #-8]!
+ret",
+        handler.get_id("lr").expect("Lr not placed in frame")
+    ));
     handler.unload_expr_lit();
     //handler.curr_frame = handler.sym_arena[handler.curr_frame]
     //    .parent

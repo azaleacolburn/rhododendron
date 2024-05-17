@@ -3,6 +3,17 @@ void check(int i, int j) {
         put(i + j);
     }
 }
+
+void test() {
+    put('a');
+    if (80 == 80) {
+        int b = 'u';
+        put(b);
+    }
+    put('t');
+}
+
 int num = 20;
 int c = 20;
-check(num, c);
+test();
+put('o');

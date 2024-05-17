@@ -1,0 +1,7 @@
+int base() {
+    return(50); 
+}
+
+put('9');
+int y = base();
+put(y);

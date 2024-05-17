@@ -108,15 +108,8 @@
 	str x9, [x15, #-8]!
 	ldr x9, [x29, #-16]
 	str x9, [x15, #-8]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
-	cmp x9, x10
-	bne .L3
-	                
-	; restore lr
+	; void function return
 	ldr lr, [x29, #-24]
-	                
-	; unload stack
 	add x15, x29, #8
 	ldr x29, [x29]
 	ret
@@ -125,9 +118,11 @@
 .L3:
 	str lr, [x15, #-8]!
 	; scope of if statement
+	
 	; place old sfb
 	str x29, [x15, #-8]!
 	mov x29, x15
+	str lr, [x15, #-8]!
 	; variable assignment
 	mov x9, #1
 	str x9, [x15, #-8]!
@@ -159,10 +154,8 @@
 	mov x29, x10
 	bl .L2
 	
-	; restore link reg
-	ldr lr, [x29, #8]
-	
-	;unload stack
-	add x15, x29, #16
+	; if return
+	ldr lr, [x29, #-8]
+	add x15, x29, #8
 	ldr x29, [x29]
 	ret

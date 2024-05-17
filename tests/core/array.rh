@@ -30,3 +30,6 @@ put('\n');
 h[0] = 'b';
 put(h[0]);
 put(h[1]);
+put('\n');
+put(j);
+put(h[8]);

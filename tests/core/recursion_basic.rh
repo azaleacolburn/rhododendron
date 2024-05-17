@@ -4,7 +4,6 @@ void basic_recursion_test(int i, int end) {
     put(end);
     if (i != end) {
         i += 1;
-        put(i);
         basic_recursion_test(i, end);
     }
 }
