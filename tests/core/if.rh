@@ -1,5 +1,7 @@
 void check(int i, int j) {
+    put('a');
     if (i == j && (i == 20 || j == 21)) {
+        put('u');
         put(i + j);
     }
 }
@@ -13,7 +15,8 @@ void test() {
     put('t');
 }
 
-int num = 20;
-int c = 20;
-test();
+int num = 58;
+int c = 58;
+//test();
+check(num, c);
 put('o');

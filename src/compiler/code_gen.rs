@@ -162,10 +162,11 @@ impl Handler {
     }
 
     // Panics if id doesn't exist
-    fn get_id(&self, id: impl ToString) -> Option<&i32> {
+    fn get_id(&self, id: impl ToString, c: &mut i32) -> Option<&i32> {
         let sym_res = self.sym_arena[self.curr_frame].get_id(id.to_string());
 
         if sym_res.is_none() {
+            *c += 1;
             return match &self.sym_arena[self.curr_frame].parent {
                 Some(parent) => Some(
                     self.sym_arena[*parent]
@@ -328,10 +329,14 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
         NodeType::Assignment(op) => op,
         _ => panic!("Given given invalid assignment node"),
     };
+    let mut c = 0;
 
     let relative_stack_position: i32 = match &children[0].token {
         NodeType::DeRef => return deref_assignment_code_gen(node, handler, op.clone()),
-        NodeType::Id(name) => handler.get_id(name).expect("Undefined Identifier").clone(),
+        NodeType::Id(name) => handler
+            .get_id(name, &mut c)
+            .expect("Undefined Identifier")
+            .clone(),
         _ => panic!("Can only assign to deref or id"),
     };
 
@@ -343,7 +348,13 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
+        for _ in 0..c {
+            handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+        }
         handler.push_to_scope(format!("\nldr x10, [x29, #{relative_stack_position}]"));
+        for _ in 0..c {
+            handler.push_to_scope("\nldr x29, [x15], #8");
+        }
         match op {
             AssignmentOpType::AddEq => handler.push_to_scope("\nadd x9, x9, x10"),
             AssignmentOpType::SubEq => handler.push_to_scope("\nsub x9, x9, x10"),
@@ -355,8 +366,13 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
             _ => panic!("Unexpected Operator"),
         };
     }
-
+    for _ in 0..c {
+        handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+    }
     handler.push_to_scope(format!("\nstr x9, [x29, #{relative_stack_position}]\n"));
+    for _ in 0..c {
+        handler.push_to_scope("\nldr x29, [x15], #8");
+    }
 
     //handler.push_to_scope(format!("\nstr x9, [x29], #{relative_stack_position}"));
 }
@@ -406,8 +422,19 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             handler.new_expr_lit();
         }
         NodeType::Id(name) => {
-            let offset = handler.get_id(name).expect("Undefined identifier");
-            handler.push_to_scope(format!("\nldr x9, [x29, #{offset}]\nstr x9, [x15, #-8]!",));
+            let mut c = 0;
+            let offset = handler
+                .get_id(name, &mut c)
+                .expect("Undefined identifier")
+                .clone();
+            for _ in 0..c {
+                handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+            }
+            handler.push_to_scope(format!("\nldr x9, [x29, #{offset}]"));
+            for _ in 0..c {
+                handler.push_to_scope("\nldr x29, [x15], #8");
+            }
+            handler.push_to_scope("\nstr x9, [x15, #-8]!");
             handler.new_expr_lit();
         }
         NodeType::FunctionCall(name) => {
@@ -416,10 +443,19 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             handler.new_expr_lit();
         }
         NodeType::Adr(id) => {
-            let relative_offset = handler.get_id(id).unwrap().abs();
-            println!("{:?}", handler.sym_arena[handler.curr_frame]);
+            let mut c = 0;
+            let relative_offset = handler.get_id(id, &mut c).unwrap().abs();
+            handler.push_to_scope(format!("\n; getting the adr of: {id}"));
 
-            handler.push_to_scope(format!("\n; getting the adr of: {id}\nmov x9, x29\nmov x10, #{relative_offset}\nsub x9, x9, x10\nstr x9, [x15, #-8]!"));
+            for _ in 0..c {
+                handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+            }
+            handler.push_to_scope(format!("\nsub x9, x29, #{relative_offset}"));
+            for _ in 0..c {
+                handler.push_to_scope("\nldr x29, [x15], #8");
+            }
+
+            handler.push_to_scope(format!("\nstr x9, [x15, #-8]!"));
             handler.new_expr_lit();
         }
         NodeType::DeRef => {
@@ -507,7 +543,9 @@ pub fn function_declare_code_gen(
 ; void function return\nldr lr, [x29, #{}]
 add x15, x29, #8\nldr x29, [x29]\nret
             ",
-            handler.get_id("lr").expect("LR not placed in table")
+            handler
+                .get_id("lr", &mut 0)
+                .expect("LR not placed in table")
         ));
     }
 
@@ -536,7 +574,6 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
 }
 
 pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
-    let orig_scope = handler.curr_scope;
     let orig_frame = handler.curr_frame;
     handler.push_to_scope("\n\n; if statement\n");
     let children = &node.children.as_ref().expect("Expected Condition");
@@ -547,17 +584,16 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     condition_expr_code_gen(&children[0], handler);
     handler.new_stack_frame();
     handler.push_to_scope(
-        "\n; scope of if statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15\nstr lr, [x15, #-8]!\n",
+        "\n; scope of if statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15",
     );
-
-    handler.new_expr_lit(); // lr
 
     scope_code_gen(&children[1], handler, ScopeType::If);
-    handler.push_to_scope(
-        "\n\n; if return\nldr lr, [x29, #-8]\nadd x15, x29, #8\nldr x29, [x29]\nret",
-    );
-
-    handler.curr_scope = orig_scope;
+    handler.push_to_scope(format!(
+        "\n\n; if return\nadd x15, x29, #8\nldr x29, [x29]\nb .L{}",
+        handler.scopes.len()
+    ));
+    handler.new_scope();
+    handler.push_to_scope("\n; after if statement scope");
     handler.curr_frame = orig_frame;
 }
 
@@ -650,17 +686,15 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
             .expect("Return statement has no expression")[0],
         handler,
     );
-    handler.push_to_scope(format!(
-        "
-        \n; function return
-ldr x9, [x15], #8
-ldr lr, [x29, #{}]
-add x15, x29, #8
-ldr x29, [x29]
-str x9, [x15, #-8]!
-ret",
-        handler.get_id("lr").expect("Lr not placed in frame")
-    ));
+    handler.push_to_scope("\n; function return\nldr x9, [x15], #8");
+    let mut c = 0;
+    let offset = handler
+        .get_id("lr", &mut c)
+        .expect("Lr not placed in frame");
+
+    handler.push_to_scope(format!("ldr lr, [x29, #{}]", offset));
+
+    handler.push_to_scope("\nadd x15, x29, #8\nldr x29, [x29]\nstr x9, [x15, #-8]!\nret");
     handler.unload_expr_lit();
     //handler.curr_frame = handler.sym_arena[handler.curr_frame]
     //    .parent
