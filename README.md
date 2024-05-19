@@ -22,7 +22,11 @@ Todo:
 
 ### Returning from functions within if statements
 Symptom: Results in segmentation fault.
+
 Suspected Cause: Returning from a stack frame to another stack frame that isn't its parent causes a misalignment in the stack.
+
 Potential Fix: Make if statements return in a different way or don't make them different frames.
+
 Level 3
+
 This is a huge limitation that will be addressed ASAP.
