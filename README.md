@@ -3,29 +3,23 @@ Just a C-like compiler for fun
 (Rewritten in Rust in one night :P)
 
 Todo:
-- [x] Support for declaration,
-- [x] Support for while loops and if statements
-- [ ] Support for functions (including stack frames)
-- [ ] Support for structs
+- [x] Variables
+- [x] Conditionals
+- [x] Pointers / Arrays
+- [x] Functions *
+- [ ] Structs
+- [ ] AST and code gen optimizations
+- [ ] Linker
 
-This will include non-C features such as
-- Built-in Tuple Packing and Unpacking
-- Scopes everywhere!
-    -sort of like the comma operator in C
-- Borrow Checker!
-- Rust enums(union-enums)
-```
-if ({
-        statement, 
-        statement, 
-        statement, 
-        condition
-    })
-{
+## Known Issues
+4: Unusable
+3: Major inconvinience
+2: Minor inconvinience
+1: "Feature"
 
-}
-```
-
-As well as not every feature C has(pure unions are useless).
-
-The big question is whether or not I'll write a linker(yes).
+### Returning from functions within if statements
+Symptom: Results in segmentation fault.
+Suspected Cause: Returning from a stack frame to another stack frame that isn't its parent causes a misalignment in the stack.
+Potential Fix: Make if statements return in a different way or don't make them different frames.
+Level 3
+This is a huge limitation that will be addressed ASAP.
