@@ -13,8 +13,11 @@ Todo:
 
 ## Known Issues
 4: Unusable
+
 3: Major inconvinience
+
 2: Minor inconvinience
+
 1: "Feature"
 
 ### Returning from functions within if statements
