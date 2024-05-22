@@ -1,4 +1,4 @@
-int h = ['6', '5', '4', '3', '2', '1', '0'];
+int h = ['6', '5', '4', '3', '2', '1', '0', 0];
 int j = '1';
 
 put(*h);
@@ -33,3 +33,12 @@ put(h[1]);
 put('\n');
 put(j);
 put(h[8]);
+
+void print_array(int ptr) {
+    while (*ptr != 0) {
+        put(*ptr);
+        ptr -= 8;
+    }
+}
+
+print_array(h);

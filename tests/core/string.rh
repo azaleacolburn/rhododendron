@@ -1,0 +1,11 @@
+int strlen(int ptr) {
+    int i = 0;
+    while(ptr[i] != 0) {
+        i += 1;
+    }
+    return(i);
+}
+
+int ptr = ['a', 'u', 't', 'o', 0];
+int len = strlen(ptr);
+put(len + 48);

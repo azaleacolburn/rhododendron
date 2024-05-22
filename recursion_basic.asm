@@ -7,53 +7,15 @@
 	mov x29, sp
 	mov x15, sp
 	
-	; var dec: j, offset: 8 (wrong for arrays)
-	mov x9, #106
-	str x9, [x15, #-8]!
-	
-	
-	; var dec: k, offset: 16 (wrong for arrays)
-	mov x9, #107
-	str x9, [x15, #-8]!
-	
-	
-	; var dec: ptr_j, offset: 24 (wrong for arrays)
-	; getting the adr of: j
-	mov x9, x29
-	mov x10, #8
-	sub x9, x9, x10
-	str x9, [x15, #-8]!
-	
-	
-	; var dec: ptr_k, offset: 32 (wrong for arrays)
-	; getting the adr of: k
-	mov x9, x29
-	mov x10, #16
-	sub x9, x9, x10
-	str x9, [x15, #-8]!
-	
-	
 	; place old sfb
 	str x29, [x15, #-8]!
 	mov x10, x15
 	mov x9, #48
 	str x9, [x15, #-8]!
-	mov x9, #51
+	mov x9, #52
 	str x9, [x15, #-8]!
 	mov x29, x10
 	bl .L2
-	mov x9, #10
-	str x9, [x15, #-8]!
-	
-	; putchar
-	mov x0, #1 ; stdout
-	mov x1, x15 ; put from TOS
-	mov x2, #1 ; print 1 char
-	mov x16, #4 ; write
-	svc #0x80
-	; unload the TOS
-	add x15, x15, #8
-	
 	mov x9, #105
 	str x9, [x15, #-8]!
 	
@@ -89,18 +51,6 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
-	
-	; putchar
-	mov x0, #1 ; stdout
-	mov x1, x15 ; put from TOS
-	mov x2, #1 ; print 1 char
-	mov x16, #4 ; write
-	svc #0x80
-	; unload the TOS
-	add x15, x15, #8
-	
 	
 	; if statement
 	
@@ -108,6 +58,57 @@
 	str x9, [x15, #-8]!
 	ldr x9, [x29, #-16]
 	str x9, [x15, #-8]!
+	ldr x9, [x15], #8
+	ldr x10, [x15], #8
+	cmp x9, x10
+	bne .L3
+	
+	b .L4
+
+.L3:
+	; scope of if statement
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x29, x15
+	; variable assignment
+	mov x9, #1
+	str x9, [x15, #-8]!
+	ldr x9, [x15], #8
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
+	ldr x10, [x29, #-8]
+	ldr x29, [x15], #8
+	add x9, x9, x10
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
+	str x9, [x29, #-8]
+	
+	ldr x29, [x15], #8
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x10, x15
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
+	ldr x9, [x29, #-8]
+	ldr x29, [x15], #8
+	str x9, [x15, #-8]!
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
+	ldr x9, [x29, #-16]
+	ldr x29, [x15], #8
+	str x9, [x15, #-8]!
+	mov x29, x10
+	bl .L2
+	
+	; if return
+	add x15, x29, #8
+	ldr x29, [x29]
+	b .L4
+
+.L4:
+	; after if statement scope
 	; void function return
 	ldr lr, [x29, #-24]
 	add x15, x29, #8
@@ -115,47 +116,95 @@
 	ret
 	            
 
-.L3:
+.L5:
+	; function declaration: recursion_return
+	
+	; save link reg
 	str lr, [x15, #-8]!
+	
+	; if statement
+	
+	ldr x9, [x29, #-8]
+	str x9, [x15, #-8]!
+	ldr x9, [x29, #-16]
+	str x9, [x15, #-8]!
+	ldr x9, [x15], #8
+	ldr x10, [x15], #8
+	cmp x9, x10
+	bne .L6
+	
+	b .L7
+
+.L6:
 	; scope of if statement
 	
 	; place old sfb
 	str x29, [x15, #-8]!
 	mov x29, x15
-	str lr, [x15, #-8]!
 	; variable assignment
 	mov x9, #1
 	str x9, [x15, #-8]!
 	ldr x9, [x15], #8
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
 	ldr x10, [x29, #-8]
+	ldr x29, [x15], #8
 	add x9, x9, x10
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
 	str x9, [x29, #-8]
 	
-	ldr x9, [x29, #-8]
-	str x9, [x15, #-8]!
+	ldr x29, [x15], #8
 	
-	; putchar
-	mov x0, #1 ; stdout
-	mov x1, x15 ; put from TOS
-	mov x2, #1 ; print 1 char
-	mov x16, #4 ; write
-	svc #0x80
-	; unload the TOS
-	add x15, x15, #8
-	
+	; var dec: y, offset: 8 (wrong for arrays)
 	
 	; place old sfb
 	str x29, [x15, #-8]!
 	mov x10, x15
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
 	ldr x9, [x29, #-8]
+	ldr x29, [x15], #8
 	str x9, [x15, #-8]!
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
 	ldr x9, [x29, #-16]
+	ldr x29, [x15], #8
 	str x9, [x15, #-8]!
 	mov x29, x10
-	bl .L2
+	bl .L5
+	; assume ret is TOS
 	
-	; if return
-	ldr lr, [x29, #-8]
+	
+	; evaluate return statement and place on stack
+	ldr x9, [x29, #-8]
+	str x9, [x15, #-8]!
+	; function return
+	ldr x9, [x15], #8
+	str x29, [x15, #-8]!
+	ldr x29, [x29]
+	ldr lr, [x29, #-24]
+	ldr x29, [x15], #8
 	add x15, x29, #8
 	ldr x29, [x29]
+	str x9, [x15, #-8]!
+	ret
+	
+	; if return
+	add x15, x29, #8
+	ldr x29, [x29]
+	b .L7
+
+.L7:
+	; after if statement scope
+	
+	; evaluate return statement and place on stack
+	ldr x9, [x29, #-8]
+	str x9, [x15, #-8]!
+	; function return
+	ldr x9, [x15], #8
+	ldr lr, [x29, #-24]
+	add x15, x29, #8
+	ldr x29, [x29]
+	str x9, [x15, #-8]!
 	ret

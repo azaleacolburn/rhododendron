@@ -1,11 +1,5 @@
-int n = 6;
-while (n == 6) {
-    n += 1;
-}
- 
-int re = 42;
-int this_is_cool = 833;
-
-if (re == this_is_cool) {
-    re -= this_is_cool;
+int n = '8';
+while (n != '0') {
+    put(n);
+    n -= 1;
 }

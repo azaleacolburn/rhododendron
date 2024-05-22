@@ -1,6 +1,6 @@
 void check(int i, int j) {
     put('a');
-    if (i == j && (i == 20 || j == 21)) {
+    if (i == j && (i == 21 || j == 58)) {
         put('u');
         put(i + j);
     }
@@ -17,6 +17,9 @@ void test() {
 
 int num = 58;
 int c = 58;
-//test();
+test();
+put('o');
+put('\n');
 check(num, c);
 put('o');
+

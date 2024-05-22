@@ -222,10 +222,11 @@ impl Handler {
 
         self.new_stack_frame();
 
-        self.new_expr_lit(); // sfb
+        //self.new_expr_lit(); // sfb
 
         for arg in args.into_iter() {
-            self.new_id(arg.0, arg.1);
+            self.new_expr_lit();
+            self.new_id(arg.0, 0);
         }
     }
 }
@@ -277,12 +278,8 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
             }
             NodeType::Break => handler.insert_break(),
             NodeType::Return => {
-                if let ScopeType::Function(_t) = scope_type {
-                    // return type shouldn't matter for now
-                    return return_statement_code_gen(&child_node, handler);
-                } else {
-                    panic!("Return statements only allowed in function scopes");
-                }
+                // return type shouldn't matter for now
+                return return_statement_code_gen(&child_node, handler);
             }
             NodeType::Asm(str) => asm_code_gen(&child_node, handler, str.to_string()),
             NodeType::PutChar => putchar_code_gen(&child_node, handler),
@@ -291,10 +288,10 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
         };
     }
     if scope_type == ScopeType::While {
-        handler.push_to_scope(format!(
-            "\n; break statement\nb .L{}",
-            handler.curr_scope + 1
-        ));
+        //handler.push_to_scope(format!(
+        //    "\n; break statement\nb .L{}",
+        //    handler.curr_scope + 1
+        //));
     }
 }
 
@@ -343,15 +340,18 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
     // TODO: Figure out how to handle expressions
 
     expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
-    handler.push_to_scope("\nldr x9, [x15], #8");
+    handler.push_to_scope("\nldr x10, [x15], #8");
     handler.unload_expr_lit();
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
-        for _ in 0..c {
-            handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+        for i in 0..c {
+            handler.push_to_scope(format!(
+                "\n\n; getting var from prev scope: {}\nstr x29, [x15, #-8]!\nldr x29, [x29]",
+                i + 1
+            ));
         }
-        handler.push_to_scope(format!("\nldr x10, [x29, #{relative_stack_position}]"));
+        handler.push_to_scope(format!("\nldr x9, [x29, #{relative_stack_position}]"));
         for _ in 0..c {
             handler.push_to_scope("\nldr x29, [x15], #8");
         }
@@ -366,10 +366,13 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
             _ => panic!("Unexpected Operator"),
         };
     }
-    for _ in 0..c {
-        handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+    for i in 0..c {
+        handler.push_to_scope(format!(
+            "\n\n; getting var from prev scope: {}\nstr x29, [x15, #-8]!\nldr x29, [x29]",
+            i + 1
+        ));
     }
-    handler.push_to_scope(format!("\nstr x9, [x29, #{relative_stack_position}]\n"));
+    handler.push_to_scope(format!("\nstr x9, [x29, #{relative_stack_position}]"));
     for _ in 0..c {
         handler.push_to_scope("\nldr x29, [x15], #8");
     }
@@ -392,12 +395,12 @@ fn deref_assignment_code_gen(node: &TokenNode, handler: &mut Handler, op: Assign
         handler,
     );
     expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
-    handler.push_to_scope("\nldr x9, [x15], #8\nldr x11, [x15], #8");
+    handler.push_to_scope("\nldr x10, [x15], #8\nldr x11, [x15], #8");
     handler.unload_expr_lit();
 
     // this load the old value in case we need it
     if op != AssignmentOpType::Eq {
-        handler.push_to_scope("\nldr x10, [x11]");
+        handler.push_to_scope("\nldr x9, [x11]");
         match op {
             AssignmentOpType::AddEq => handler.push_to_scope("\nadd x9, x9, x10"),
             AssignmentOpType::SubEq => handler.push_to_scope("\nsub x9, x9, x10"),
@@ -427,8 +430,11 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
                 .get_id(name, &mut c)
                 .expect("Undefined identifier")
                 .clone();
-            for _ in 0..c {
-                handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+            for i in 0..c {
+                handler.push_to_scope(format!(
+                    "\n; getting var from prev scope: {}\nstr x29, [x15, #-8]!\nldr x29, [x29]",
+                    i + 1
+                ));
             }
             handler.push_to_scope(format!("\nldr x9, [x29, #{offset}]"));
             for _ in 0..c {
@@ -447,8 +453,11 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             let relative_offset = handler.get_id(id, &mut c).unwrap().abs();
             handler.push_to_scope(format!("\n; getting the adr of: {id}"));
 
-            for _ in 0..c {
-                handler.push_to_scope("\nstr x29, [x15, #-8]!\nldr x29, [x29]");
+            for i in 0..c {
+                handler.push_to_scope(format!(
+                    "\n; getting var from prev scopeL {}\nstr x29, [x15, #-8]!\nldr x29, [x29]",
+                    i + 1
+                ));
             }
             handler.push_to_scope(format!("\nsub x9, x29, #{relative_offset}"));
             for _ in 0..c {
@@ -529,10 +538,10 @@ pub fn function_declare_code_gen(
     }
     handler.new_function(name.clone(), function_scope as i32, args.clone());
     handler.push_to_scope("\n; save link reg\nstr lr, [x15, #-8]!");
+    handler.new_expr_lit();
+    handler.new_id("lr", 0); // link register
 
-    handler.new_id("lr", 8); // link register
     let scope_child = &children[children.len() - 1];
-
     if let NodeType::Scope(_) = scope_child.token {
         scope_code_gen(&scope_child, handler, ScopeType::Function(t.clone()));
     }
@@ -575,14 +584,24 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
 
 pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     let orig_frame = handler.curr_frame;
-    handler.push_to_scope("\n\n; if statement\n");
     let children = &node.children.as_ref().expect("Expected Condition");
 
-    // cmp x1, #n
-    // beq label
-    // node.children.unwrap()[0] is condition node, other child is scope
-    condition_expr_code_gen(&children[0], handler);
-    handler.new_stack_frame();
+    handler.push_to_scope(format!(
+        "\n\n; if statement\nb .L{}",
+        handler.scopes.len() + 1
+    ));
+
+    // Here we essentially reserve a new scope for after the if statement
+    let after_if_scope = handler.scopes.len();
+    handler.new_scope();
+    handler.curr_scope -= 1;
+
+    condition_expr_code_gen(&children[0], handler, after_if_scope);
+    handler.curr_scope -= 1; // I think this is fine
+    handler.push_to_scope(format!("\nb .L{}", after_if_scope));
+    handler.curr_scope += 1; // change to anchor otherwise??? (won't work)
+
+    //handler.new_stack_frame();
     handler.push_to_scope(
         "\n; scope of if statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15",
     );
@@ -590,11 +609,11 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     scope_code_gen(&children[1], handler, ScopeType::If);
     handler.push_to_scope(format!(
         "\n\n; if return\nadd x15, x29, #8\nldr x29, [x29]\nb .L{}",
-        handler.scopes.len()
+        after_if_scope
     ));
-    handler.new_scope();
+    handler.curr_scope = after_if_scope;
     handler.push_to_scope("\n; after if statement scope");
-    handler.curr_frame = orig_frame;
+    //handler.curr_frame = orig_frame;
 }
 
 pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) {
@@ -606,41 +625,57 @@ pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) {
     expr_code_gen(&children[0], handler);
     handler
         .push_to_scope("\n\n; deref expr\nldr x9, [x15], #8\nldr x10, [x9]\nstr x10, [x15, #-8]!");
+    // stack cancels out
 }
 
-pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler) {
+pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, else_scope: usize) {
     let children: Vec<TokenNode> = node.children.as_ref().unwrap_or(&Vec::new()).to_vec();
     println!("condition token: {:?}", node.token);
     match &node.token {
         NodeType::AndCmp => {
-            condition_expr_code_gen(&children[0], handler);
-            condition_expr_code_gen(&children[1], handler);
+            let mut anchor = handler.curr_scope;
+            condition_expr_code_gen(&children[0], handler, else_scope);
+            handler.curr_scope = anchor;
+            handler.scopes.pop();
+            handler.push_to_scope(format!("\nb .L{}", else_scope)); // FIXME: GOING TO CONDITIONAL AFTER SCOPE
+            handler.new_scope();
+            anchor = handler.curr_scope;
+            condition_expr_code_gen(&children[1], handler, else_scope);
+            handler.curr_scope = anchor;
+            handler.scopes.pop();
+            handler.push_to_scope(format!("\nb .L{}", else_scope));
+            handler.new_scope();
         }
         // This makes putting booleans into conditions illegal
         // TODO: Fix this or add it to parsing restraints
         NodeType::OrCmp => {
-            condition_expr_code_gen(&children[0], handler);
-            handler.curr_scope -= 1;
+            let anchor = handler.curr_scope;
+            condition_expr_code_gen(&children[0], handler, else_scope);
+            handler.curr_scope = anchor;
             handler.scopes.pop();
-            condition_expr_code_gen(&children[1], handler);
+            condition_expr_code_gen(&children[1], handler, else_scope);
+            handler.curr_scope = anchor;
+            handler.scopes.pop();
+            handler.push_to_scope(format!("\nb .L{}", else_scope));
+            handler.new_scope();
         }
         NodeType::NeqCmp => {
-            condition_expr_code_gen(&children[0], handler);
-            condition_expr_code_gen(&children[1], handler);
+            condition_expr_code_gen(&children[0], handler, else_scope);
+            condition_expr_code_gen(&children[1], handler, else_scope);
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}\n",
-                handler.scopes.len()
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}",
+                handler.scopes.len(),
             ));
             handler.new_scope();
         }
         NodeType::EqCmp => {
-            condition_expr_code_gen(&children[0], handler);
-            condition_expr_code_gen(&children[1], handler);
+            condition_expr_code_gen(&children[0], handler, else_scope);
+            condition_expr_code_gen(&children[1], handler, else_scope);
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}\n",
-                handler.scopes.len()
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}",
+                handler.scopes.len(),
             ));
             handler.new_scope();
         }
@@ -651,20 +686,47 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler) {
 }
 
 fn while_code_gen(node: &TokenNode, handler: &mut Handler) {
-    match &node.children {
-        Some(children) => {
-            handler.push_to_scope(format!("\nb .L{}", handler.curr_scope + 1));
-            handler.new_break_anchor();
-            handler.new_scope();
+    let orig_frame = handler.curr_frame;
+    let children = &node.children.as_ref().expect("Expected Condition");
 
-            condition_expr_code_gen(&children[0], handler);
-            scope_code_gen(&children[1], handler, ScopeType::While);
-            handler.new_scope();
-        }
-        None => {
-            panic!("Expected Condition")
-        }
-    }
+    handler.push_to_scope(format!(
+        "\n\n; while statement\nb .L{}",
+        handler.scopes.len() + 1
+    ));
+    let anchor = handler.curr_scope;
+
+    // Reserve after while loop scope
+    handler.new_scope();
+    let after_while_scope = handler.curr_scope;
+    handler.curr_scope = anchor;
+
+    handler.new_scope();
+    let condition_scope = handler.curr_scope;
+    condition_expr_code_gen(&children[0], handler, after_while_scope);
+    handler.curr_scope -= 1; // I think this is fine
+    handler.push_to_scope(format!("\nb .L{}", after_while_scope));
+    handler.curr_scope += 1; // change to anchor otherwise??? (won't work)
+    handler.new_stack_frame();
+    handler.push_to_scope(
+        "\n; scope of while statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15\nstr lr, [x15, #-8]!\n\n",
+    );
+    handler.new_expr_lit();
+    handler.new_id("lr", 0);
+
+    let mut c = 0;
+
+    scope_code_gen(&children[1], handler, ScopeType::If);
+    handler.push_to_scope(format!(
+        "\n\n; while return\nldr lr, [x29, #{}]\nadd x15, x29, #8\nldr x29, [x29]\nb .L{}",
+        handler.get_id("lr", &mut c).unwrap(),
+        condition_scope
+    ));
+
+    assert_eq!(c, 0);
+
+    handler.curr_scope = after_while_scope;
+    handler.push_to_scope("\n; after while statement scope");
+    handler.curr_frame = orig_frame;
 }
 
 fn assert_code_gen(node: &TokenNode, handler: &mut Handler) {
@@ -673,7 +735,7 @@ fn assert_code_gen(node: &TokenNode, handler: &mut Handler) {
     if children.len() != 1 {
         panic!("Assert incorrect children: {}", children.len());
     }
-    condition_expr_code_gen(&children[0], handler);
+    // Split condition into the scope-hoping and the comparisons for convenience
     handler.push_to_scope("\nmov x0, #1\nmov x8, #93\nsvc #0")
 }
 
@@ -690,9 +752,10 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
     let mut c = 0;
     let offset = handler
         .get_id("lr", &mut c)
-        .expect("Lr not placed in frame");
-
-    handler.push_to_scope(format!("ldr lr, [x29, #{}]", offset));
+        .expect("Lr not placed in frame")
+        .clone();
+    assert_eq!(c, 0);
+    handler.push_to_scope(format!("\nldr lr, [x29, #{}]", offset));
 
     handler.push_to_scope("\nadd x15, x29, #8\nldr x29, [x29]\nstr x9, [x15, #-8]!\nret");
     handler.unload_expr_lit();
