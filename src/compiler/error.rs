@@ -16,6 +16,7 @@ pub enum ET {
     ExpectedStrLiteral,
     ExpectedType,
     ExpectedSemi,
+    ExpectedEq,
 }
 
 #[derive(Debug, Clone)]

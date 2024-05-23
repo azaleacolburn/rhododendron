@@ -49,7 +49,7 @@ pub enum NodeType {
     Asm(String),
     Adr(String),
     DeRef,
-    Array,
+    Array(i32),
     FunctionDecaration((String, RhTypes)),
     Type(RhTypes),
     Assert,
@@ -329,6 +329,7 @@ fn arithmetic_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr>
     while curr == Token::Star || curr == Token::Div {
         token_handler.next_token();
         let right = arithmetic_factor(token_handler)?;
+        println!("should be semi: {:?}", token_handler.get_token());
         left = TokenNode::new(
             NodeType::from_token(&curr).unwrap(),
             Some(vec![left, right]),
@@ -340,7 +341,6 @@ fn arithmetic_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr>
 
 fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let token = token_handler.get_token().clone();
-    println!("Factor: {:?}, ", token);
     let ret = match token {
         Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(num), None)),
         Token::Id(id) => {
@@ -391,17 +391,32 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
         Token::OSquare => {
             token_handler.next_token();
 
-            let mut node = TokenNode::new(NodeType::Array, vec![].into());
+            let n = if let Token::NumLiteral(n) = token_handler.get_token() {
+                n
+            } else {
+                panic!("no empty arrays allowed");
+            };
 
-            loop {
-                node.children
-                    .as_mut()
-                    .unwrap()
-                    .push(condition_expr(token_handler)?);
-                if *token_handler.get_token() != Token::Comma {
-                    break;
-                }
+            let mut node = TokenNode::new(NodeType::Array(*n), vec![].into());
+
+            println!("Array: {:?}", token_handler.get_token());
+
+            token_handler.next_token();
+
+            if *token_handler.get_token() == Token::Semi {
                 token_handler.next_token();
+                loop {
+                    node.children
+                        .as_mut()
+                        .unwrap()
+                        .push(condition_expr(token_handler)?);
+                    if *token_handler.get_token() != Token::Comma {
+                        break;
+                    }
+                    token_handler.next_token();
+                }
+            } else {
+                //token_handler.next_token();
             }
 
             if *token_handler.get_token() != Token::CSquare {

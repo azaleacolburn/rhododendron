@@ -1,11 +1,61 @@
 int strlen(int ptr) {
     int i = 0;
-    while(ptr[i] != 0) {
+    while (ptr[i] != 0) {
         i += 1;
     }
     return(i);
 }
 
-int ptr = ['a', 'u', 't', 'o', 0];
-int len = strlen(ptr);
-put(len + 48);
+void strput(int ptr) {
+    int i = 0;
+    while (ptr[i] != 0) {
+        put(ptr[i]);
+        i += 1;
+    }
+}
+
+void memset(int des, int src, int len) {
+    int i = 0;
+    while (i != len) {
+        des[i] = src[i];
+        put(des[i]);
+        i += 1;
+    }
+}
+
+void fill(int des, int c, int len) {
+    int i = 0;
+    while (i != len) {
+        des[i] = c;
+        i += 1;
+    }
+}
+
+void strcat(int des, int ptr, int ptr_two) {
+    int len_one = strlen(ptr);
+    int len_two = strlen(ptr_two);
+    int i = 0;
+    while (i != len_one) {
+        des[i] = ptr[i];
+        i += 1;
+    }
+    i = 0;
+    while (i != len_two + 1) {
+        des[i + len_one] = ptr_two[i];
+        i += 1;
+    }
+    strput(des);
+}
+
+int auto_ptr = [5; 'a', 'u', 't', 'o'];
+int desk_ptr = [5; 'd', 'e', 's', 'k'];
+int auto_len = strlen(auto_ptr);
+put(auto_len + 48);
+strput(auto_ptr);
+int mo = [2; 'm', 'o'];
+memset(auto_ptr, mo, 2);
+put('\n');
+strput(auto_ptr);
+int desk_len = strlen(desk_ptr);
+fill(desk_ptr, 'r', desk_len);
+strput(desk_ptr);

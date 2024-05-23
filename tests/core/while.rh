@@ -3,3 +3,5 @@ while (n != '0') {
     put(n);
     n -= 1;
 }
+put('\n');
+put(n);

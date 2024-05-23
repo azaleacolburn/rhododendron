@@ -231,15 +231,8 @@ impl Handler {
     }
 }
 
-// Ask Andrew how to enter into main after trying to do it with code_gen, not parsing
 pub fn main(node: &TokenNode) -> String {
     let mut handler = Handler::new();
-    // use this later
-    // var_name : pos_on_stack
-    // Stores the variable name and their absolute position on the stack
-
-    // Stores the variable name and their relative position on the stack(from the top of the stack
-    // at the begining of runtime). This should be on a per_scope level
     if node.token == NodeType::Program {
         scope_code_gen(
             &node.children.as_ref().unwrap()[0],
@@ -248,8 +241,6 @@ pub fn main(node: &TokenNode) -> String {
         );
     }
     handler.push_to_scope("\n\n; exit program gracefully\nmov x0, #0\nmov x16, #1\nsvc #0x80");
-
-    // code.trim().to_string()
 
     handler.format_scopes()
 }
@@ -395,7 +386,8 @@ fn deref_assignment_code_gen(node: &TokenNode, handler: &mut Handler, op: Assign
         handler,
     );
     expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
-    handler.push_to_scope("\nldr x10, [x15], #8\nldr x11, [x15], #8");
+    handler.push_to_scope("\nldr x10, [x15], #8 ; pop res\nldr x11, [x15], #8 ; pop adr");
+    handler.unload_expr_lit();
     handler.unload_expr_lit();
 
     // this load the old value in case we need it
@@ -411,6 +403,8 @@ fn deref_assignment_code_gen(node: &TokenNode, handler: &mut Handler, op: Assign
             AssignmentOpType::BXorEq => handler.push_to_scope("\nxor x9, x9, x10"),
             _ => panic!("Unexpected Operator"),
         };
+    } else {
+        handler.push_to_scope("\nmov x9, x10");
     }
 
     handler.push_to_scope("\nstr x9, [x11]");
@@ -470,15 +464,20 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
         NodeType::DeRef => {
             deref_code_gen(&node, handler);
         }
-        NodeType::Array => {
+        NodeType::Array(n) => {
             let children = node
                 .children
                 .as_ref()
                 .expect("Array node should have children");
+            let zeros: i32 = *n - children.len() as i32;
             handler.push_to_scope("\n; new array\nsub x11, x15, #8; anchor ptr\n");
             for node in children.iter() {
                 expr_code_gen(&node, handler);
                 handler.push_to_scope("\n")
+            }
+            for _ in 0..zeros {
+                handler.push_to_scope("\n; empty array section\nmov x9, #0\nstr x9, [x15, #-8]!");
+                handler.new_expr_lit();
             }
             handler.push_to_scope("\nstr x11, [x15, #-8]! ; str array anchor TOS");
             handler.new_expr_lit();

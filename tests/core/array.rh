@@ -1,5 +1,11 @@
-int h = ['6', '5', '4', '3', '2', '1', '0', 0];
+int h = [7; '6', '5', '4', '3', '2', '1', '0'];
+int y = [10];
+y[0] = '6';
 int j = '1';
+put(y[0]);
+put('\n');
+
+
 
 put(*h);
 put(*(h - 8));
@@ -32,13 +38,17 @@ put(h[0]);
 put(h[1]);
 put('\n');
 put(j);
-put(h[8]);
+put(h[6]);
 
 void print_array(int ptr) {
+    int anchor = ptr;
     while (*ptr != 0) {
         put(*ptr);
-        ptr -= 8;
+        ptr -= 1;
     }
+    ptr = anchor;
 }
 
+put('\n');
+put('\n');
 print_array(h);
