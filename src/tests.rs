@@ -1,31 +1,35 @@
-use crate::compiler;
+use colored::Colorize;
 use std::{
-    fs, io::{self, BufReader, Read},
+    fs, io,
     path::{Path, PathBuf},
     process::Command,
-    str,
 };
 
 #[test]
 fn test_all() {
-    let tests: Vec<PathBuf> = get_all_files(&Path::new("tests/core")).expect("No files to be tests");
+    let tests: Vec<PathBuf> =
+        get_all_files(&Path::new("tests/core")).expect("No files to be tests");
+    let mut ret = String::new();
 
     for test_i in 0..tests.len() {
         let name = tests[test_i].file_stem().unwrap().to_str().unwrap();
 
-        let generated_asm = compiler::test(tests[test_i], tests[test_i]);
-        
+        println!("name: {}", name);
 
-        Command::new(format!("gcc -o {name}.asm {name}"))
+        Command::new("bash")
+            .arg("test_rh.sh")
+            .arg(format!("{}", name))
             .spawn()
-            .expect("Assembly failed");
+            .expect("Assembling failed");
 
-        let generated_output = Command::new(format!("./{}", names))
-            .output()
-            .expect("Failed at runtime");
-
-        assert_eq!(generated_output);
+        let generated_output = Command::new(format!("./gen/core/{}", name)).output();
+        match generated_output {
+            Ok(_) => ret.push_str(format!("{}\t\t\t[{}]", name, "OK".green()).as_str()),
+            Err(err) => ret.push_str(format!("{}\t\t\t[{}]\n{}", name, "ERR".red(), err).as_str()),
+        }
     }
+
+    println!("{}", ret);
 }
 
 // Gets all files in a directory, returns them as a vector of path buffers

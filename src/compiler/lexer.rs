@@ -1,32 +1,29 @@
 use std::num::ParseIntError;
 
-/// the index of token_lines is the token_i and the value is the line number
+/// each index is a new line, the value is the token_i that starts that line
 pub struct LineNumHandler {
     pub token_lines: Vec<i32>,
-    curr_line: i32,
 }
 
 impl LineNumHandler {
     pub fn new() -> LineNumHandler {
         LineNumHandler {
-            token_lines: vec![],
-            curr_line: 1,
+            token_lines: vec![-1],
         }
     }
 
-    /// Pushes a new token_i to the current range
-    pub fn record_token(&mut self) {
-        self.token_lines.push(self.curr_line);
-    }
-
-    /// Creares a new range and pushes the current range along with the current line to the hashmap
-    pub fn new_line(&mut self) {
-        self.curr_line += 1;
+    /// Creates a new line with the start of the line being this token_number
+    fn new_line(&mut self, token_number: i32) {
+        self.token_lines.push(token_number);
     }
 
     /// Given a token index, returns the line that token was on
-    pub fn get_line(&mut self, token_i: usize) -> i32 {
-        self.token_lines[token_i]
+    /// For external use only
+    pub fn get_line(&self, token_number: i32) -> usize {
+        self.token_lines
+            .iter()
+            .position(|n| *n < token_number)
+            .expect("Invalid Token Number For Getting Line Number")
     }
 }
 
@@ -39,6 +36,7 @@ pub fn string_to_tokens(
     let mut curr: String = String::from("");
     let mut i: usize = 0;
     let mut line_tracker = LineNumHandler::new();
+    line_tracker.new_line(0);
     while i < chars.len() {
         // Handles num literals but we don't actually know if it is a literal yet
         if chars[i].is_numeric() {
@@ -83,7 +81,7 @@ pub fn string_to_tokens(
                         Ok(value) => {
                             ret.push(Token::NumLiteral(value));
                         }
-                        Err(err) => {
+                        Err(_err) => {
                             continue;
                         }
                     };
@@ -591,7 +589,7 @@ pub fn string_to_tokens(
                 }
             }
             '\n' => {
-                line_tracker.new_line();
+                line_tracker.new_line(ret.len() as i32 - 1);
             }
             '\'' => {
                 if chars[i + 1].is_ascii() {
@@ -628,8 +626,6 @@ pub fn string_to_tokens(
             }
         }
         i += 1;
-        line_tracker.record_token();
-        // curr.push(c);
     }
     Ok((ret, line_tracker))
 }

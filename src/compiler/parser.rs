@@ -1,6 +1,13 @@
 use crate::compiler::error::{RhErr, ET};
 use crate::compiler::lexer::{LineNumHandler, RhTypes, Token};
 
+macro_rules! dbg_out {
+       // `()` indicates that the macro takes no argument.
+    ($($arg:tt)*, $expression:expr) => {
+           if expression { println!($($arg)*) }
+       };
+  }
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScopeType {
     Function(RhTypes),
@@ -128,16 +135,18 @@ impl NodeType {
 pub struct TokenHandler {
     tokens: Vec<Token>,
     curr_token: usize,
-    token_lines: Vec<i32>,
+    token_lines: LineNumHandler,
+    debug: bool,
 }
 
 #[allow(dead_code)]
 impl TokenHandler {
-    pub fn new(tokens: Vec<Token>, line_tracker: LineNumHandler) -> Self {
+    pub fn new(tokens: Vec<Token>, line_tracker: LineNumHandler, debug: bool) -> Self {
         TokenHandler {
             tokens,
             curr_token: 0,
-            token_lines: line_tracker.token_lines,
+            token_lines: line_tracker,
+            debug,
         }
     }
 
@@ -168,7 +177,7 @@ impl TokenHandler {
     pub fn new_err(&self, err: ET) -> RhErr {
         RhErr {
             err,
-            line: self.token_lines[self.curr_token],
+            line: self.token_lines.get_line(self.curr_token as i32) as i32,
         }
     }
 }
@@ -204,8 +213,12 @@ impl TokenNode {
     }
 }
 
-pub fn program(tokens: Vec<Token>, line_tracker: LineNumHandler) -> Result<TokenNode, RhErr> {
-    let mut token_handler = TokenHandler::new(tokens, line_tracker);
+pub fn program(
+    tokens: Vec<Token>,
+    line_tracker: LineNumHandler,
+    debug: bool,
+) -> Result<TokenNode, RhErr> {
+    let mut token_handler = TokenHandler::new(tokens, line_tracker, debug);
 
     let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
     let top_scope = scope(&mut token_handler, ScopeType::Program)?;
@@ -227,7 +240,7 @@ pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<
             .as_mut()
             .expect("Scope has no children")
             .push(statement(token_handler, scope_type.clone())?);
-        println!();
+        dbg_out!("", token_handler.debug);
         if token_handler.curr_token == token_handler.len() - 1 {
             return Ok(scope_node);
         }

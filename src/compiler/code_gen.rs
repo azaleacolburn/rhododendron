@@ -231,7 +231,7 @@ impl Handler {
     }
 }
 
-pub fn main(node: &TokenNode) -> String {
+pub fn main(node: &TokenNode, debug: bool) -> String {
     let mut handler = Handler::new();
     if node.token == NodeType::Program {
         scope_code_gen(
