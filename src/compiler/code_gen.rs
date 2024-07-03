@@ -585,10 +585,13 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     let orig_frame = handler.curr_frame;
     let children = &node.children.as_ref().expect("Expected Condition");
 
-    handler.push_to_scope(format!(
-        "\n\n; if statement\nb .L{}",
-        handler.scopes.len() + 1
-    ));
+    // WTF DID WE DO HERE
+    // We're literally jumping to ourselves and looping infinitely
+    //handler.push_to_scope(format!(
+    //    "\n\n; if statement\nb .L{}",
+    //    handler.scopes.len() + 1
+    //));
+    handler.push_to_scope(format!("\n\n; if statement"));
 
     // Here we essentially reserve a new scope for after the if statement
     let after_if_scope = handler.scopes.len();
@@ -596,9 +599,9 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     handler.curr_scope -= 1;
 
     condition_expr_code_gen(&children[0], handler, after_if_scope);
-    handler.curr_scope -= 1; // I think this is fine
-    handler.push_to_scope(format!("\nb .L{}", after_if_scope));
-    handler.curr_scope += 1; // change to anchor otherwise??? (won't work)
+    //handler.curr_scope -= 1; // I think this is fine
+    //handler.push_to_scope(format!("\nb .L{}", after_if_scope));
+    //handler.curr_scope += 1; // change to anchor otherwise??? (won't work)
 
     //handler.new_stack_frame();
     handler.push_to_scope(

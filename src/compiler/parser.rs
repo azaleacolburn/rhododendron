@@ -240,7 +240,6 @@ pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<
             .as_mut()
             .expect("Scope has no children")
             .push(statement(token_handler, scope_type.clone())?);
-        dbg_out!("", token_handler.debug);
         if token_handler.curr_token == token_handler.len() - 1 {
             return Ok(scope_node);
         }
@@ -354,63 +353,51 @@ fn arithmetic_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr>
 
 fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
     let token = token_handler.get_token().clone();
-    let ret = match token {
-        Token::NumLiteral(num) => Ok(TokenNode::new(NodeType::NumLiteral(num), None)),
-        Token::Id(id) => {
-            if *token_handler.peek(1) == Token::OParen {
-                Ok(function_call(token_handler, id.to_string())?)
-            } else if *token_handler.peek(1) == Token::OSquare {
-                token_handler.next_token();
-                token_handler.next_token();
-                let post_mul = TokenNode::new(
-                    NodeType::Mul,
-                    vec![
-                        arithmetic_expression(token_handler)?,
-                        TokenNode::new(NodeType::NumLiteral(8), None),
-                    ]
-                    .into(),
-                );
-                let post_add = TokenNode::new(
-                    NodeType::Sub,
-                    vec![TokenNode::new(NodeType::Id(id.to_string()), None), post_mul].into(),
-                );
-                println!("post arith indexing token: {:?}", token_handler.get_token());
-                if *token_handler.get_token() != Token::CSquare {
-                    return Err(token_handler.new_err(ET::ExpectedCSquare));
-                }
-                Ok(TokenNode::new(NodeType::DeRef, vec![post_add].into()))
-            } else {
-                Ok(TokenNode::new(NodeType::Id(id.to_string()), None))
+    let ret = match (token, *token_handler.peek(1)) {
+        (Token::NumLiteral(num), _) => Ok(TokenNode::new(NodeType::NumLiteral(num), None)),
+        (Token::Id(id), Token::OParen) => Ok(function_call(token_handler, id.to_string())?),
+        (Token::Id(id), Token::OSquare) => {
+            token_handler.next_token();
+            token_handler.next_token();
+            let post_mul = TokenNode::new(
+                NodeType::Mul,
+                vec![
+                    arithmetic_expression(token_handler)?,
+                    TokenNode::new(NodeType::NumLiteral(8), None),
+                ]
+                .into(),
+            );
+            let post_add = TokenNode::new(
+                NodeType::Sub,
+                vec![TokenNode::new(NodeType::Id(id.to_string()), None), post_mul].into(),
+            );
+            println!("post arith indexing token: {:?}", token_handler.get_token());
+            if *token_handler.get_token() != Token::CSquare {
+                return Err(token_handler.new_err(ET::ExpectedCSquare));
             }
+            Ok(TokenNode::new(NodeType::DeRef, vec![post_add].into()))
         }
+
+        (Token::Id(id), _) => Ok(TokenNode::new(NodeType::Id(id.to_string()), None)),
 
         // Address of a variable
-        Token::BAnd => {
+        (Token::BAnd, Token::Id(id)) => {
             token_handler.next_token();
-            if let Token::Id(id) = token_handler.get_token() {
-                Ok(TokenNode::new(NodeType::Adr(id.to_string()), None))
-            } else {
-                Err(token_handler.new_err(ET::ExpectedId))
-            }
+            Ok(TokenNode::new(NodeType::Adr(id.to_string()), None))
         }
+        (Token::BAnd, _) => Err(token_handler.new_err(ET::ExpectedId)),
 
-        Token::Star => {
+        (Token::Star, _) => {
             token_handler.next_token();
             let factor = arithmetic_factor(token_handler)?;
             token_handler.prev_token();
             Ok(TokenNode::new(NodeType::DeRef, vec![factor].into()))
         }
 
-        Token::OSquare => {
+        (Token::OSquare, Token::NumLiteral(n)) => {
             token_handler.next_token();
 
-            let n = if let Token::NumLiteral(n) = token_handler.get_token() {
-                n
-            } else {
-                panic!("no empty arrays allowed");
-            };
-
-            let mut node = TokenNode::new(NodeType::Array(*n), vec![].into());
+            let mut node = TokenNode::new(NodeType::Array(n), vec![].into());
 
             println!("Array: {:?}", token_handler.get_token());
 
@@ -439,7 +426,9 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
             Ok(node)
         }
 
-        Token::OParen => {
+        (Token::OSquare, _) => panic!("no empty arrays allowed"),
+
+        (Token::OParen, _) => {
             token_handler.next_token();
             match arithmetic_expression(token_handler) {
                 Ok(node) => {

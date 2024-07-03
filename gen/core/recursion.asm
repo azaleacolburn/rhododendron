@@ -7,15 +7,33 @@
 	mov x29, sp
 	mov x15, sp
 	
+	; var dec: h, offset: 8 (wrong for arrays)
+	; new array
+	sub x11, x15, #8; anchor ptr
+	
+	mov x9, #48
+	str x9, [x15, #-8]!
+	
+	mov x9, #49
+	str x9, [x15, #-8]!
+	
+	mov x9, #50
+	str x9, [x15, #-8]!
+	
+	str x11, [x15, #-8]! ; str array anchor TOS
+	
+	
 	; place old sfb
 	str x29, [x15, #-8]!
 	mov x10, x15
-	mov x9, #54
+	ldr x9, [x29, #-32]
 	str x9, [x15, #-8]!
-	mov x9, #56
+	mov x9, #0
+	str x9, [x15, #-8]!
+	mov x9, #3
 	str x9, [x15, #-8]!
 	mov x29, x10
-	bl .L8
+	bl .L2
 	mov x9, #10
 	str x9, [x15, #-8]!
 	
@@ -51,11 +69,52 @@
 	
 	; save link reg
 	str lr, [x15, #-8]!
+	
+	; var dec: max, offset: 40 (wrong for arrays)
+	ldr x9, [x29, #-24]
+	str x9, [x15, #-8]!
+	mov x9, #1
+	str x9, [x15, #-8]!
+	
+	; load from stack
+	ldr x10, [x15], #8
+	ldr x9, [x15], #8
+	sub x9, x9, x10
+	str x9, [x15, #-8]!
+	
+	
+	; if statement
+	b .L4
+	ldr x9, [x29, #-16]
+	str x9, [x15, #-8]!
+	ldr x9, [x29, #-40]
+	str x9, [x15, #-8]!
+	ldr x9, [x15], #8
+	ldr x10, [x15], #8
+	cmp x9, x10
+	bne .L4
+
+.L3:
+	b .L3
+	; after if statement scope
+	; void function return
+	ldr lr, [x29, #-32]
+	add x15, x29, #8
+	ldr x29, [x29]
+	ret
+	            
+
+.L4:
+	; scope of if statement
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x29, x15
 	ldr x9, [x29, #-8]
 	str x9, [x15, #-8]!
-	mov x9, #8
-	str x9, [x15, #-8]!
 	ldr x9, [x29, #-16]
+	str x9, [x15, #-8]!
+	mov x9, #8
 	str x9, [x15, #-8]!
 	
 	; load from stack
@@ -84,42 +143,13 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	
-	; if statement
-	b .L4
-	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
-	ldr x9, [x29, #-24]
-	str x9, [x15, #-8]!
+	; variable assignment
 	mov x9, #1
 	str x9, [x15, #-8]!
-	
-	; load from stack
 	ldr x10, [x15], #8
-	ldr x9, [x15], #8
-	sub x9, x9, x10
-	str x9, [x15, #-8]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
-	cmp x9, x10
-	bne .L4
-
-.L3:
-	b .L3
-	; after if statement scope
-	; void function return
-	ldr lr, [x29, #-32]
-	add x15, x29, #8
-	ldr x29, [x29]
-	ret
-	            
-
-.L4:
-	; scope of if statement
-	
-	; place old sfb
-	str x29, [x15, #-8]!
-	mov x29, x15
+	ldr x9, [x29, #-16]
+	add x9, x9, x10
+	str x9, [x29, #-16]
 	
 	; place old sfb
 	str x29, [x15, #-8]!
@@ -127,14 +157,6 @@
 	ldr x9, [x29, #-8]
 	str x9, [x15, #-8]!
 	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
-	mov x9, #1
-	str x9, [x15, #-8]!
-	
-	; load from stack
-	ldr x10, [x15], #8
-	ldr x9, [x15], #8
-	add x9, x9, x10
 	str x9, [x15, #-8]!
 	ldr x9, [x29, #-24]
 	str x9, [x15, #-8]!

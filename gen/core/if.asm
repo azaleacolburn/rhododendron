@@ -7,34 +7,11 @@
 	mov x29, sp
 	mov x15, sp
 	
-	; var dec: num, offset: 8 (wrong for arrays)
-	mov x9, #58
+	; var dec: c, offset: 8 (wrong for arrays)
+	mov x9, #80
 	str x9, [x15, #-8]!
 	
-	
-	; var dec: c, offset: 16 (wrong for arrays)
-	mov x9, #58
-	str x9, [x15, #-8]!
-	
-	
-	; place old sfb
-	str x29, [x15, #-8]!
-	mov x10, x15
-	mov x29, x10
-	bl .L6
-	mov x9, #111
-	str x9, [x15, #-8]!
-	
-	; putchar
-	mov x0, #1 ; stdout
-	mov x1, x15 ; put from TOS
-	mov x2, #1 ; print 1 char
-	mov x16, #4 ; write
-	svc #0x80
-	; unload the TOS
-	add x15, x15, #8
-	
-	mov x9, #10
+	mov x9, #97
 	str x9, [x15, #-8]!
 	
 	; putchar
@@ -47,32 +24,8 @@
 	add x15, x15, #8
 	
 	
-	; place old sfb
-	str x29, [x15, #-8]!
-	mov x10, x15
-	ldr x9, [x29, #-8]
-	str x9, [x15, #-8]!
-	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
-	mov x29, x10
-	bl .L2
-	mov x9, #111
-	str x9, [x15, #-8]!
-	
-	; putchar
-	mov x0, #1 ; stdout
-	mov x1, x15 ; put from TOS
-	mov x2, #1 ; print 1 char
-	mov x16, #4 ; write
-	svc #0x80
-	; unload the TOS
-	add x15, x15, #8
-	
-	
-	; exit program gracefully
-	mov x0, #0
-	mov x16, #1
-	svc #0x80
+	; if statement
+	b .L10
 
 .L2:
 	; function declaration: check
@@ -257,3 +210,114 @@
 	add x15, x29, #8
 	ldr x29, [x29]
 	b .L7
+	ldr x9, [x29, #-8]
+	str x9, [x15, #-8]!
+	mov x9, #80
+	str x9, [x15, #-8]!
+	ldr x9, [x15], #8
+	ldr x10, [x15], #8
+	cmp x9, x10
+	beq .L10
+
+.L9:
+	b .L9
+	; after if statement scope
+	mov x9, #111
+	str x9, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	
+	; var dec: num, offset: 32 (wrong for arrays)
+	mov x9, #58
+	str x9, [x15, #-8]!
+	
+	
+	; var dec: c, offset: 40 (wrong for arrays)
+	mov x9, #58
+	str x9, [x15, #-8]!
+	
+	mov x9, #111
+	str x9, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	mov x9, #10
+	str x9, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	mov x9, #111
+	str x9, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	
+	; exit program gracefully
+	mov x0, #0
+	mov x16, #1
+	svc #0x80
+
+.L10:
+	; scope of if statement
+	
+	; place old sfb
+	str x29, [x15, #-8]!
+	mov x29, x15
+	mov x9, #117
+	str x9, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	mov x9, #116
+	str x9, [x15, #-8]!
+	
+	; putchar
+	mov x0, #1 ; stdout
+	mov x1, x15 ; put from TOS
+	mov x2, #1 ; print 1 char
+	mov x16, #4 ; write
+	svc #0x80
+	; unload the TOS
+	add x15, x15, #8
+	
+	
+	; if return
+	add x15, x29, #8
+	ldr x29, [x29]
+	b .L9

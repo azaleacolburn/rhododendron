@@ -15,11 +15,19 @@ void test() {
     put('t');
 }
 
-int num = 58;
-int c = 58;
-test();
+int c = 80;
+put('a');
+if (c == 80) {
+    put('u');
+    put('t');
+}
+put('o');
+
+int num = ':';
+int c = ':';
+//test();
 put('o');
 put('\n');
-check(num, c);
+//check(num, c);
 put('o');
 
