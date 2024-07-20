@@ -32,49 +32,25 @@
 	mov x9, #48
 	str x9, [x15, #-8]!
 	
+	; empty array section
+	mov x9, #0
+	str x9, [x15, #-8]!
 	str x11, [x15, #-8]! ; str array anchor TOS
 	
 	
-	; var dec: y, offset: 72 (wrong for arrays)
+	; var dec: y, offset: 80 (wrong for arrays)
 	; new array
 	sub x11, x15, #8; anchor ptr
 	
-	; empty array section
-	mov x9, #0
+	mov x9, #10
 	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
-	; empty array section
-	mov x9, #0
-	str x9, [x15, #-8]!
+	
 	str x11, [x15, #-8]! ; str array anchor TOS
 	
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-152]
+	ldr x9, [x29, #-88]
 	str x9, [x15, #-8]!
 	mov x9, #0
 	str x9, [x15, #-8]!
@@ -99,11 +75,11 @@
 	mov x9, x10
 	str x9, [x11]
 	
-	; var dec: j, offset: 160 (wrong for arrays)
+	; var dec: j, offset: 96 (wrong for arrays)
 	mov x9, #49
 	str x9, [x15, #-8]!
 	
-	ldr x9, [x29, #-152]
+	ldr x9, [x29, #-88]
 	str x9, [x15, #-8]!
 	mov x9, #0
 	str x9, [x15, #-8]!
@@ -148,7 +124,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	
 	; deref expr
@@ -165,7 +141,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #8
 	str x9, [x15, #-8]!
@@ -190,7 +166,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #2
 	str x9, [x15, #-8]!
@@ -223,7 +199,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #3
 	str x9, [x15, #-8]!
@@ -256,7 +232,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #4
 	str x9, [x15, #-8]!
@@ -289,7 +265,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #5
 	str x9, [x15, #-8]!
@@ -322,7 +298,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #6
 	str x9, [x15, #-8]!
@@ -370,7 +346,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #55
 	str x9, [x15, #-8]!
@@ -381,7 +357,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #8
 	str x9, [x15, #-8]!
@@ -400,7 +376,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #2
 	str x9, [x15, #-8]!
@@ -428,7 +404,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #3
 	str x9, [x15, #-8]!
@@ -456,7 +432,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #4
 	str x9, [x15, #-8]!
@@ -484,7 +460,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #5
 	str x9, [x15, #-8]!
@@ -512,7 +488,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #6
 	str x9, [x15, #-8]!
@@ -537,7 +513,7 @@
 	ldr x9, [x11]
 	add x9, x9, x10
 	str x9, [x11]
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #0
 	str x9, [x15, #-8]!
@@ -570,7 +546,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #1
 	str x9, [x15, #-8]!
@@ -603,7 +579,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #2
 	str x9, [x15, #-8]!
@@ -636,7 +612,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #3
 	str x9, [x15, #-8]!
@@ -669,7 +645,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #4
 	str x9, [x15, #-8]!
@@ -702,7 +678,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #5
 	str x9, [x15, #-8]!
@@ -735,7 +711,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #6
 	str x9, [x15, #-8]!
@@ -783,7 +759,7 @@
 	; variable assignment
 	
 	; deref assignment
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #0
 	str x9, [x15, #-8]!
@@ -807,7 +783,7 @@
 	ldr x11, [x15], #8 ; pop adr
 	mov x9, x10
 	str x9, [x11]
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #0
 	str x9, [x15, #-8]!
@@ -840,7 +816,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #1
 	str x9, [x15, #-8]!
@@ -885,7 +861,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-160]
+	ldr x9, [x29, #-96]
 	str x9, [x15, #-8]!
 	
 	; putchar
@@ -897,7 +873,7 @@
 	; unload the TOS
 	add x15, x15, #8
 	
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x9, #6
 	str x9, [x15, #-8]!
@@ -958,7 +934,7 @@
 	; place old sfb
 	str x29, [x15, #-8]!
 	mov x10, x15
-	ldr x9, [x29, #-64]
+	ldr x9, [x29, #-72]
 	str x9, [x15, #-8]!
 	mov x29, x10
 	bl .L2
@@ -1010,6 +986,7 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L5
+	b .L3
 	b .L3
 
 .L5:

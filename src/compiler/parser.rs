@@ -1,13 +1,6 @@
 use crate::compiler::error::{RhErr, ET};
 use crate::compiler::lexer::{LineNumHandler, RhTypes, Token};
 
-macro_rules! dbg_out {
-       // `()` indicates that the macro takes no argument.
-    ($($arg:tt)*, $expression:expr) => {
-           if expression { println!($($arg)*) }
-       };
-  }
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScopeType {
     Function(RhTypes),
@@ -135,18 +128,16 @@ impl NodeType {
 pub struct TokenHandler {
     tokens: Vec<Token>,
     curr_token: usize,
-    token_lines: LineNumHandler,
-    debug: bool,
+    token_lines: Vec<i32>,
 }
 
 #[allow(dead_code)]
 impl TokenHandler {
-    pub fn new(tokens: Vec<Token>, line_tracker: LineNumHandler, debug: bool) -> Self {
+    pub fn new(tokens: Vec<Token>, line_tracker: LineNumHandler) -> Self {
         TokenHandler {
             tokens,
             curr_token: 0,
-            token_lines: line_tracker,
-            debug,
+            token_lines: line_tracker.token_lines,
         }
     }
 
@@ -177,7 +168,7 @@ impl TokenHandler {
     pub fn new_err(&self, err: ET) -> RhErr {
         RhErr {
             err,
-            line: self.token_lines.get_line(self.curr_token as i32) as i32,
+            line: self.token_lines[self.curr_token],
         }
     }
 }
@@ -218,7 +209,7 @@ pub fn program(
     line_tracker: LineNumHandler,
     debug: bool,
 ) -> Result<TokenNode, RhErr> {
-    let mut token_handler = TokenHandler::new(tokens, line_tracker, debug);
+    let mut token_handler = TokenHandler::new(tokens, line_tracker);
 
     let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
     let top_scope = scope(&mut token_handler, ScopeType::Program)?;
@@ -240,7 +231,7 @@ pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<
             .as_mut()
             .expect("Scope has no children")
             .push(statement(token_handler, scope_type.clone())?);
-        dbg_out!("", token_handler.debug);
+        println!();
         if token_handler.curr_token == token_handler.len() - 1 {
             return Ok(scope_node);
         }
@@ -342,7 +333,6 @@ fn arithmetic_term(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr>
     while curr == Token::Star || curr == Token::Div {
         token_handler.next_token();
         let right = arithmetic_factor(token_handler)?;
-        println!("should be semi: {:?}", token_handler.get_token());
         left = TokenNode::new(
             NodeType::from_token(&curr).unwrap(),
             Some(vec![left, right]),
@@ -374,7 +364,6 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
                     NodeType::Sub,
                     vec![TokenNode::new(NodeType::Id(id.to_string()), None), post_mul].into(),
                 );
-                println!("post arith indexing token: {:?}", token_handler.get_token());
                 if *token_handler.get_token() != Token::CSquare {
                     return Err(token_handler.new_err(ET::ExpectedCSquare));
                 }
@@ -429,7 +418,7 @@ fn arithmetic_factor(token_handler: &mut TokenHandler) -> Result<TokenNode, RhEr
                     token_handler.next_token();
                 }
             } else {
-                //token_handler.next_token();
+                token_handler.next_token();
             }
 
             if *token_handler.get_token() != Token::CSquare {

@@ -1,25 +1,13 @@
-void check(int i, int j) {
-    put('a');
-    if (i == j && (i == 21 || j == 58)) {
-        put('u');
-        put(i + j);
-    }
-}
-
-void test() {
-    put('a');
-    if (80 == 80) {
-        int b = 'u';
-        put(b);
-    }
-    put('t');
-}
-
 int num = 58;
 int c = 58;
-test();
-put('o');
-put('\n');
-check(num, c);
+if (c == num) {
+    put('a');
+}
+if (c != 50) {
+    put('u');
+}
+if (c == num && c + 1 == 59) {
+    put('t');
+}
 put('o');
 

@@ -14,7 +14,8 @@ void increment_array(int arr, int i, int n, int len) {
     arr[i] += 1;
     put(arr[i]);
     if (i != len - 1) {
-        increment_array(arr, i + 1, n, len);
+        i += 1;
+        increment_array(arr, i, n, len);
     }
 }
 
@@ -27,23 +28,25 @@ void basic_recursion_test(int i, int end) {
     }
 }
 
-//void put_ptr(int ptr) {
-//    put(*ptr);
-//}
+void put_ptr(int ptr) {
+    put(*ptr);
+}
 
-//void nested_call_test(int ptr, int ptr_two) {
-//    put_ptr(ptr);
-//    put_ptr(ptr_two);
-//}
+void nested_call_test(int ptr, int ptr_two) {
+    put_ptr(ptr);
+    put_ptr(ptr_two);
+}
 
-//int t = '6';
-//int o = '7';
-//int ptr = &t;
-//int ptr_two = &o;
+int t = '6';
+int o = '7';
+int ptr = &t;
+int ptr_two = &o;
 
-//int h = ['0', '1', '2'];
-//increment_array(h, 0, 1, 3);
+int h = [3; '0', '1', '2'];
+increment_array(h, 0, 1, 3);
+put('\n');
 basic_recursion_test('6', '8');
-//nested_call_test(ptr, ptr_two);
+put('\n');
+nested_call_test(ptr, ptr_two);
 put('\n');
 put('l');

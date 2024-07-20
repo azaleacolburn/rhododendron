@@ -590,29 +590,27 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
         handler.scopes.len() + 1
     ));
 
-    // Here we essentially reserve a new scope for after the if statement
-    let after_if_scope = handler.scopes.len();
-    handler.new_scope();
-    handler.curr_scope -= 1;
+    // Here we reserve a new scope for after the if statement
+    handler.new_scope(); // After if scope
+    let after_if_scope = handler.curr_scope;
+    handler.new_scope(); // First condition scope
 
     condition_expr_code_gen(&children[0], handler, after_if_scope);
-    handler.curr_scope -= 1; // I think this is fine
-    handler.push_to_scope(format!("\nb .L{}", after_if_scope));
-    handler.curr_scope += 1; // change to anchor otherwise??? (won't work)
 
-    //handler.new_stack_frame();
+    handler.new_stack_frame();
     handler.push_to_scope(
         "\n; scope of if statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15",
     );
 
     scope_code_gen(&children[1], handler, ScopeType::If);
     handler.push_to_scope(format!(
-        "\n\n; if return\nadd x15, x29, #8\nldr x29, [x29]\nb .L{}",
+        "\n\n; end if\nadd x15, x29, #8\nldr x29, [x29]\nb .L{}",
         after_if_scope
     ));
+
     handler.curr_scope = after_if_scope;
+    handler.curr_frame = orig_frame;
     handler.push_to_scope("\n; after if statement scope");
-    //handler.curr_frame = orig_frame;
 }
 
 pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) {
@@ -663,8 +661,9 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, else_sco
             condition_expr_code_gen(&children[1], handler, else_scope);
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}",
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}\nb .L{}",
                 handler.scopes.len(),
+                else_scope
             ));
             handler.new_scope();
         }
@@ -673,8 +672,9 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, else_sco
             condition_expr_code_gen(&children[1], handler, else_scope);
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}",
+                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}\nb .L{}",
                 handler.scopes.len(),
+                else_scope
             ));
             handler.new_scope();
         }
