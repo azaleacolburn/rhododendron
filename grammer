@@ -11,11 +11,14 @@ statement := declaration
 
 if := condition_expr
 
+type := int
+        := void
+
 condition_expr := condition_term (== != condition_term)*
   
 condition_term := factor (|| && condition_term)*
 
-declaration := expression
+declaration := type [name] = expression
 
 expression := term (+ - term)*
 
