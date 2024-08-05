@@ -17,31 +17,18 @@ use super::lexer::RhTypes;
 /// So a store looks like this
 /// "store x1, [sp, #{}]", (furthest_offset + sp_offset)
 
-/// Reusable code snippets
-// const NEW_SCOPE_BYTE_ALIGN: &str = "\n.balign 4\n.L{}:";
-
-const _MOV_EXPR_1: &str = "\nldr x9 [sp], #8";
-const _MOV_EXPR_2: &str = "\nldr x10 [sp], #8";
-const _ADD_EXPR: &str = "\nadd x9, x9, x10";
-
-// const GET_ADR: &str = "\nldr {} [sp], #16"; // assuming it was 32 bit address formatting needed
-// const STR_ADR: &str = "\nstr {}, [sp, #-16]!";
-
-const _CMP_EXPR: &str = "\ncmp x9, x0"; // comparison flag set in the processor status register
-                                        // const SYS_CALL_NUM: &str = "\nmov x0, {}"; // syscall_number
-                                        // const SYS_CALL_ARG1: &str = "\nmov x0, {}"; // etc
-const _SYS_CALL: &str = "\nsvc #0x80";
 #[derive(Debug, Clone)]
 pub struct FunctionSig {
-    args: Vec<(String, i32)>, // ids in order
+    args: Vec<(String, u8)>, // ids in order
+    return_size: u8,
     label: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
-    table: HashMap<String, (i32, i32)>, // id, offset from current stack frame base, size
+    table: HashMap<String, (i32, u8)>, // id, offset from current stack frame base, size
     function_table: HashMap<String, FunctionSig>, // function name, label
-    parent: Option<usize>,              // the index in the
+    parent: Option<usize>,             // the index in the
     furthest_offset: i32,
 }
 
@@ -59,12 +46,12 @@ impl SymbolTable {
         self.function_table.get(&id).to_owned()
     }
 
-    fn get_id(&self, id: String) -> Option<&(i32, i32)> {
+    fn get_id(&self, id: String) -> Option<&(i32, u8)> {
         self.table.get(&id).to_owned()
     }
 
     /// new_expr_lit should have already placed this id on top of the stack
-    fn new_id(&mut self, id: String, size: i32) {
+    fn new_id(&mut self, id: String, size: u8) {
         self.table.insert(id, (-self.furthest_offset, size));
     }
 }
@@ -80,7 +67,7 @@ pub struct Handler {
 impl Handler {
     fn new() -> Self {
         let mut handler = Handler {
-            scopes: vec![String::from("\n.global .main\n.align 2\n")],
+            scopes: vec![String::from("\n.global .main\n.align 8\n")],
             curr_scope: 0,
             break_anchors: vec![],
             sym_arena: vec![SymbolTable::new(None)],
@@ -165,7 +152,7 @@ impl Handler {
     }
 
     /// Panics if id doesn't exist
-    fn get_id(&self, id: impl ToString, c: &mut i32) -> Option<&(i32, i32)> {
+    fn get_id(&self, id: impl ToString, c: &mut i32) -> Option<&(i32, u8)> {
         let sym_res = self.sym_arena[self.curr_frame].get_id(id.to_string());
 
         if sym_res.is_none() {
@@ -197,7 +184,7 @@ impl Handler {
         sym_ret
     }
 
-    fn new_id(&mut self, id: impl ToString, size: i32) {
+    fn new_id(&mut self, id: impl ToString, size: u8) {
         self.sym_arena[self.curr_frame].new_id(id.to_string(), size);
     }
 
@@ -205,30 +192,38 @@ impl Handler {
         self.sym_arena[self.curr_frame].new_id(id.to_string(), 8);
     }
 
-    fn new_expr_lit(&mut self, size: i32) {
-        self.sym_arena[self.curr_frame].furthest_offset += size;
+    fn new_expr_lit(&mut self, size: u8) {
+        self.sym_arena[self.curr_frame].furthest_offset += size as i32;
     }
 
-    fn unload_expr_lit(&mut self, size: i32) {
-        self.sym_arena[self.curr_frame].furthest_offset -= size;
+    fn unload_expr_lit(&mut self, size: u8) {
+        self.sym_arena[self.curr_frame].furthest_offset -= size as i32;
     }
 
-    fn new_function(&mut self, name: impl ToString, scope: i32, args: Vec<(String, i32)>) {
+    fn new_function(
+        &mut self,
+        name: impl ToString,
+        scope: i32,
+        args: Vec<(String, u8)>,
+        return_size: u8,
+    ) {
         let new_scope_label = format!(".L{}", scope);
+
+        self.new_stack_frame();
+
+        for (name, size) in args.iter() {
+            self.new_expr_lit(*size);
+            self.new_id(name, *size);
+        }
+
         let function_sig = FunctionSig {
-            args: args.clone(),
+            args,
+            return_size,
             label: new_scope_label, // figure out how to determine label (probably based on a property in handler)
         };
         self.sym_arena[self.curr_frame]
             .function_table
             .insert(name.to_string(), function_sig);
-
-        self.new_stack_frame();
-
-        for (name, size) in args.into_iter() {
-            self.new_expr_lit(size);
-            self.new_id(name, size);
-        }
     }
 }
 
@@ -265,7 +260,7 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
             NodeType::FunctionCall(id) => {
                 function_call_code_gen(&child_node, handler, id.to_string())
             }
-            NodeType::FunctionDecaration((id, t)) => {
+            NodeType::FunctionDeclaration((id, t)) => {
                 function_declare_code_gen(&child_node, handler, id.to_string(), t.clone())
             }
             NodeType::Break => handler.insert_break(),
@@ -285,7 +280,7 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: Scope
 /// Modifies the sp
 pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, t: RhTypes) {
     dbg_println!("Sym Arena:\n{:?}", handler.sym_arena[handler.curr_frame]);
-    let size = match t {
+    let size: u8 = match t {
         RhTypes::Int => 4,
         RhTypes::Char => 1,
         RhTypes::Void => panic!("Don't declare variables of void type you idiot"),
@@ -293,7 +288,7 @@ pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, t
     handler.push_to_scope(format!(
         "\n\n; var dec: {}, offset: {} (wrong for arrays)",
         name,
-        handler.sym_arena[handler.curr_frame].furthest_offset + size
+        handler.sym_arena[handler.curr_frame].furthest_offset + size as i32
     ));
     expr_code_gen(
         &node.children.as_ref().expect("Node to have children")[0],
@@ -330,9 +325,10 @@ pub fn assignment_code_gen(node: &TokenNode, handler: &mut Handler) {
 
     // TODO: Figure out how to handle expressions
 
-    expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
-    handler.push_to_scope("\nldr x10, [x15], #2");
-    handler.unload_expr_lit(2);
+    let expr_size = expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
+    assert_eq!(size, expr_size);
+    handler.push_to_scope(format!("\nldr x10, [x15], #{size}"));
+    handler.unload_expr_lit(size);
 
     // this load the old value in case we need it
     if *op != AssignmentOpType::Eq {
@@ -381,17 +377,19 @@ fn deref_assignment_code_gen(node: &TokenNode, handler: &mut Handler, op: Assign
         .expect("deref assignment node must have children");
     dbg_println!("node:\n{:?}", children[0]);
     handler.push_to_scope("\n\n; deref assignment");
-    expr_code_gen(
+    let ptr_size = expr_code_gen(
         &children[0]
             .children
             .as_ref()
             .expect("deref must have children in assignment")[0],
         handler,
     );
-    expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
-    handler.push_to_scope("\nldr x10, [x15], #2 ; pop res\nldr x11, [x15], #8 ; pop adr");
-    handler.unload_expr_lit(2);
-    handler.unload_expr_lit(8);
+    assert_eq!(ptr_size, 8);
+    let value_size = expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
+    handler.push_to_scope(format!(
+        "\nldr x10, [x15], #{value_size} ; pop res\nldr x11, [x15], #8 ; pop adr"
+    ));
+    handler.unload_expr_lit(value_size + 8);
 
     // this load the old value in case we need it
     if op != AssignmentOpType::Eq {
@@ -413,13 +411,16 @@ fn deref_assignment_code_gen(node: &TokenNode, handler: &mut Handler, op: Assign
     handler.push_to_scope("\nstr x9, [x11]");
 }
 
-// Leaves the result on TOS
-fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
+/// Leaves the result on TOS
+/// Num Literals are 4 bytes
+/// Returns the size of the things put on the stack
+fn expr_code_gen(node: &TokenNode, handler: &mut Handler) -> u8 {
     match &node.token {
         NodeType::NumLiteral(val) => {
             handler.push_to_scope(format!("\nmov x9, #{val}"));
-            handler.push_to_scope("\nstr x9, [x15, #-2]!");
-            handler.new_expr_lit(2);
+            handler.push_to_scope("\nstr x9, [x15, #-4]!");
+            handler.new_expr_lit(4);
+            4
         }
         NodeType::Id(name) => {
             let mut c = 0;
@@ -443,11 +444,17 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             }
             handler.push_to_scope(format!("\nstr x9, [x15, #-{size}]!"));
             handler.new_expr_lit(size);
+            size as u8
         }
         NodeType::FunctionCall(name) => {
+            let sig: FunctionSig = handler
+                .get_function(name)
+                .expect("Invalid function")
+                .clone();
             function_call_code_gen(&node, handler, name.to_string());
             handler.push_to_scope("\n; assume ret is TOS");
-            handler.new_expr_lit(size);
+            handler.new_expr_lit(sig.return_size);
+            sig.return_size
         }
         NodeType::Adr(id) => {
             let mut c = 0;
@@ -468,11 +475,10 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
             }
 
             handler.push_to_scope(format!("\nstr x9, [x15, #-8]!"));
-            handler.new_expr_lit();
+            handler.new_expr_lit(size);
+            size as u8
         }
-        NodeType::DeRef => {
-            deref_code_gen(&node, handler);
-        }
+        NodeType::DeRef => deref_code_gen(&node, handler),
         NodeType::Array(n) => {
             let children = node
                 .children
@@ -485,18 +491,21 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
                 handler.push_to_scope("\n")
             }
             for _ in 0..zeros {
-                handler.push_to_scope("\n; empty array section\nmov x9, #0\nstr x9, [x15, #-8]!");
-                handler.new_expr_lit();
+                handler.push_to_scope("\n; empty array section\nmov x9, #0\nstr x9, [x15, #-4]!");
+                handler.new_expr_lit(4);
             }
+            // Ptr is 32 bits
             handler.push_to_scope("\nstr x11, [x15, #-8]! ; str array anchor TOS");
-            handler.new_expr_lit();
+            handler.new_expr_lit(8);
+            8
         }
         _ => {
-            expr_code_gen(&node.children.as_ref().unwrap()[0], handler);
-            expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
-            handler.push_to_scope("\n\n; load from stack\nldr x10, [x15], #8\nldr x9, [x15], #8");
-            handler.unload_expr_lit();
-            handler.unload_expr_lit();
+            let left_size = expr_code_gen(&node.children.as_ref().unwrap()[0], handler);
+            let right_size = expr_code_gen(&node.children.as_ref().unwrap()[1], handler);
+            handler.push_to_scope(format!(
+                "\n\n; load from stack\nldr x10, [x15], #{right_size}\nldr x9, [x15], #{left_size}"
+            ));
+            handler.unload_expr_lit(left_size + right_size);
             match &node.token {
                 NodeType::Add => handler.push_to_scope("\nadd x9, x9, x10"),
                 NodeType::Sub => handler.push_to_scope("\nsub x9, x9, x10"),
@@ -508,8 +517,10 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) {
                 NodeType::BXor => handler.push_to_scope("\nxor x9, x9, x10"),
                 _ => panic!("Expected Expression"),
             };
-            handler.push_to_scope("\nstr x9, [x15, #-8]!");
-            handler.new_expr_lit();
+            let return_size = u8::max(left_size, right_size);
+            handler.push_to_scope(format!("\nstr x9, [x15, #-{return_size}]!"));
+            handler.new_expr_lit(return_size);
+            return_size
         }
     }
 }
@@ -531,22 +542,28 @@ pub fn function_declare_code_gen(
     handler.push_to_scope(format!("\n; function declaration: {name}\n"));
 
     let function_scope = handler.curr_scope;
-    let mut args: Vec<(String, i32)> = vec![];
+    let mut args: Vec<(String, u8)> = vec![];
 
     for child in 0..children.len() - 1 {
         if let NodeType::Declaration((id, t)) = &children[child].token {
             let size = match t {
-                RhTypes::Char => 8,
-                RhTypes::Int => 8,
+                RhTypes::Char => 1,
+                RhTypes::Int => 4,
                 RhTypes::Void => 8,
             };
             // TODO: figure out what other code needs to go here (id any)
             args.push((id.clone(), size));
         }
     }
-    handler.new_function(name.clone(), function_scope as i32, args.clone());
+    let size: u8 = match t {
+        RhTypes::Int => 4,
+        RhTypes::Char => 1,
+        RhTypes::Void => 8,
+    };
+
+    handler.new_function(name.clone(), function_scope as i32, args.clone(), size);
     handler.push_to_scope("\n; save link reg\nstr lr, [x15, #-8]!");
-    handler.new_expr_lit();
+    handler.new_expr_lit(8);
     handler.new_id("lr", 0); // link register
 
     let scope_child = &children[children.len() - 1];
@@ -554,7 +571,7 @@ pub fn function_declare_code_gen(
         scope_code_gen(&scope_child, handler, ScopeType::Function(t.clone()));
     }
 
-    let (relative_offset, size) = handler
+    let (relative_offset, _size) = handler
         .get_id("lr", &mut 0)
         .expect("LR not placed in table");
 
@@ -583,10 +600,10 @@ pub fn function_call_code_gen(node: &TokenNode, handler: &mut Handler, name: Str
         .clone();
 
     for i in 0..function_sig.args.len() {
-        expr_code_gen(&children[i], handler);
+        let size = expr_code_gen(&children[i], handler);
         // unloading is fine, since they get 'loaded' in the declare code
         // TODO: This has to be updated to the type of the argument (an annoying shitton of work)
-        handler.unload_expr_lit(2);
+        handler.unload_expr_lit(size);
     }
 
     handler.push_to_scope("\nmov x29, x10");
@@ -625,16 +642,24 @@ pub fn if_code_gen(node: &TokenNode, handler: &mut Handler) {
     handler.push_to_scope("\n; after if statement scope");
 }
 
-pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) {
+pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) -> u8 {
     let children = node
         .children
         .as_ref()
         .expect("DeRef node should have children");
     assert_eq!(children.len(), 1);
-    expr_code_gen(&children[0], handler);
-    handler
-        .push_to_scope("\n\n; deref expr\nldr x9, [x15], #8\nldr x10, [x9]\nstr x10, [x15, #-8]!");
-    // stack cancels out
+    // Puts the ptr on TOS
+    let size = expr_code_gen(&children[0], handler);
+    assert_eq!(size, 8);
+
+    // This assumes that the thing being pointed to is 4 bytes
+    // TODO: make this based on the type of the ptr
+    handler.push_to_scope(format!(
+        "\n\n; deref expr\nldr x9, [x15], #8\nldr x10, [x9]\nstr x10, [x15, #-4]!"
+    ));
+    // TODO: Verify stack alignment here
+    handler.unload_expr_lit(8 - 4); // unload the ptr (8), loads the value (4)
+    4
 }
 
 pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, else_scope: usize) {
@@ -721,13 +746,15 @@ fn while_code_gen(node: &TokenNode, handler: &mut Handler) {
     handler.push_to_scope(
         "\n; scope of while statement\n\n; place old sfb\nstr x29, [x15, #-8]!\nmov x29, x15\nstr lr, [x15, #-8]!\n\n",
     );
-    handler.new_expr_lit();
+    handler.new_expr_lit(8);
     handler.new_id("lr", 0);
 
     let mut c = 0;
 
     scope_code_gen(&children[1], handler, ScopeType::If);
     let (relative_offset, size) = handler.get_id("lr", &mut c).unwrap();
+
+    assert_eq!(*size, 8);
     handler.push_to_scope(format!(
         "\n\n; while return\nldr lr, [x29, #{}]\nadd x15, x29, #8\nldr x29, [x29]\nb .L{}",
         relative_offset, condition_scope
@@ -769,7 +796,7 @@ fn return_statement_code_gen(node: &TokenNode, handler: &mut Handler) {
     handler.push_to_scope(format!("\nldr lr, [x29, #{}]", relative_offset));
 
     handler.push_to_scope("\nadd x15, x29, #8\nldr x29, [x29]\nstr x9, [x15, #-8]!\nret");
-    handler.unload_expr_lit();
+    handler.unload_expr_lit(size);
     //handler.curr_frame = handler.sym_arena[handler.curr_frame]
     //    .parent
     //    .expect("Functions must have parent scopes");
@@ -785,8 +812,8 @@ fn putchar_code_gen(node: &TokenNode, handler: &mut Handler) {
         .as_ref()
         .expect("Putchar node has no children");
 
-    expr_code_gen(&children[0], handler);
+    let size = expr_code_gen(&children[0], handler);
     // We can assume that the result goes on top of the stack
     handler.push_to_scope("\n\n; putchar\nmov x0, #1 ; stdout\nmov x1, x15 ; put from TOS\nmov x2, #1 ; print 1 char\nmov x16, #4 ; write\nsvc #0x80\n; unload the TOS\nadd x15, x15, #8\n");
-    handler.unload_expr_lit();
+    handler.unload_expr_lit(size);
 }

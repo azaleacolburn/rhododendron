@@ -56,11 +56,12 @@ pub enum NodeType {
     Adr(String),
     DeRef,
     Array(i32),
-    FunctionDecaration((String, RhTypes)),
+    FunctionDeclaration((String, RhTypes)),
     Type(RhTypes),
     Assert,
     Return,
     PutChar,
+    StructDeclaration(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -274,6 +275,7 @@ pub fn statement(
         Token::Assert => assert_statement(token_handler),
         Token::Return => return_statement(token_handler),
         Token::PutChar => putchar_statement(token_handler),
+        Token::Struct => struct_statement(token_handler),
         _ => Err(token_handler.new_err(ET::ExpectedStatement)),
     }
 }
@@ -582,7 +584,7 @@ fn function_declare_statement(token_handler: &mut TokenHandler) -> Result<TokenN
     dbg_println!("Token: {:?}", token);
     if let Token::Id(id) = token {
         let mut function_node = TokenNode::new(
-            NodeType::FunctionDecaration((id.clone(), t.clone())),
+            NodeType::FunctionDeclaration((id.clone(), t.clone())),
             Some(vec![]),
         );
         token_handler.next_token();
@@ -894,4 +896,25 @@ pub fn return_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, R
     }
     let return_token = TokenNode::new(NodeType::Return, Some(vec![expr_node]));
     return Ok(return_token);
+}
+
+pub fn struct_statement(token_handler: &mut TokenHandler) -> Result<TokenNode, RhErr> {
+    token_handler.next_token();
+    let id_token = token_handler.get_token().clone();
+    token_handler.next_token();
+    let curl_token = token_handler.get_token();
+    match (id_token, curl_token) {
+        (Token::Id(_id), Token::OCurl) => return Err(token_handler.new_err(ET::ExpectedId)),
+        _ => {}
+    }
+
+    let mut parameters: Vec<TokenNode> = vec![];
+    while let Token::Type(t) = token_handler.get_token() {
+        parameters.push(declaration_statement(token_handler, t.clone())?);
+    }
+    let declaration_token = TokenNode::new(NodeType::Return, Some(parameters));
+    if *token_handler.get_token() != Token::CCurl {
+        return Err(token_handler.new_err(ET::ExpectedCCurl));
+    }
+    return Ok(declaration_token);
 }
