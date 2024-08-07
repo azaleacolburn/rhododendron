@@ -212,6 +212,7 @@ impl TokenNode {
 }
 
 pub fn program(tokens: Vec<Token>, line_tracker: LineNumHandler) -> Result<TokenNode, RhErr> {
+    println!("test");
     let mut token_handler = TokenHandler::new(tokens, line_tracker);
 
     let mut program_node = TokenNode::new(NodeType::Program, Some(vec![]));
@@ -223,6 +224,7 @@ pub fn program(tokens: Vec<Token>, line_tracker: LineNumHandler) -> Result<Token
 }
 
 pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<TokenNode, RhErr> {
+    println!("scope");
     let mut scope_node = TokenNode::new(NodeType::Scope(None), Some(vec![]));
     while *token_handler.get_token() != Token::CCurl {
         if token_handler.curr_token > token_handler.len() {
@@ -275,7 +277,7 @@ pub fn statement(
         Token::Assert => assert_statement(token_handler),
         Token::Return => return_statement(token_handler),
         Token::PutChar => putchar_statement(token_handler),
-        Token::Struct => struct_statement(token_handler),
+        //Token::Struct => struct_statement(token_handler),
         _ => Err(token_handler.new_err(ET::ExpectedStatement)),
     }
 }

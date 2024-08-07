@@ -1,6 +1,5 @@
 mod code_gen;
 mod error;
-#[allow(unused_assignments)]
 mod lexer;
 mod linker;
 mod parser;
@@ -8,7 +7,7 @@ use std::sync::Mutex;
 
 use clap::{ArgAction, Parser};
 
-static DEBUG: Mutex<bool> = Mutex::new(false);
+static DEBUG: Mutex<bool> = Mutex::new(true);
 
 #[macro_export]
 macro_rules! dbg_println {
@@ -34,13 +33,19 @@ pub fn main() {
     let exe_name: String = args.name;
     let mut lock = DEBUG.lock().expect("Failed to get lock on DEBUG Mutex");
     *lock = args.debug;
+    drop(lock);
     test(file_name, exe_name);
 }
 
 pub fn test(file_name: std::path::PathBuf, exe_name: String) {
     let buff = std::fs::read_to_string(file_name).expect("Source file must exist");
+    println!("test1");
+    dbg_println!("test");
+    println!("test2");
     let (tokens, line_tracker) = lexer::string_to_tokens(&buff).unwrap();
+    println!("{:?}", tokens);
     let node = parser::program(tokens, line_tracker).unwrap();
+    node.print(&mut 0);
     let code = code_gen::main(&node);
     dbg_println!("{}", code);
     let _ = std::fs::write(exe_name, code);
