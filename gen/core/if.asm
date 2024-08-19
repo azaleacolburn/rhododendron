@@ -1,5 +1,5 @@
 .global .main
-.align 8
+.align 4
 
 .main:
 	; x29 is our sfb
@@ -31,8 +31,8 @@
 	str x9, [x15, #-4]!
 	ldr x9, [x29, #-4]
 	str x9, [x15, #-4]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	beq .L4
 	b .L2
@@ -72,8 +72,8 @@
 	str x9, [x15, #-4]!
 	mov x9, #50
 	str x9, [x15, #-4]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	bne .L7
 	b .L5
@@ -127,8 +127,8 @@
 	str x9, [x15, #-4]!
 	ldr x9, [x29, #-4]
 	str x9, [x15, #-4]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	beq .L10
 	b .L8
@@ -147,8 +147,8 @@
 	str x9, [x15, #-4]!
 	mov x9, #59
 	str x9, [x15, #-4]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	beq .L11
 	b .L8

@@ -67,7 +67,7 @@ pub struct Handler {
 impl Handler {
     fn new() -> Self {
         let mut handler = Handler {
-            scopes: vec![String::from("\n.global .main\n.align 8\n")],
+            scopes: vec![String::from("\n.global .main\n.align 4\n")],
             curr_scope: 0,
             break_anchors: vec![],
             sym_arena: vec![SymbolTable::new(None)],
@@ -241,7 +241,7 @@ pub fn main(node: &TokenNode) -> String {
     handler.format_scopes()
 }
 
-pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, scope_type: ScopeType) {
+pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, _scope_type: ScopeType) {
     for child_node in node.children.as_ref().expect("Scope to have children") {
         match &child_node.token {
             NodeType::Declaration(arg) => {
@@ -662,7 +662,11 @@ pub fn deref_code_gen(node: &TokenNode, handler: &mut Handler) -> u8 {
     4
 }
 
-pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, else_scope: usize) {
+pub fn condition_expr_code_gen(
+    node: &TokenNode,
+    handler: &mut Handler,
+    else_scope: usize,
+) -> Option<u8> {
     let children: Vec<TokenNode> = node.children.as_ref().unwrap_or(&Vec::new()).to_vec();
     dbg_println!("condition token: {:?}", node.token);
     match &node.token {
@@ -694,31 +698,36 @@ pub fn condition_expr_code_gen(node: &TokenNode, handler: &mut Handler, else_sco
             handler.new_scope();
         }
         NodeType::NeqCmp => {
-            condition_expr_code_gen(&children[0], handler, else_scope);
-            condition_expr_code_gen(&children[1], handler, else_scope);
+            let size_one = condition_expr_code_gen(&children[0], handler, else_scope)
+                .expect("Condition iteation did not place anything on the stack");
+            let size_two = condition_expr_code_gen(&children[1], handler, else_scope)
+                .expect("Condition iteation did not place anything on the stack");
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbne .L{}\nb .L{}",
+                "\nldr x9, [x15], #{size_two}\nldr x10, [x15], #{size_one}\ncmp x9, x10\nbne .L{}\nb .L{}",
                 handler.scopes.len(),
                 else_scope
             ));
             handler.new_scope();
         }
         NodeType::EqCmp => {
-            condition_expr_code_gen(&children[0], handler, else_scope);
-            condition_expr_code_gen(&children[1], handler, else_scope);
+            let size_one = condition_expr_code_gen(&children[0], handler, else_scope)
+                .expect("Condition iteation did not place anything on the stack");
+            let size_two = condition_expr_code_gen(&children[1], handler, else_scope)
+                .expect("Condition iteation did not place anything on the stack");
 
             handler.push_to_scope(format!(
-                "\nldr x9, [x15], #8\nldr x10, [x15], #8\ncmp x9, x10\nbeq .L{}\nb .L{}",
+                "\nldr x9, [x15], #{size_two}\nldr x10, [x15], #{size_one}\ncmp x9, x10\nbeq .L{}\nb .L{}",
                 handler.scopes.len(),
                 else_scope
             ));
             handler.new_scope();
         }
         _ => {
-            expr_code_gen(&node, handler);
+            return Some(expr_code_gen(&node, handler));
         }
     };
+    None
 }
 
 fn while_code_gen(node: &TokenNode, handler: &mut Handler) {
