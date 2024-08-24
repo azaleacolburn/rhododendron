@@ -1,29 +1,26 @@
-use std::num::ParseIntError;
+use std::{collections::HashMap, num::ParseIntError};
 
-/// each index is a new line, the value is the token_i that starts that line
+/// key: token_num, value: line_num
 pub struct LineNumHandler {
-    pub token_lines: Vec<i32>,
+    pub tokens_to_lines: HashMap<i32, i32>,
+    curr_line: i32,
 }
 
 impl LineNumHandler {
-    pub fn new() -> LineNumHandler {
+    fn new() -> LineNumHandler {
         LineNumHandler {
-            token_lines: vec![-1],
+            tokens_to_lines: HashMap::new(),
+            curr_line: 0,
         }
     }
 
     /// Creates a new line with the start of the line being this token_number
-    fn new_line(&mut self, token_number: i32) {
-        self.token_lines.push(token_number);
+    fn set_token_line(&mut self, token_number: i32) {
+        self.tokens_to_lines.insert(token_number, self.curr_line);
     }
 
-    /// Given a token index, returns the line that token was on
-    /// For external use only
-    pub fn get_line(&self, token_number: i32) -> usize {
-        self.token_lines
-            .iter()
-            .position(|n| *n < token_number)
-            .expect("Invalid Token Number For Getting Line Number")
+    fn new_line(&mut self) {
+        self.curr_line += 1;
     }
 }
 
@@ -36,7 +33,7 @@ pub fn string_to_tokens(
     let mut curr: String = String::from("");
     let mut i: usize = 0;
     let mut line_tracker = LineNumHandler::new();
-    line_tracker.new_line(0);
+    line_tracker.new_line();
     while i < chars.len() {
         // Handles num literals but we don't actually know if it is a literal yet
         if chars[i].is_numeric() {
@@ -589,25 +586,25 @@ pub fn string_to_tokens(
                 }
             }
             '\n' => {
-                line_tracker.new_line(ret.len() as i32 - 1);
+                line_tracker.new_line();
             }
             '\'' => {
                 if chars[i + 1].is_ascii() {
-                    let mut val: i32 = 0;
-                    if chars[i + 1] == '\\' {
-                        if chars[i + 2].is_ascii_digit() {
-                            val = chars[i + 2].to_digit(10).expect("Invalid literal digit") as i32;
+                    let val = if chars[i + 1] == '\\' {
+                        let temp = if chars[i + 2].is_ascii_digit() {
+                            chars[i + 2].to_digit(10).expect("Invalid literal digit") as i32
                         } else {
-                            val = match chars[i + 2] {
+                            match chars[i + 2] {
                                 'n' => 10,
                                 't' => 9,
                                 _ => 0,
                             }
-                        }
-                        i += 1
+                        };
+                        i += 1;
+                        temp
                     } else {
-                        val = chars[i + 1] as i32;
-                    }
+                        chars[i + 1] as i32
+                    };
                     ret.push(Token::NumLiteral(val));
                     i += 2;
                 }
