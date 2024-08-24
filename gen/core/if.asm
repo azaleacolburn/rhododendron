@@ -7,14 +7,14 @@
 	mov x29, sp
 	mov x15, sp
 	
-	; var dec: num, offset: 8 (wrong for arrays)
+	; var dec: num, offset: 4 (wrong for arrays)
 	mov x9, #58
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	
 	
-	; var dec: c, offset: 16 (wrong for arrays)
+	; var dec: c, offset: 8 (wrong for arrays)
 	mov x9, #58
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	
 	
 	; if statement
@@ -27,12 +27,12 @@
 	b .L6
 
 .L3:
-	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
 	ldr x9, [x29, #-8]
-	str x9, [x15, #-8]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	str x9, [x15, #-4]!
+	ldr x9, [x29, #-4]
+	str x9, [x15, #-4]!
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	beq .L4
 	b .L2
@@ -44,7 +44,7 @@
 	str x29, [x15, #-8]!
 	mov x29, x15
 	mov x9, #97
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	
 	; putchar
 	mov x0, #1 ; stdout
@@ -68,12 +68,12 @@
 	b .L9
 
 .L6:
-	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
+	ldr x9, [x29, #-8]
+	str x9, [x15, #-4]!
 	mov x9, #50
-	str x9, [x15, #-8]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	str x9, [x15, #-4]!
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	bne .L7
 	b .L5
@@ -85,7 +85,7 @@
 	str x29, [x15, #-8]!
 	mov x29, x15
 	mov x9, #117
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	
 	; putchar
 	mov x0, #1 ; stdout
@@ -105,7 +105,7 @@
 .L8:
 	; after if statement scope
 	mov x9, #111
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	
 	; putchar
 	mov x0, #1 ; stdout
@@ -123,32 +123,32 @@
 	svc #0x80
 
 .L9:
-	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
 	ldr x9, [x29, #-8]
-	str x9, [x15, #-8]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	str x9, [x15, #-4]!
+	ldr x9, [x29, #-4]
+	str x9, [x15, #-4]!
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	beq .L10
 	b .L8
 	b .L8
 
 .L10:
-	ldr x9, [x29, #-16]
-	str x9, [x15, #-8]!
+	ldr x9, [x29, #-8]
+	str x9, [x15, #-4]!
 	mov x9, #1
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	
 	; load from stack
-	ldr x10, [x15], #8
-	ldr x9, [x15], #8
+	ldr x10, [x15], #4
+	ldr x9, [x15], #4
 	add x9, x9, x10
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	mov x9, #59
-	str x9, [x15, #-8]!
-	ldr x9, [x15], #8
-	ldr x10, [x15], #8
+	str x9, [x15, #-4]!
+	ldr x9, [x15], #4
+	ldr x10, [x15], #4
 	cmp x9, x10
 	beq .L11
 	b .L8
@@ -161,7 +161,7 @@
 	str x29, [x15, #-8]!
 	mov x29, x15
 	mov x9, #116
-	str x9, [x15, #-8]!
+	str x9, [x15, #-4]!
 	
 	; putchar
 	mov x0, #1 ; stdout

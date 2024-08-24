@@ -259,6 +259,17 @@ pub fn string_to_tokens(
                     curr = String::from("");
                 }
             }
+            's' => {
+                if chars[i + 1] == 't'
+                    && chars[i + 2] == 'r'
+                    && chars[i + 3] == 'u'
+                    && chars[i + 4] == 'c'
+                    && chars[i + 5] == 't'
+                {
+                    ret.push(Token::Struct);
+                    i += 5;
+                }
+            }
             '+' => {
                 if chars[i + 1] == '=' {
                     //split.push(String::from("+="));
@@ -636,14 +647,12 @@ pub enum Token {
     Loop,
     Fn,
     Type(RhTypes),
-    // Assign(String),
+    Struct,
     Star,
-    // Var(String),
     NumLiteral(i32),
     StrLiteral(String),
     Add,
     AddO,
-    // Mul,
     Sub,
     SubO,
     Div,

@@ -6,3 +6,4 @@ mod tests;
 fn main() {
     compiler::main();
 }
+
