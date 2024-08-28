@@ -13,7 +13,7 @@ Todo:
 - [x] Functions \*
 - [ ] Structs
 - [ ] AST and code gen optimizations
-- [ ] Linker
+- [ ] Linker (see [sonder](https://github.com/azaleacolburn/sonder) for my attempts at a linker
 
 ## Known Issues
 
