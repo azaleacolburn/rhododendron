@@ -2,8 +2,8 @@ use std::{collections::HashMap, num::ParseIntError};
 
 /// key: token_num, value: line_num
 pub struct LineNumHandler {
-    pub tokens_to_lines: HashMap<i32, i32>,
-    curr_line: i32,
+    tokens_to_lines: HashMap<usize, usize>,
+    curr_line: usize,
 }
 
 impl LineNumHandler {
@@ -15,12 +15,20 @@ impl LineNumHandler {
     }
 
     /// Creates a new line with the start of the line being this token_number
-    fn set_token_line(&mut self, token_number: i32) {
+    fn set_token_line(&mut self, token_number: usize) {
         self.tokens_to_lines.insert(token_number, self.curr_line);
     }
 
     fn new_line(&mut self) {
         self.curr_line += 1;
+    }
+
+    // Gets a token's line given it's index
+    pub fn get_token_line(&self, token_number: usize) -> usize {
+        *self
+            .tokens_to_lines
+            .get(&token_number)
+            .expect("Invalid token index")
     }
 }
 
@@ -30,67 +38,41 @@ pub fn string_to_tokens(
 ) -> Result<(Vec<Token>, LineNumHandler), ParseIntError> {
     let mut ret: Vec<Token> = vec![];
     let chars = buff.to_string().chars().collect::<Vec<char>>();
-    let mut curr: String = String::from("");
     let mut i: usize = 0;
     let mut line_tracker = LineNumHandler::new();
     line_tracker.new_line();
     while i < chars.len() {
-        // Handles num literals but we don't actually know if it is a literal yet
         if chars[i].is_numeric() {
-            let mut is_dec = true;
-            // chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
-            let mut num = String::from("");
-            for j in i..chars.len() {
-                if !chars[j].is_alphanumeric() {
-                    break;
-                }
-                if chars[j].is_alphabetic() && chars[j].is_uppercase() {
-                    is_dec = false;
-                }
-                num.push(chars[j]);
-            }
-            if chars[i] == '0' {
-                // handles literals // TODO: DO LITERAL SHIT
-                // let string = chars.into_iter().collect::<String>();
-
-                let mut radix = 0; // 0 is not extranious base value
-                match chars[i + 1] {
-                    'x' => {
-                        // hex
-                        radix = 12;
-                    }
-                    'o' => {
-                        // octal
-                        radix = 8;
-                    }
-                    'b' => {
-                        // binary
-                        radix = 2;
+            let mut num = String::new();
+            let radix = if chars[i] == '0' {
+                i += 1;
+                match chars[i] {
+                    'x' => 12,
+                    'o' => 8,
+                    'b' => 2,
+                    'a' | 'c'..='n' | 'p'..='w' | 'y' | 'z' => {
+                        panic!("Unsupported base");
                     }
                     _ => {
-                        if chars[i + 1].is_alphabetic() {
-                            panic!("Not supported base")
-                        }
+                        num.push_str("0");
+                        10
                     }
                 }
-                if radix != 0 {
-                    match i32::from_str_radix(&num, radix) {
-                        Ok(value) => {
-                            ret.push(Token::NumLiteral(value));
-                        }
-                        Err(_err) => {
-                            continue;
-                        }
-                    };
-                    i += 1;
-                    continue;
-                }
+            } else {
+                10
+            };
+
+            while chars[i].is_alphanumeric() {
+                num.push(chars[i]);
+                i += 1;
             }
-            if is_dec {
-                ret.push(Token::NumLiteral(num.parse::<i32>().unwrap()));
-                i += num.len();
-                continue;
-            }
+
+            let value = i32::from_str_radix(&num, radix)
+                .expect("Invalid numeric literal. Probably a lexing error");
+
+            line_tracker.set_token_line(ret.len());
+            ret.push(Token::NumLiteral(value));
+            continue;
         }
 
         match chars[i] {
@@ -103,534 +85,479 @@ pub fn string_to_tokens(
                     i += 1;
                 }
                 ret.push(Token::StrLiteral(str));
+                line_tracker.set_token_line(ret.len());
             }
-            'i' => {
-                if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
-                    // split.push(String::from("int"));
-                    ret.push(Token::Type(RhTypes::Int));
-                    i += 2; // I think there's a problem with incrementing the iterator
-                } else if chars[i + 1] == 'f' && (chars[i + 2] == ' ' || chars[i + 2] == '(') {
-                    // split.push(String::from("if"));
-                    ret.push(Token::If);
-                    i += 1; // these numbers might be wrong
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
+            'A'..='Z' | 'a'..='z' | '-' | '_' => {
+                let token: Option<Token> = match chars[i] {
+                    'i' => {
+                        if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
+                            line_tracker.set_token_line(ret.len());
+                            i += 2;
+                            Some(Token::Type(RhTypes::Int))
+                        } else if chars[i + 1] == 'f'
+                            && (chars[i + 2] == ' ' || chars[i + 2] == '(')
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 1;
+                            Some(Token::If)
+                        } else {
+                            None
                         }
-                        curr.push(chars[j]);
                     }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'r' => {
-                if chars[i + 1] == 'e'
-                    && chars[i + 2] == 't'
-                    && chars[i + 3] == 'u'
-                    && chars[i + 4] == 'r'
-                    && chars[i + 5] == 'n'
-                    && (chars[i + 6] == '(' || chars[i + 6] == ' ')
-                {
-                    ret.push(Token::Return);
-                    i += 5;
-                } else {
-                    // if we'e here it's an identifier
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
+                    'r' => {
+                        if chars[i + 1] == 'e'
+                            && chars[i + 2] == 't'
+                            && chars[i + 3] == 'u'
+                            && chars[i + 4] == 'r'
+                            && chars[i + 5] == 'n'
+                            && (chars[i + 6] == '(' || chars[i + 6] == ' ')
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 5;
+                            Some(Token::Return)
+                        } else {
+                            None
                         }
-                        curr.push(chars[j]);
                     }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'c' => {
-                if chars[i + 1] == 'h'
-                    && chars[i + 2] == 'a'
-                    && chars[i + 3] == 'r'
-                    && chars[i + 4] == ' '
-                {
-                    // split.push(String::from("char"));
-                    ret.push(Token::Type(RhTypes::Char));
-                    i += 3;
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
+                    'c' => {
+                        if chars[i + 1] == 'h'
+                            && chars[i + 2] == 'a'
+                            && chars[i + 3] == 'r'
+                            && chars[i + 4] == ' '
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 3;
+                            Some(Token::Type(RhTypes::Char))
+                        } else {
+                            None
                         }
-                        curr.push(chars[j]);
                     }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'f' => {
-                if chars[i + 1] == 'o' && chars[i + 2] == 'r' && chars[i + 3] == ' ' {
-                    // split.push(String::from("for"));
-                    ret.push(Token::For);
-                    i += 2;
-                } else if chars[i + 1] == 'n' {
-                    ret.push(Token::Fn);
-                    i += 1;
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
+                    'f' => {
+                        if chars[i + 1] == 'o' && chars[i + 2] == 'r' && chars[i + 3] == ' ' {
+                            line_tracker.set_token_line(ret.len());
+                            i += 2;
+                            Some(Token::For)
+                        } else {
+                            None
                         }
-                        curr.push(chars[j]);
                     }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'l' => {
-                if chars[i + 1] == 'o'
-                    && chars[i + 2] == 'o'
-                    && chars[i + 3] == 'p'
-                    && chars[i + 4] == ' '
-                {
-                    // split.push(String::from("loop"));
-                    ret.push(Token::Loop);
-                    i += 3;
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
+                    'l' => {
+                        if chars[i + 1] == 'o'
+                            && chars[i + 2] == 'o'
+                            && chars[i + 3] == 'p'
+                            && chars[i + 4] == ' '
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 3;
+                            Some(Token::Loop)
+                        } else {
+                            None
                         }
-                        curr.push(chars[j]);
                     }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'a' => {
-                if chars[i + 1] == 's'
-                    && chars[i + 2] == 's'
-                    && chars[i + 3] == 'e'
-                    && chars[i + 4] == 'r'
-                    && chars[i + 5] == 't'
-                    && chars[i + 6] == ' '
-                {
-                    ret.push(Token::Assert);
-                    i += 5;
-                } else if chars[i + 1] == 's'
-                    && chars[i + 2] == 'm'
-                    && (chars[i + 3] == ' ' || chars[i + 3] == '(')
-                {
-                    ret.push(Token::Asm);
-                    i += 2;
-                } else {
-                    // if we'e here it's an identifier
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
+                    'a' => {
+                        if chars[i + 1] == 's'
+                            && chars[i + 2] == 's'
+                            && chars[i + 3] == 'e'
+                            && chars[i + 4] == 'r'
+                            && chars[i + 5] == 't'
+                            && chars[i + 6] == ' '
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 5;
+                            Some(Token::Assert)
+                        } else if chars[i + 1] == 's'
+                            && chars[i + 2] == 'm'
+                            && (chars[i + 3] == ' ' || chars[i + 3] == '(')
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 2;
+                            Some(Token::Asm)
+                        } else {
+                            None
                         }
-                        curr.push(chars[j]);
                     }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'p' => {
-                if chars[i + 1] == 'u'
-                    && chars[i + 2] == 't'
-                    && (chars[i + 3] == '(' || chars[i + 3] == ' ')
-                {
-                    ret.push(Token::PutChar);
-                    i += 2;
-                } else {
-                    // if we'e here it's an identifier
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
+                    'p' => {
+                        if chars[i + 1] == 'u'
+                            && chars[i + 2] == 't'
+                            && (chars[i + 3] == '(' || chars[i + 3] == ' ')
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 2;
+                            Some(Token::PutChar)
+                        } else {
+                            None
                         }
-                        curr.push(chars[j]);
                     }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            's' => {
-                if chars[i + 1] == 't'
-                    && chars[i + 2] == 'r'
-                    && chars[i + 3] == 'u'
-                    && chars[i + 4] == 'c'
-                    && chars[i + 5] == 't'
-                {
-                    ret.push(Token::Struct);
-                    i += 5;
+                    's' => {
+                        if chars[i + 1] == 't'
+                            && chars[i + 2] == 'r'
+                            && chars[i + 3] == 'u'
+                            && chars[i + 4] == 'c'
+                            && chars[i + 5] == 't'
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 5;
+                            Some(Token::Struct)
+                        } else {
+                            None
+                        }
+                    }
+
+                    '-' => match chars[i + 1] {
+                        '=' => {
+                            line_tracker.set_token_line(ret.len());
+                            i += 1;
+                            Some(Token::SubEq)
+                        }
+                        '>' => {
+                            line_tracker.set_token_line(ret.len());
+                            i += 1;
+                            Some(Token::Arrow)
+                        }
+                        '-' => {
+                            line_tracker.set_token_line(ret.len());
+                            i += 1;
+                            Some(Token::SubO)
+                        }
+                        '0'..='9' => {
+                            let mut num = String::from("-");
+                            let radix = if chars[i] == '0' {
+                                i += 1;
+                                match chars[i] {
+                                    'x' => 12,
+                                    'o' => 8,
+                                    'b' => 2,
+                                    'a' | 'c'..='n' | 'p'..='w' | 'y' | 'z' => {
+                                        panic!("Unsupported base")
+                                    }
+                                    _ => {
+                                        num.push_str("0");
+                                        10
+                                    }
+                                }
+                            } else {
+                                10
+                            };
+
+                            while chars[i].is_alphanumeric() {
+                                num.push(chars[i]);
+                                i += 1;
+                            }
+
+                            let value = i32::from_str_radix(&num, radix)
+                                .expect("Invalid numeric literal. Probably a lexing error");
+
+                            line_tracker.set_token_line(ret.len());
+                            Some(Token::NumLiteral(value))
+                        }
+                        _ => {
+                            line_tracker.set_token_line(ret.len());
+                            Some(Token::Sub)
+                        }
+                    },
+
+                    // obviously none of this can be included in ids
+                    'L' => {
+                        if chars[i + 1] == 'A'
+                            && chars[i + 2] == 'B'
+                            && chars[i + 3] == 'E'
+                            && chars[i + 4] == 'L'
+                            && chars[i + 5] == ':'
+                        {
+                            let mut name = String::new();
+                            i += 6;
+                            while chars[i].is_alphanumeric() {
+                                name.push(chars[i]);
+                                i += 1;
+                            }
+                            line_tracker.set_token_line(ret.len());
+
+                            Some(Token::Label(name))
+                        } else {
+                            None
+                        }
+                    }
+                    'g' => {
+                        if chars[i + 1] == 'o' && chars[i + 2] == 't' && chars[i + 3] == 'o' {
+                            let mut name = String::new();
+                            i += 4;
+                            while chars[i].is_alphanumeric() {
+                                name.push(chars[i]);
+                                i += 1;
+                            }
+                            line_tracker.set_token_line(ret.len());
+                            Some(Token::Goto(name))
+                        } else {
+                            None
+                        }
+                    }
+                    'w' => {
+                        if chars[i + 1] == 'h'
+                            && chars[i + 2] == 'i'
+                            && chars[i + 3] == 'l'
+                            && chars[i + 4] == 'e'
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 4;
+                            Some(Token::While)
+                        } else {
+                            None
+                        }
+                    }
+                    'v' => {
+                        if chars[i + 1] == 'o'
+                            && chars[i + 2] == 'i'
+                            && chars[i + 3] == 'd'
+                            && (chars[i + 4] == ' ' || chars[i + 4] == '*')
+                        {
+                            line_tracker.set_token_line(ret.len());
+                            i += 3;
+                            Some(Token::Type(RhTypes::Void))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+
+                if token.is_some() {
+                    ret.push(token.unwrap());
+                } else {
+                    let mut name = String::new();
+                    while chars[i].is_alphanumeric() || chars[i] == '_' {
+                        name.push(chars[i]);
+                        i += 1;
+                    }
+                    ret.push(Token::Id(name));
+                    line_tracker.set_token_line(ret.len());
                 }
             }
             '+' => {
-                if chars[i + 1] == '=' {
-                    //split.push(String::from("+="));
-                    ret.push(Token::AddEq);
-                    i += 1;
-                } else if chars[i + 1] == '+' {
-                    //split.push(String::from("++"));
-                    ret.push(Token::AddO);
-                    i += 1;
-                } else {
-                    //split.push(String::from("+"));
-                    ret.push(Token::Add);
-                }
-            }
-            '-' => {
-                if chars[i + 1] == '=' {
-                    //split.push(String::from("-="));
-                    ret.push(Token::SubEq);
-                    i += 1;
-                } else if chars[i + 1] == '-' {
-                    // split.push(String::from("--"));
-                    ret.push(Token::SubO);
-                    i += 1;
-                } else if chars[i + 1] == '>' {
-                    ret.push(Token::Arrow);
-                    i += 1;
-                } else if chars[i + 1].is_numeric() {
-                    let mut is_dec = true;
-                    // chars.into_iter().for_each(|x| if !x.is_numeric() { is_dec = false; });
-                    let mut num = String::from("-");
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphanumeric() {
-                            break;
-                        }
-                        if chars[j].is_alphabetic() && chars[j].is_uppercase() {
-                            is_dec = false;
-                        }
-                        num.push(chars[j]);
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::AddEq
                     }
-                    if chars[i] == '0' {
-                        // handles literals // TODO: DO LITERAL SHIT
-                        // let string = chars.into_iter().collect::<String>();
-
-                        let mut radix = 0; // 0 is not extranious base value
-                        match chars[i + 1] {
-                            'x' => {
-                                // hex
-                                radix = 12;
-                            }
-                            'o' => {
-                                // octal
-                                radix = 8;
-                            }
-                            'b' => {
-                                // binary
-                                radix = 2;
-                            }
-                            _ => {
-                                if chars[i + 1].is_alphabetic() {
-                                    panic!("Not supported base")
-                                }
-                            }
-                        }
-                        if radix != 0 {
-                            match i32::from_str_radix(&num, radix) {
-                                Ok(value) => {
-                                    ret.push(Token::NumLiteral(value));
-                                }
-                                Err(err) => {
-                                    continue;
-                                }
-                            };
-                            i += 1;
-                            continue;
-                        }
+                    '+' => {
+                        line_tracker.set_token_line(ret.len());
+                        i += 1;
+                        Token::AddO
                     }
-                    if is_dec {
-                        ret.push(Token::NumLiteral(num.parse::<i32>().unwrap()));
-                        i += num.len();
-                        continue;
+                    _ => {
+                        line_tracker.set_token_line(ret.len());
+                        Token::Add
                     }
-                } else {
-                    // split.push(String::from("-"));
-                    ret.push(Token::Sub);
-                }
+                })
             }
             '/' => {
-                if chars[i + 1] == '=' {
-                    //split.push(String::from("/="));
-                    ret.push(Token::DivEq);
-                    i += 1;
-                } else if chars[i + 1] == '/' {
-                    i += 1;
-                    while chars[i] != '\n' {
+                let token = match chars[i + 1] {
+                    '=' => {
+                        line_tracker.set_token_line(ret.len());
                         i += 1;
+                        Some(Token::DivEq)
                     }
-                } else {
-                    // split.push(String::from("/"));
-                    ret.push(Token::Div);
+                    '/' => {
+                        i += 1;
+                        while chars[i] != '\n' {
+                            i += 1;
+                        }
+                        None
+                    }
+                    _ => {
+                        line_tracker.set_token_line(ret.len());
+                        Some(Token::Div)
+                    }
+                };
+                if token.is_some() {
+                    ret.push(token.unwrap());
                 }
             }
             '*' => {
-                if chars[i + 1] == '*' {
-                    // split.push(String::from("*="));
-                    ret.push(Token::MulEq);
-                    i += 1;
-                }
-                // this could probably also handle deref vs. mul
-                else {
-                    // split.push(String::from("*"));
-                    ret.push(Token::Star); // The lexer can probably determine whether this is a mul or deref
-                }
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '*' => {
+                        i += 1;
+                        Token::MulEq
+                    }
+                    _ => Token::Star,
+                });
             }
-            // obviously none of this can be included in ids
             '(' => {
                 ret.push(Token::OParen);
+                line_tracker.set_token_line(ret.len());
             }
             ')' => {
                 ret.push(Token::CParen);
+                line_tracker.set_token_line(ret.len());
             }
             '{' => {
                 ret.push(Token::OCurl);
+                line_tracker.set_token_line(ret.len());
             }
-            '}' => ret.push(Token::CCurl),
-            '[' => ret.push(Token::OSquare),
-            ']' => ret.push(Token::CSquare),
+            '}' => {
+                ret.push(Token::CCurl);
+                line_tracker.set_token_line(ret.len());
+            }
+            '[' => {
+                ret.push(Token::OSquare);
+                line_tracker.set_token_line(ret.len());
+            }
+            ']' => {
+                ret.push(Token::CSquare);
+                line_tracker.set_token_line(ret.len());
+            }
             '&' => {
-                if chars[i + 1] == '=' {
-                    ret.push(Token::BAndEq);
-                    i += 1;
-                } else if chars[i + 1] == '&' {
-                    ret.push(Token::AndCmp);
-                    i += 1;
-                } else {
-                    ret.push(Token::BAnd);
-                }
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::BAndEq
+                    }
+                    '&' => {
+                        i += 1;
+                        Token::AndCmp
+                    }
+                    _ => Token::BAnd,
+                });
             }
             '^' => {
-                if chars[i + 1] == '=' {
-                    ret.push(Token::BXorEq);
-                    i += 1;
-                } else {
-                    ret.push(Token::BXor);
-                }
-                // split.push(String::from("^"));
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::BXorEq
+                    }
+                    _ => Token::BXor,
+                });
             }
             '%' => {
-                // split.push(String::from("%"));
-                if chars[i + 1] == '=' {
-                    ret.push(Token::ModEq);
-                    i += 1;
-                } else {
-                    ret.push(Token::Mod);
-                }
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::ModEq
+                    }
+                    _ => Token::Mod,
+                });
             }
             '!' => {
-                // split.push(String::from("!"));
-                if chars[i + 1] == '=' {
-                    ret.push(Token::NeqCmp);
-                    i += 1;
-                } else {
-                    ret.push(Token::Neq);
-                }
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::NeqCmp
+                    }
+                    _ => Token::Neq,
+                });
             }
             '|' => {
-                // split.push(String::from("|"));
-                if chars[i + 1] == '=' {
-                    ret.push(Token::BOrEq);
-                    i += 1;
-                } else if chars[i + 1] == '|' {
-                    ret.push(Token::OrCmp);
-                    i += 1;
-                } else {
-                    ret.push(Token::BOr);
-                }
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::BOrEq
+                    }
+                    '|' => {
+                        i += 1;
+                        Token::OrCmp
+                    }
+                    _ => Token::BOr,
+                });
             }
             '~' => {
-                // split.push(String::from("~"));
-                if chars[i + 1] == '=' {
-                    ret.push(Token::BNotEq);
-                    i += 1;
-                } else {
-                    ret.push(Token::BNot);
-                }
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::BNotEq
+                    }
+                    _ => Token::BNot,
+                });
             }
             '<' => {
-                // split.push(String::from("<"));
-                if chars[i + 1] == '=' {
-                    ret.push(Token::LsEq);
-                    i += 1;
-                } else if chars[i + 1] == '<' {
-                    if chars[i + 2] == '=' {
-                        ret.push(Token::BLSEq);
-                    } else {
-                        ret.push(Token::BLS);
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::LsEq
                     }
-                } else {
-                    ret.push(Token::Ls);
-                }
+                    '<' => {
+                        if chars[i + 2] == '=' {
+                            Token::BLSEq
+                        } else {
+                            Token::BLS
+                        }
+                    }
+                    _ => Token::Ls,
+                });
             }
             '>' => {
-                // split.push(String::from(">"));
-                if chars[i + 1] == '=' {
-                    ret.push(Token::GrEq);
-                    i += 1;
-                } else if chars[i + 1] == '>' {
-                    if chars[i + 2] == '=' {
-                        ret.push(Token::BRSEq);
-                    } else {
-                        ret.push(Token::BRS);
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::GrEq
                     }
-                } else {
-                    ret.push(Token::Gr);
-                }
+                    '>' => {
+                        if chars[i + 2] == '=' {
+                            Token::BRSEq
+                        } else {
+                            Token::BRS
+                        }
+                    }
+                    _ => Token::Gr,
+                });
             }
             '.' => {
-                // split.push(String::from("."));
+                line_tracker.set_token_line(ret.len());
                 ret.push(Token::Dot);
             }
             ',' => {
-                // split.push(String::from(","));
                 ret.push(Token::Comma);
+                line_tracker.set_token_line(ret.len());
             }
             ';' => {
-                // split.push(String::from(";"));
                 ret.push(Token::Semi);
+                line_tracker.set_token_line(ret.len());
             }
             '=' => {
-                if chars[i + 1] == '=' {
-                    ret.push(Token::EqCmp);
-                    i += 1;
-                } else {
-                    ret.push(Token::Eq);
-                }
-            }
-            'L' => {
-                if chars[i + 1] == 'A'
-                    && chars[i + 2] == 'B'
-                    && chars[i + 3] == 'E'
-                    && chars[i + 4] == 'L'
-                    && chars[i + 5] == ':'
-                {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
-                        }
-                        curr.push(chars[j]);
+                line_tracker.set_token_line(ret.len());
+                ret.push(match chars[i + 1] {
+                    '=' => {
+                        i += 1;
+                        Token::EqCmp
                     }
-                    ret.push(Token::Label(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
-                        }
-                        curr.push(chars[j]);
-                    }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'g' => {
-                if chars[i + 1] == 'o' && chars[i + 2] == 't' && chars[i + 3] == 'o' {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
-                        }
-                        curr.push(chars[j]);
-                    }
-                    ret.push(Token::Goto(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
-                        }
-                        curr.push(chars[j]);
-                    }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'w' => {
-                if chars[i + 1] == 'h'
-                    && chars[i + 2] == 'i'
-                    && chars[i + 3] == 'l'
-                    && chars[i + 4] == 'e'
-                {
-                    ret.push(Token::While);
-                    i += 4;
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
-                        }
-                        curr.push(chars[j]);
-                    }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
-            }
-            'v' => {
-                if chars[i + 1] == 'o'
-                    && chars[i + 2] == 'i'
-                    && chars[i + 3] == 'd'
-                    && (chars[i + 4] == ' ' || chars[i + 4] == '*')
-                {
-                    ret.push(Token::Type(RhTypes::Void));
-                    i += 3;
-                } else {
-                    for j in i..chars.len() {
-                        if !chars[j].is_alphabetic() && chars[j] != '_' {
-                            break;
-                        }
-                        curr.push(chars[j]);
-                    }
-                    ret.push(Token::Id(curr.clone()));
-                    i += curr.len() - 1;
-                    curr = String::from("");
-                }
+                    _ => Token::Eq,
+                });
             }
             '\n' => {
                 line_tracker.new_line();
             }
             '\'' => {
-                if chars[i + 1].is_ascii() {
-                    let val = if chars[i + 1] == '\\' {
-                        let temp = if chars[i + 2].is_ascii_digit() {
-                            chars[i + 2].to_digit(10).expect("Invalid literal digit") as i32
-                        } else {
-                            match chars[i + 2] {
-                                'n' => 10,
-                                't' => 9,
-                                _ => 0,
-                            }
-                        };
-                        i += 1;
-                        temp
-                    } else {
-                        chars[i + 1] as i32
-                    };
-                    ret.push(Token::NumLiteral(val));
-                    i += 2;
+                if !chars[i + 1].is_ascii() {
+                    continue;
                 }
+
+                i += 1;
+                ret.push(Token::NumLiteral(if chars[i] == '\\' {
+                    if chars[i + 1].is_ascii_digit() {
+                        chars[i + 1].to_digit(10).expect("Invalid literal digit") as i32
+                    } else {
+                        match chars[i + 1] {
+                            'n' => 10,
+                            't' => 9,
+                            _ => 0,
+                        }
+                    }
+                } else {
+                    chars[i + 1] as i32
+                }));
+                line_tracker.set_token_line(ret.len());
+                i += 2;
             }
             _ => {
-                // if we'e here it's an identifier
-                for j in i..chars.len() {
-                    if !chars[j].is_alphabetic() && chars[j] != '_' {
-                        break;
-                    }
-                    curr.push(chars[j]);
-                }
-                ret.push(Token::Id(curr.clone()));
-                i += curr.len() - 1;
-                curr = String::from("");
+                panic!("How did we get here {}", chars[i]);
             }
         }
         i += 1;

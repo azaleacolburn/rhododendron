@@ -135,16 +135,16 @@ impl NodeType {
 pub struct TokenHandler {
     tokens: Vec<Token>,
     curr_token: usize,
-    token_lines: Vec<i32>,
+    line_handler: LineNumHandler,
 }
 
 #[allow(dead_code)]
 impl TokenHandler {
-    pub fn new(tokens: Vec<Token>, line_tracker: LineNumHandler) -> Self {
+    pub fn new(tokens: Vec<Token>, line_handler: LineNumHandler) -> Self {
         TokenHandler {
             tokens,
             curr_token: 0,
-            token_lines: line_tracker.token_lines,
+            line_handler,
         }
     }
 
@@ -175,7 +175,7 @@ impl TokenHandler {
     pub fn new_err(&self, err: ET) -> RhErr {
         RhErr {
             err,
-            line: self.token_lines[self.curr_token],
+            line: self.line_handler.get_token_line(self.curr_token),
         }
     }
 }
