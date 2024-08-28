@@ -1,7 +1,8 @@
 # rhododendron
 
 Just a C-like compiler for fun
-(Rewritten in Rust in one night :P)
+
+The latest commits don't work since I'm refactoring at the moment
 
 Todo:
 
