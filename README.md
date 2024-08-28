@@ -3,6 +3,7 @@
 Just a C-like compiler for fun
 
 The latest commits don't work since I'm refactoring at the moment
+Test it out on [b2abfe948b447c9c6b5e8202dff9391e88f1b413](https://github.com/azaleacolburn/rhododendron/tree/b2abfe948b447c9c6b5e8202dff9391e88f1b413) (Untested, I'm just guessing :P)
 
 Todo:
 
