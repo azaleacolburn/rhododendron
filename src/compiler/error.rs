@@ -22,5 +22,5 @@ pub enum ET {
 #[derive(Debug, Clone)]
 pub struct RhErr {
     pub err: ET,
-    pub line: i32,
+    pub line: usize,
 }

@@ -1,7 +1,9 @@
 # rhododendron
 
 Just a C-like compiler for fun
-(Rewritten in Rust in one night :P)
+
+The latest commits don't work since I'm refactoring at the moment
+Test it out on [b2abfe948b447c9c6b5e8202dff9391e88f1b413](https://github.com/azaleacolburn/rhododendron/tree/b2abfe948b447c9c6b5e8202dff9391e88f1b413) (Untested, I'm just guessing :P)
 
 Todo:
 
@@ -11,7 +13,7 @@ Todo:
 - [x] Functions \*
 - [ ] Structs
 - [ ] AST and code gen optimizations
-- [ ] Linker
+- [ ] Linker (see [sonder](https://github.com/azaleacolburn/sonder) for my attempts at a linker
 
 ## Known Issues
 

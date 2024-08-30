@@ -245,17 +245,11 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, _scope_type: Scop
     for child_node in node.children.as_ref().expect("Scope to have children") {
         match &child_node.token {
             NodeType::Declaration(arg) => {
-                declare_code_gen(&child_node, handler, arg.0.clone(), arg.1.clone());
+                declare_code_gen(&child_node, handler, arg.0.clone(), arg.1.clone())
             }
-            NodeType::Assignment(_) => {
-                assignment_code_gen(&child_node, handler);
-            }
-            NodeType::If => {
-                if_code_gen(&child_node, handler);
-            }
-            NodeType::While => {
-                while_code_gen(&child_node, handler);
-            }
+            NodeType::Assignment(_) => assignment_code_gen(&child_node, handler),
+            NodeType::If => if_code_gen(&child_node, handler),
+            NodeType::While => while_code_gen(&child_node, handler),
             NodeType::_Loop => {}
             NodeType::FunctionCall(id) => {
                 function_call_code_gen(&child_node, handler, id.to_string())
@@ -264,10 +258,8 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, _scope_type: Scop
                 function_declare_code_gen(&child_node, handler, id.to_string(), t.clone())
             }
             NodeType::Break => handler.insert_break(),
-            NodeType::Return => {
-                // return type shouldn't matter for now
-                return return_statement_code_gen(&child_node, handler);
-            }
+            // return type shouldn't matter for now
+            NodeType::Return => return_statement_code_gen(&child_node, handler),
             NodeType::Asm(str) => asm_code_gen(&child_node, handler, str.to_string()),
             NodeType::PutChar => putchar_code_gen(&child_node, handler),
             NodeType::Assert => assert_code_gen(&child_node, handler),
