@@ -1,11 +1,12 @@
+mod ast;
 mod code_gen;
 mod error;
 mod lexer;
 mod linker;
 mod parser;
-use std::sync::Mutex;
 
 use clap::{ArgAction, Parser};
+use std::sync::Mutex;
 
 static DEBUG: Mutex<bool> = Mutex::new(true);
 

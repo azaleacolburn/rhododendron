@@ -7,7 +7,7 @@ use crate::{
 };
 use std::collections::HashMap;
 
-use super::lexer::RhTypes;
+use super::lexer::RhType;
 
 // This is technically somehow working right now and I have no idea why, I think it does things
 // backwards but it's ok
@@ -270,12 +270,12 @@ pub fn scope_code_gen(node: &TokenNode, handler: &mut Handler, _scope_type: Scop
 
 /// Returns the generated code
 /// Modifies the sp
-pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, t: RhTypes) {
+pub fn declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, t: RhType) {
     dbg_println!("Sym Arena:\n{:?}", handler.sym_arena[handler.curr_frame]);
     let size: u8 = match t {
-        RhTypes::Int => 4,
-        RhTypes::Char => 1,
-        RhTypes::Void => panic!("Don't declare variables of void type you idiot"),
+        RhType::Int => 4,
+        RhType::Char => 1,
+        RhType::Void => panic!("Don't declare variables of void type you idiot"),
     };
     handler.push_to_scope(format!(
         "\n\n; var dec: {}, offset: {} (wrong for arrays)",
@@ -517,12 +517,7 @@ fn expr_code_gen(node: &TokenNode, handler: &mut Handler) -> u8 {
     }
 }
 
-pub fn function_declare_code_gen(
-    node: &TokenNode,
-    handler: &mut Handler,
-    name: String,
-    t: RhTypes,
-) {
+pub fn function_declare_code_gen(node: &TokenNode, handler: &mut Handler, name: String, t: RhType) {
     let children = node
         .children
         .as_ref()
@@ -539,18 +534,18 @@ pub fn function_declare_code_gen(
     for child in 0..children.len() - 1 {
         if let NodeType::Declaration((id, t)) = &children[child].token {
             let size = match t {
-                RhTypes::Char => 1,
-                RhTypes::Int => 4,
-                RhTypes::Void => 8,
+                RhType::Char => 1,
+                RhType::Int => 4,
+                RhType::Void => 8,
             };
             // TODO: figure out what other code needs to go here (id any)
             args.push((id.clone(), size));
         }
     }
     let size: u8 = match t {
-        RhTypes::Int => 4,
-        RhTypes::Char => 1,
-        RhTypes::Void => 8,
+        RhType::Int => 4,
+        RhType::Char => 1,
+        RhType::Void => 8,
     };
 
     handler.new_function(name.clone(), function_scope as i32, args.clone(), size);
@@ -567,7 +562,7 @@ pub fn function_declare_code_gen(
         .get_id("lr", &mut 0)
         .expect("LR not placed in table");
 
-    if t == RhTypes::Void {
+    if t == RhType::Void {
         handler.push_to_scope(format!(
             "
 ; void function return\nldr lr, [x29, #{}]

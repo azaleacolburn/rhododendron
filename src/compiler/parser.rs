@@ -1,136 +1,12 @@
 use crate::{
     compiler::{
+        ast::{AssignmentOpType, NodeType, ScopeType},
         error::{RhErr, ET},
-        lexer::{LineNumHandler, RhTypes, Token},
+        lexer::{LineNumHandler, RhType, Token},
         DEBUG,
     },
     dbg_println,
 };
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ScopeType {
-    Function(RhTypes),
-    While,
-    Program,
-    If,
-    Loop,
-    For,
-}
-
-// Valid Node Types
-#[derive(Debug, Clone, PartialEq)]
-pub enum NodeType {
-    Program,
-    Sub,
-    Div,
-    Eq,
-    Id(String), // figure out if we want this here
-    EqCmp,
-    NeqCmp,
-    BOr,
-    BAnd,
-    BXor,
-    BOrEq,
-    BAndEq,
-    BXorEq,
-    SubEq,
-    AddEq,
-    DivEq,
-    MulEq,
-    Mul,
-    MNeg,
-    AndCmp,
-    OrCmp,
-    NumLiteral(i32),
-    Add,
-    If,
-    For,
-    While,
-    _Loop,
-    Break,
-    FunctionCall(String),
-    Scope(Option<RhTypes>), // <-- anything that has {} is a scope, scope is how we're handling multiple statements, scopes return the last statement's result or void
-    Assignment(AssignmentOpType),
-    Declaration((String, RhTypes)),
-    Asm(String),
-    Adr(String),
-    DeRef,
-    Array(i32),
-    FunctionDeclaration((String, RhTypes)),
-    Type(RhTypes),
-    Assert,
-    Return,
-    PutChar,
-    StructDeclaration(String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum AssignmentOpType {
-    Eq,
-    SubEq,
-    AddEq,
-    DivEq,
-    MulEq,
-    BOrEq,
-    BAndEq,
-    BXorEq,
-}
-
-impl AssignmentOpType {
-    fn from_token(tok: &Token) -> Result<AssignmentOpType, ()> {
-        match tok {
-            Token::Eq => Ok(AssignmentOpType::Eq),
-            Token::SubEq => Ok(AssignmentOpType::SubEq),
-            Token::AddEq => Ok(AssignmentOpType::AddEq),
-            Token::DivEq => Ok(AssignmentOpType::DivEq),
-            Token::MulEq => Ok(AssignmentOpType::MulEq),
-            Token::BOrEq => Ok(AssignmentOpType::BOrEq),
-            Token::BAndEq => Ok(AssignmentOpType::BAndEq),
-            Token::BXorEq => Ok(AssignmentOpType::BXorEq),
-            _ => {
-                println!("Oh God No, Not A Valid OpEq Token");
-                return Err(());
-            }
-        }
-    }
-}
-
-impl NodeType {
-    fn from_token(tok: &Token) -> Result<NodeType, ()> {
-        println!("tok: {:?}", tok);
-        match tok {
-            Token::Sub => Ok(NodeType::Sub),
-            Token::Div => Ok(NodeType::Div),
-            Token::Eq => Ok(NodeType::Eq),
-            Token::Id(str) => Ok(NodeType::Id(str.to_string())),
-            Token::EqCmp => Ok(NodeType::EqCmp),
-            Token::NeqCmp => Ok(NodeType::NeqCmp),
-            Token::OrCmp => Ok(NodeType::OrCmp),
-            Token::AndCmp => Ok(NodeType::AndCmp),
-            Token::BOr => Ok(NodeType::BOr),
-            Token::BAnd => Ok(NodeType::BAnd),
-            Token::BXor => Ok(NodeType::BXor),
-            Token::BOrEq => Ok(NodeType::BOrEq),
-            Token::BAndEq => Ok(NodeType::BAndEq),
-            Token::BXorEq => Ok(NodeType::BXorEq),
-            Token::SubEq => Ok(NodeType::SubEq),
-            Token::AddEq => Ok(NodeType::AddEq),
-            Token::DivEq => Ok(NodeType::DivEq),
-            Token::MulEq => Ok(NodeType::MulEq),
-            Token::Star => Ok(NodeType::Mul), // exception for pointer
-            Token::NumLiteral(i) => Ok(NodeType::NumLiteral(*i)),
-            Token::Add => Ok(NodeType::Add),
-            Token::For => Ok(NodeType::For),
-            Token::While => Ok(NodeType::While),
-            Token::If => Ok(NodeType::If),
-            Token::Break => Ok(NodeType::Break),
-            _ => {
-                println!("Oh God No, Not A Valid Token");
-                return Err(());
-            }
-        }
-    }
-}
 
 pub struct TokenHandler {
     tokens: Vec<Token>,
@@ -243,7 +119,7 @@ pub fn scope(token_handler: &mut TokenHandler, scope_type: ScopeType) -> Result<
         token_handler.next_token();
     }
     if *token_handler.get_prev_token() == Token::Semi {
-        scope_node.token = NodeType::Scope(Some(RhTypes::Int)) // TODO: Change this to evaluate the  type of the last statement
+        scope_node.token = NodeType::Scope(Some(RhType::Int)) // TODO: Change this to evaluate the  type of the last statement
     }
     Ok(scope_node)
 }
@@ -282,7 +158,7 @@ pub fn statement(
     }
 }
 
-fn declaration(token_handler: &mut TokenHandler, t: RhTypes) -> Result<TokenNode, RhErr> {
+fn declaration(token_handler: &mut TokenHandler, t: RhType) -> Result<TokenNode, RhErr> {
     token_handler.next_token();
     match token_handler.get_token() {
         Token::Id(id) => {
@@ -301,7 +177,7 @@ fn declaration(token_handler: &mut TokenHandler, t: RhTypes) -> Result<TokenNode
     }
 }
 
-fn declaration_statement(token_handler: &mut TokenHandler, t: RhTypes) -> Result<TokenNode, RhErr> {
+fn declaration_statement(token_handler: &mut TokenHandler, t: RhType) -> Result<TokenNode, RhErr> {
     let declare = declaration(token_handler, t);
     if *token_handler.get_token() != Token::Semi {
         return Err(token_handler.new_err(ET::ExpectedSemi));
@@ -691,7 +567,7 @@ fn id_statement(token_handler: &mut TokenHandler, id: String) -> Result<TokenNod
     }
 }
 
-fn type_statement(token_handler: &mut TokenHandler, t: RhTypes) -> Result<TokenNode, RhErr> {
+fn type_statement(token_handler: &mut TokenHandler, t: RhType) -> Result<TokenNode, RhErr> {
     match token_handler.peek(2) {
         Token::OParen => function_declare_statement(token_handler),
         _ => declaration_statement(token_handler, t),

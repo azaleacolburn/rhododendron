@@ -93,7 +93,7 @@ pub fn string_to_tokens(
                         if chars[i + 1] == 'n' && chars[i + 2] == 't' && chars[i + 3] == ' ' {
                             line_tracker.set_token_line(ret.len());
                             i += 2;
-                            Some(Token::Type(RhTypes::Int))
+                            Some(Token::Type(RhType::Int))
                         } else if chars[i + 1] == 'f'
                             && (chars[i + 2] == ' ' || chars[i + 2] == '(')
                         {
@@ -127,7 +127,7 @@ pub fn string_to_tokens(
                         {
                             line_tracker.set_token_line(ret.len());
                             i += 3;
-                            Some(Token::Type(RhTypes::Char))
+                            Some(Token::Type(RhType::Char))
                         } else {
                             None
                         }
@@ -312,7 +312,7 @@ pub fn string_to_tokens(
                         {
                             line_tracker.set_token_line(ret.len());
                             i += 3;
-                            Some(Token::Type(RhTypes::Void))
+                            Some(Token::Type(RhType::Void))
                         } else {
                             None
                         }
@@ -573,7 +573,7 @@ pub enum Token {
     While,
     Loop,
     Fn,
-    Type(RhTypes),
+    Type(RhType),
     Struct,
     Star,
     NumLiteral(i32),
@@ -630,12 +630,12 @@ pub enum Token {
     Return,
     PutChar,
     Assert, // this might be to much for the lexer to do
-            // FuncDeclare((String, Vec<String>, RhTypes)), // function name, args, return type
+            // FuncDeclare((String, Vec<String>, RhType)), // function name, args, return type
             // FuncCall(String, Vec<String>), // function name, args
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum RhTypes {
+pub enum RhType {
     Char,
     Int,
     Void,
