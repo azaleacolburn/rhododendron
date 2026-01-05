@@ -232,6 +232,7 @@
 	cmp x9, x10
 	bne .L5
 	b .L3
+	b .L3
 
 .L5:
 	; scope of while statement
@@ -319,6 +320,7 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L9
+	b .L7
 	b .L7
 
 .L9:
@@ -427,6 +429,7 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L13
+	b .L11
 	b .L11
 
 .L13:
@@ -600,6 +603,7 @@
 	cmp x9, x10
 	bne .L17
 	b .L15
+	b .L15
 
 .L17:
 	; scope of while statement
@@ -731,6 +735,7 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L21
+	b .L19
 	b .L19
 
 .L21:
@@ -864,6 +869,7 @@
 	ldr x10, [x15], #8
 	cmp x9, x10
 	bne .L24
+	b .L22
 	b .L22
 
 .L24:

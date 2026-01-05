@@ -621,6 +621,9 @@ pub fn string_to_tokens(
                     curr.push(chars[j]);
                 }
                 ret.push(Token::Id(curr.clone()));
+                if curr.len() == 0 {
+                    println!("Curr 0 at {}: {:?}", i, chars);
+                }
                 i += curr.len() - 1;
                 curr = String::from("");
             }

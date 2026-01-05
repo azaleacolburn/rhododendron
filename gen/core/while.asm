@@ -57,6 +57,7 @@
 	cmp x9, x10
 	bne .L4
 	b .L2
+	b .L2
 
 .L4:
 	; scope of while statement

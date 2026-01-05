@@ -11,10 +11,17 @@ fn test_all() {
         get_all_files(&Path::new("tests/core")).expect("No files to be tests");
     let mut ret = String::new();
 
+    let longest_len = tests
+        .iter()
+        .map(|path| path.file_name().unwrap().len())
+        .max()
+        .unwrap();
+
     for test_i in 0..tests.len() {
         let name = tests[test_i].file_stem().unwrap().to_str().unwrap();
 
         println!("name: {}", name);
+        let padding: String = (0..longest_len - name.len()).map(|_| ' ').collect();
 
         Command::new("bash")
             .arg("test_rh.sh")
@@ -24,8 +31,10 @@ fn test_all() {
 
         let generated_output = Command::new(format!("./gen/core/{}", name)).output();
         match generated_output {
-            Ok(_) => ret.push_str(format!("{}\t\t\t[{}]", name, "OK".green()).as_str()),
-            Err(err) => ret.push_str(format!("{}\t\t\t[{}]\n{}", name, "ERR".red(), err).as_str()),
+            Ok(_) => ret.push_str(format!("{}{}[{}]\n", name, padding, "OK".green()).as_str()),
+            Err(err) => {
+                ret.push_str(format!("{}{}[{}]\n{}\n", name, padding, "ERR".red(), err).as_str())
+            }
         }
     }
 
