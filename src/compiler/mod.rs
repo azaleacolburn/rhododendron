@@ -24,6 +24,10 @@ pub fn main() {
 
 pub fn test(file_name: std::path::PathBuf, exe_name: String, debug: bool) {
     let buff = std::fs::read_to_string(file_name).expect("Source file must exist");
+    if buff.is_empty() {
+        println!("File Cannot Be Empty");
+        return;
+    }
     let (tokens, line_tracker) = lexer::string_to_tokens(&buff).unwrap();
     let node = parser::program(tokens, line_tracker, debug).unwrap();
     let code = code_gen::main(&node, debug);
