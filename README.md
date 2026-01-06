@@ -1,9 +1,9 @@
 # rhododendron
 
-Just a C-like compiler for fun
+A compiler for a C-like language (just for fun)
 
-The latest commits don't work since I'm refactoring at the moment
-Test it out on [b2abfe948b447c9c6b5e8202dff9391e88f1b413](https://github.com/azaleacolburn/rhododendron/tree/b2abfe948b447c9c6b5e8202dff9391e88f1b413) (Untested, I'm just guessing :P)
+The latest commits on the main branch don't work since I'm refactoring at the moment
+Look at the `stable` branch for currently working version.
 
 Currently working on [sonder](https://github.com/azaleacolburn/sonder), where there's a more updated version of the parser.
 
