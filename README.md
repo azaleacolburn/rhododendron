@@ -3,7 +3,16 @@
 Just a C-like compiler for fun
 (Rewritten in Rust in one night :P)
 
-Todo:
+# Build
+
+
+# Building
+To build this project, first install [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), the Rust package manager, then clone this repo and `cargo run` in the project directory.
+
+Please read the [user manual]() before trying to write code, while the rhododendron language is based in c, it has seveal key differences.
+
+
+# Todo:
 
 - [x] Variables
 - [x] Conditionals
